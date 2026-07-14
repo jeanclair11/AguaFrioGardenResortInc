@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- App palette -->
+    <color name="screen_background">#EDEDEA</color>
+    <color name="card_white">#FFFFFFFF</color>
+
+    <!-- Modern Royal Blue Gradient -->
+    <color name="royal_blue_top">#4F8BFF</color>
+    <color name="royal_blue_center">#2F6CFF</color>
+    <color name="royal_blue_bottom">#1848C7</color>
+
+    <color name="primary_blue">#35619F</color>
+    <color name="primary_blue_dark">#264F86</color>
+    <color name="button_disabled">#BDBDBD</color>
+
+    <!-- Translucent blue scrim layered over the header photo for text contrast -->
+    <color name="header_overlay_dark">#B3264F86</color>
+    <color name="header_overlay_mid">#8035619F</color>
+    <color name="header_overlay_light">#4D35619F</color>
+
+    <color name="accent_orange">#E0912E</color>
+
+    <color name="field_background">#EBE4D8</color>
+    <color name="field_stroke">#DED6C8</color>
+
+    <color name="text_dark">#2B2B2B</color>
+    <color name="text_muted">#7A7A72</color>
+    <color name="text_hint">#9A9A8E</color>
+    <color name="icon_muted">#8A897E</color>
+
+    <color name="error_red">#C62828</color>
+
+    <color name="divider">#E1DCD1</color>
+    <color name="header_gold">#D8C29A</color>
+</resources>

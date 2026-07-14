@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Translucent blue scrim layered over agua_frio_bgimg for text contrast. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="315"
+        android:startColor="@color/header_overlay_dark"
+        android:centerColor="@color/header_overlay_mid"
+        android:endColor="@color/header_overlay_light"
+        android:type="linear" />
+</shape>

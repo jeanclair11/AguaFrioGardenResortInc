@@ -1,0 +1,97 @@
+<resources>
+    <string name="app_name">AguaFrioGardenResortInc</string>
+
+    <!-- Header -->
+    <string name="resort_title">AGUA FRIO </string>
+    <string name="resort_subtitle">GARDEN RESORT INC.</string>
+
+    <!-- Login -->
+    <string name="login_heading">Welcome!</string>
+    <string name="login_subheading">Access your reservations and bookings.</string>
+    <string name="label_username_email">Username or Email</string>
+    <string name="hint_username_email">Enter your username or email</string>
+    <string name="label_password">Password</string>
+    <string name="hint_password">Enter your password</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="log_in">LOG IN</string>
+    <string name="no_account_prompt">Don\'t have an account?</string>
+    <string name="sign_up">Sign Up</string>
+    <string name="or_sign_in_with">OR SIGN IN WITH</string>
+    <string name="google_account">Google Account</string>
+
+    <!-- Login validation -->
+    <string name="error_username_email_empty">Please enter your username or email.</string>
+    <string name="error_email_invalid">Please enter a valid email address.</string>
+    <string name="error_account_not_found">No account was found with this username or email.</string>
+    <string name="error_password_empty">Please enter your password.</string>
+    <string name="error_password_too_short">Password must be at least 8 characters long.</string>
+    <string name="error_password_incorrect">The password you entered is incorrect.</string>
+
+    <!-- Sign up -->
+    <string name="signup_heading">Create Account</string>
+    <string name="signup_subheading">Register for your Agua Frio account.</string>
+    <string name="label_first_name">First Name</string>
+    <string name="hint_first_name">e.g. Maynard</string>
+    <string name="label_middle_name">Middle Name</string>
+    <string name="hint_middle_name">e.g. Cruz</string>
+    <string name="label_last_name">Last Name</string>
+    <string name="hint_last_name">e.g. Pesic</string>
+    <string name="label_username">Username</string>
+    <string name="hint_username">e.g nardie</string>
+    <string name="label_email">Email Address</string>
+    <string name="hint_email">e.g nardie@gmail.com</string>
+    <string name="label_phone">Phone Number</string>
+    <string name="hint_phone">09*********</string>
+    <string name="label_gender">Gender</string>
+    <string name="gender_prompt">Select Gender</string>
+    <string name="label_birth_date">Birth Date</string>
+    <string name="hint_birth_date">YYYY-MM-DD</string>
+    <string name="label_create_password">Create Password</string>
+    <string name="hint_create_password"> Min of 8 characters</string>
+    <string name="label_confirm_password">Confirm Password</string>
+    <string name="hint_confirm_password">Repeat password</string>
+    <string name="label_profile_picture">Profile Picture (Optional)</string>
+    <string name="label_government_id">Valid Government ID (Required)</string>
+    <string name="button_upload">Upload Image</string>
+    <string name="terms_and_conditions">I have read and agree to the Terms &amp; Conditions and Privacy Policy.</string>
+    <string name="create_account">CREATE ACCOUNT</string>
+    <string name="have_account_prompt">Already have an account?</string>
+    <string name="log_in_link">Log In</string>
+
+    <!-- Sign up validation -->
+    <string name="error_name_invalid">Must contain only letters and spaces.</string>
+    <string name="error_username_invalid">4–20 characters (letters, numbers, underscores).</string>
+    <string name="error_phone_invalid">Must be 11 digits and start with 09.</string>
+    <string name="error_gender_required">Gender is required.</string>
+    <string name="error_birth_date_required">Birth date is required.</string>
+    <string name="error_age_invalid">You must be at least 18 years old.</string>
+    <string name="error_password_complexity">Must have uppercase, lowercase, number, and special character.</string>
+    <string name="error_passwords_dont_match">Passwords do not match.</string>
+    <string name="error_id_required">Government ID is required.</string>
+    <string name="error_terms_required">You must agree to the Terms &amp; Conditions and Privacy Policy to continue.</string>
+
+    <!-- Password strength -->
+    <string name="strength_weak">
+        Weak Password\nMust contain at least 8 characters, uppercase letter, number, and special character.
+    </string>
+    <string name="strength_fair">
+        Fair\nMust contain at least 8 characters, uppercase letter, number, and special character.
+    </string>
+    <string name="strength_good">Strong\nPassword secure, add more complexity.
+    </string>
+    <string name="strength_strong">Very Strong\nYour password meets all recommended security requirements.</string>
+
+    <!-- Recovery -->
+    <string name="recovery_heading">Account Recovery</string>
+    <string name="recovery_subheading">Recover secure access to your Agua Frio Portal.</string>
+    <string name="label_registered_email">Registered Email</string>
+    <string name="hint_registered_email">nardie@email.com</string>
+    <string name="send_otp">Send OTP Code</string>
+    <string name="back_to_login">Back to Login</string>
+
+    <string-array name="gender_options">
+        <item>Male</item>
+        <item>Female</item>
+        <item>Prefer not to say</item>
+    </string-array>
+</resources>

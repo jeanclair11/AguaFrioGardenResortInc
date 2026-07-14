@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Disabled State -->
+    <item android:state_enabled="false">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/button_disabled" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+
+    <!-- Enabled State (Default) -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="@color/royal_blue_top"
+                android:centerColor="@color/royal_blue_center"
+                android:endColor="@color/royal_blue_bottom"
+                android:type="linear" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+</selector>
