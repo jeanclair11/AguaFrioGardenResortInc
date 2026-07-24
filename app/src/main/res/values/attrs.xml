@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Semantic color slots each theme (Light / Dark) fills in. Layouts and
+     drawables reference these as ?attr/name so every screen restyles itself
+     when ThemeManager applies a different theme. -->
+<resources>
+    <!-- Full-screen background gradient -->
+    <attr name="screenGradientStart" format="color|reference" />
+    <attr name="screenGradientEnd" format="color|reference" />
+
+    <attr name="surfaceCard" format="color|reference" />
+    <attr name="surfaceRaised" format="color|reference" />
+
+    <!-- Top app bar gradient + its content color -->
+    <attr name="topBarGradientStart" format="color|reference" />
+    <attr name="topBarGradientEnd" format="color|reference" />
+    <attr name="onTopBar" format="color|reference" />
+
+    <!-- Bottom navigation -->
+    <attr name="navBarBackground" format="color|reference" />
+    <attr name="navItemActive" format="color|reference" />
+    <attr name="navItemInactive" format="color|reference" />
+
+    <!-- Links, focus rings, interactive accents on light surfaces -->
+    <attr name="accentPrimary" format="color|reference" />
+
+    <!-- Primary button gradient + its content color -->
+    <attr name="buttonGradientStart" format="color|reference" />
+    <attr name="buttonGradientEnd" format="color|reference" />
+    <attr name="onPrimaryButton" format="color|reference" />
+    <attr name="buttonDisabledColor" format="color|reference" />
+
+    <attr name="fieldBackground" format="color|reference" />
+    <attr name="fieldStroke" format="color|reference" />
+
+    <!-- Text/icons on cards and fields -->
+    <attr name="textPrimary" format="color|reference" />
+    <attr name="textMuted" format="color|reference" />
+    <attr name="textHint" format="color|reference" />
+    <attr name="iconMuted" format="color|reference" />
+
+    <!-- Text/icons sitting directly on the gradient background -->
+    <attr name="textOnScreen" format="color|reference" />
+    <attr name="textOnScreenMuted" format="color|reference" />
+
+    <attr name="errorText" format="color|reference" />
+    <attr name="dividerColor" format="color|reference" />
+
+    <!-- Translucent accent tint for button press ripples -->
+    <attr name="rippleAccent" format="color|reference" />
+</resources>

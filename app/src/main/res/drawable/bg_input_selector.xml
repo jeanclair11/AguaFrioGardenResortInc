@@ -1,12 +1,12 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_focused="true">
         <shape android:shape="rectangle">
-            <solid android:color="@color/field_background" />
+            <solid android:color="?attr/fieldBackground" />
             <corners android:radius="12dp" />
             <stroke
                 android:width="2dp"
-                android:color="@color/primary_blue" />
+                android:color="?attr/accentPrimary" />
         </shape>
     </item>
     <item android:drawable="@drawable/bg_input" />

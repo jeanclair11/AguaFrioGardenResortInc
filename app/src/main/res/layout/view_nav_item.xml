@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One tab of the dashboard bottom navigation; DashboardActivity inflates
+     one per module and handles the selected tinting. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="0dp"
+    android:layout_height="match_parent"
+    android:layout_weight="1"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="?android:attr/selectableItemBackgroundBorderless"
+    android:paddingTop="7dp"
+    android:paddingBottom="7dp">
+
+    <ImageView
+        android:id="@+id/navIcon"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:importantForAccessibility="no" />
+
+    <TextView
+        android:id="@+id/navLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:textSize="9sp"
+        android:maxLines="1" />
+
+</LinearLayout>

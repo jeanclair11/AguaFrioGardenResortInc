@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One guest message bubble; inflated repeatedly into chatMessageContainer.
+     Long-press offers Delete Message (guests may only delete their own). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="60dp"
+    android:layout_marginBottom="14dp"
+    android:orientation="vertical"
+    android:gravity="end">
+
+    <TextView
+        android:id="@+id/bubbleText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_chat_bubble_guest"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:textColor="?attr/onPrimaryButton"
+        android:textSize="14sp"
+        android:lineSpacingExtra="1dp"
+        android:clickable="true"
+        android:focusable="true" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/bubbleTimestamp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="?attr/textOnScreenMuted"
+            android:textSize="10sp" />
+
+        <TextView
+            android:id="@+id/bubbleStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:textColor="?attr/textOnScreenMuted"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+</LinearLayout>

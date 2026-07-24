@@ -58,6 +58,36 @@
     <string name="have_account_prompt">Already have an account?</string>
     <string name="log_in_link">Log In</string>
 
+    <!-- Sign up wizard steps -->
+    <string name="signup_step1_subheading">Step 1 of 3 — Personal Information</string>
+    <string name="signup_step2_subheading">Step 2 of 3 — Account Information</string>
+    <string name="signup_step3_subheading">Step 3 of 3 — Identity Verification</string>
+
+    <string name="label_home_address">Home Address</string>
+    <string name="label_province">Province</string>
+    <string name="hint_province">e.g. Bulacan</string>
+    <string name="label_city">City/Municipality</string>
+    <string name="hint_city">e.g. San Jose del Monte</string>
+    <string name="label_barangay">Barangay</string>
+    <string name="hint_barangay">e.g. Tungkong Mangga</string>
+
+    <string name="label_id_type">Valid ID Type</string>
+    <string name="id_type_prompt">Select ID Type</string>
+    <string name="label_upload_valid_id">Upload Valid ID (Required)</string>
+    <string name="button_use_camera">Use Camera</string>
+
+    <string-array name="id_type_options">
+        <item>National ID</item>
+        <item>Driver\'s License</item>
+        <item>Passport</item>
+        <item>UMID</item>
+        <item>PhilSys ID</item>
+        <item>Voter\'s ID</item>
+        <item>PRC ID</item>
+        <item>Senior Citizen ID</item>
+        <item>Other</item>
+    </string-array>
+
     <!-- Sign up validation -->
     <string name="error_name_invalid">Must contain only letters and spaces.</string>
     <string name="error_username_invalid">4–20 characters (letters, numbers, underscores).</string>
@@ -67,7 +97,12 @@
     <string name="error_age_invalid">You must be at least 18 years old.</string>
     <string name="error_password_complexity">Must have uppercase, lowercase, number, and special character.</string>
     <string name="error_passwords_dont_match">Passwords do not match.</string>
-    <string name="error_id_required">Government ID is required.</string>
+    <string name="error_province_required">Province is required.</string>
+    <string name="error_city_required">City/Municipality is required.</string>
+    <string name="error_barangay_required">Barangay is required.</string>
+    <string name="error_id_type_required">Please select your ID type.</string>
+    <string name="error_id_required">A photo of your valid ID is required.</string>
+    <string name="error_no_camera">No camera app is available on this device.</string>
     <string name="error_terms_required">You must agree to the Terms &amp; Conditions and Privacy Policy to continue.</string>
 
     <!-- Password strength -->
@@ -89,9 +124,293 @@
     <string name="send_otp">Send OTP Code</string>
     <string name="back_to_login">Back to Login</string>
 
+    <string name="toggle_theme">Switch between light and dark mode</string>
+
+    <!-- Dashboard -->
+    <string name="profile">Profile</string>
+    <string name="log_out">Log out</string>
+    <string name="module_coming_soon">COMING SOON</string>
+    <string name="coming_soon_toast">Coming soon!</string>
+    <string name="open_chat">Open chat</string>
+    <string name="open_notifications">Open notifications</string>
+
+    <string name="nav_home">Home</string>
+    <string name="nav_me">Profile</string>
+    <string name="module_dashboard_title">Dashboard</string>
+    <string name="module_dashboard_desc">Your resort overview — quick actions, announcements, and upcoming stays.</string>
+    <string name="me_title">My Account</string>
+
+    <string name="nav_reservation">Reserve</string>
+    <string name="nav_booking">Book</string>
+    <string name="nav_payment">Payment</string>
+    <string name="nav_food_order">Food</string>
+    <string name="nav_feedback">Feedback</string>
+    <string name="nav_chat">Chat</string>
+    <string name="nav_notification">Alerts</string>
+
+    <string name="module_reservation_title">Reservations</string>
+    <string name="module_reservation_desc">Browse cottages and pools, pick your dates, and reserve your visit.</string>
+    <string name="module_booking_title">Bookings</string>
+    <string name="module_booking_desc">View and manage your confirmed bookings and their status.</string>
+    <string name="module_payment_title">Payments</string>
+    <string name="module_payment_desc">Settle balances, upload proof of payment, and review your payment history.</string>
+    <string name="module_food_order_title">Food Orders</string>
+    <string name="module_food_order_desc">Order food and drinks from the resort menu during your stay.</string>
+    <string name="module_feedback_title">Feedback</string>
+    <string name="module_feedback_desc">Rate your experience and share suggestions with the resort.</string>
+    <string name="module_chat_title">Chat</string>
+    <string name="module_chat_desc">Message the front desk for questions and assistance.</string>
+    <string name="module_notification_title">Notifications</string>
+    <string name="module_notification_desc">Stay updated on booking confirmations, promos, and announcements.</string>
+
     <string-array name="gender_options">
         <item>Male</item>
         <item>Female</item>
         <item>Prefer not to say</item>
     </string-array>
+
+    <!-- Booking wizard -->
+    <string name="wizard_step_indicator">STEP %1$d OF 3 — %2$s</string>
+    <string name="wizard_step1_title">Booking Details</string>
+    <string name="wizard_step2_title">Available Rooms</string>
+    <string name="wizard_step3_title">Guest Information</string>
+
+    <string name="label_check_in">Check-in Date</string>
+    <string name="label_check_out">Check-out Date</string>
+    <string name="hint_select_date">Select date</string>
+    <string name="label_adults">Number of Adults</string>
+    <string name="label_children">Number of Children</string>
+    <string name="button_proceed">Proceed</string>
+    <string name="button_back">Back</string>
+
+    <string name="error_check_in_required">Please select a check-in date.</string>
+    <string name="error_check_out_required">Please select a check-out date.</string>
+    <string name="error_check_out_before_checkin">Check-out date must be after the check-in date.</string>
+
+    <string name="rooms_placeholder_title">Available Rooms</string>
+    <string name="rooms_placeholder_desc">Room availability for your selected dates will appear here soon.</string>
+
+    <string name="label_who_is_this_for">Who is this booking for?</string>
+    <string name="option_booking_for_me">This booking is for me.</string>
+    <string name="option_booking_for_someone_else">I am booking on behalf of someone else.</string>
+
+    <string name="label_guest_first_name">Guest\'s First Name</string>
+    <string name="label_guest_middle_name">Middle Name (Optional)</string>
+    <string name="label_guest_last_name">Guest\'s Last Name</string>
+    <string name="label_guest_gender">Gender</string>
+    <string name="label_guest_birth_date">Date of Birth</string>
+    <string name="label_guest_contact">Contact Number (Optional)</string>
+    <string name="label_guest_relationship">Relationship to Account Holder</string>
+    <string name="relationship_prompt">Select Relationship</string>
+    <string name="hint_guest_first_name">e.g. Maynard</string>
+    <string name="hint_guest_last_name">e.g. Pesic</string>
+
+    <string-array name="relationship_options">
+        <item>Family Member</item>
+        <item>Friend</item>
+        <item>Relative</item>
+        <item>Employee</item>
+        <item>Other</item>
+    </string-array>
+
+    <string name="error_guest_first_name_required">Please enter the guest\'s first name.</string>
+    <string name="error_guest_last_name_required">Please enter the guest\'s last name.</string>
+    <string name="error_guest_gender_required">Please select the guest\'s gender.</string>
+    <string name="error_guest_birth_date_required">Please select the guest\'s date of birth.</string>
+    <string name="error_guest_relationship_required">Please select a relationship.</string>
+
+    <string name="label_children_info">Children Information</string>
+    <string name="label_child_age_format">Child %1$d Age</string>
+    <string name="hint_child_age">Age</string>
+    <string name="error_child_age_required">Please enter this child\'s age.</string>
+
+    <string name="label_special_request">Special Request / Message (Optional)</string>
+    <string name="hint_special_request">e.g. Late check-in, birthday setup, room preference…</string>
+
+    <string name="booking_submitted_message">Booking request submitted! Our team will contact you to confirm.</string>
+
+    <!-- Dashboard home -->
+    <string name="greeting_morning">Good Morning</string>
+    <string name="greeting_afternoon">Good Afternoon</string>
+    <string name="greeting_evening">Good Evening</string>
+    <string name="greeting_night">Good Night</string>
+    <string name="dashboard_welcome_message">Welcome back to Agua Frio Garden Resort</string>
+    <string name="booking_progress_title">Booking Progress</string>
+    <string name="booking_progress_empty">You have no active reservation yet. Reserve a stay to track its progress here.</string>
+    <string name="recent_transaction_title">Recent Transaction</string>
+    <string name="recent_transaction_empty">No recent transactions yet.</string>
+
+    <!-- Profile -->
+    <string name="section_my_account">MY ACCOUNT</string>
+    <string name="section_preferences">PREFERENCES</string>
+    <string name="row_personal_information_title">Personal Information</string>
+    <string name="row_personal_information_subtitle">View and update your personal details</string>
+    <string name="row_change_password_title">Change Password</string>
+    <string name="row_change_password_subtitle">Update your account password</string>
+    <string name="row_valid_id_title">Valid ID</string>
+    <string name="row_valid_id_subtitle">View your uploaded valid ID</string>
+    <string name="row_enable_notifications_title">Enable Notifications</string>
+    <string name="row_enable_notifications_subtitle">Get updates on your bookings</string>
+    <string name="row_dark_mode_title">Dark Mode</string>
+    <string name="row_dark_mode_subtitle">Choose your preferred theme</string>
+    <string name="status_verified">Verified</string>
+    <string name="status_pending">Pending Review</string>
+    <string name="status_not_submitted">Not Submitted</string>
+    <string name="guest_fallback_name">Guest</string>
+    <string name="profile_screen_title">PROFILE</string>
+    <string name="logout_subtitle">Sign out from your account</string>
+    <string name="change_avatar_description">Change profile photo</string>
+
+    <!-- Feedback -->
+    <string name="feedback_screen_title">FEEDBACK</string>
+    <string name="feedback_screen_subtitle">We value your experience. Please let us know how we\'re doing.</string>
+    <string name="feedback_empty_title">No feedback yet.</string>
+    <string name="feedback_empty_message">We\'d love to hear about your experience.</string>
+    <string name="button_write_feedback">WRITE FEEDBACK</string>
+    <string name="write_feedback_title">Write Feedback</string>
+    <string name="write_feedback_subtitle">Your opinion helps us improve our resort.</string>
+    <string name="label_rate_experience">Rate Your experience</string>
+    <string name="error_rating_required">Please select a rating.</string>
+    <string name="label_share_feedback">Share Your Feedback</string>
+    <string name="hint_feedback_message">Tell us about your experience at Agua Frio Garden Resort…</string>
+    <string name="error_feedback_message_required">Please share your feedback message.</string>
+    <string name="feedback_char_counter_format">%1$d/%2$d</string>
+    <string name="button_submit_feedback">SUBMIT FEEDBACK</string>
+    <string name="feedback_submitting_message">Submitting your feedback… Please wait.</string>
+    <string name="feedback_success_title">Feedback Submitted!</string>
+    <string name="feedback_success_message">Thank you for sharing your experience.\n\nYour feedback has been successfully submitted to Agua Frio Garden Resort.\n\nThe resort administrator will review your feedback and may respond shortly.</string>
+    <string name="status_waiting_response">Waiting for Response</string>
+    <string name="status_responded">Responded</string>
+    <string name="feedback_admin_label">Resort Administrator</string>
+    <string name="feedback_response_date_format">Responded on %1$s</string>
+    <string name="button_ok">OK</string>
+
+    <!-- Chat -->
+    <string name="chat_header_title">Customer Support</string>
+    <string name="chat_online_status">Online</string>
+    <string name="chat_header_subtitle">Typically replies within a few minutes</string>
+    <string name="chat_empty_title">Start a Conversation</string>
+    <string name="chat_empty_message">Have a question about your booking or our resort? Send us a message, and we\'ll be happy to assist you.</string>
+    <string name="hint_chat_message">Type your message…</string>
+    <string name="chat_status_sending">Sending…</string>
+    <string name="chat_status_sent">Sent</string>
+    <string name="chat_status_delivered">Delivered</string>
+    <string name="chat_status_read">Read</string>
+    <string name="chat_delete_message_action">Delete Message</string>
+    <string name="chat_delete_confirm_title">Delete this message?</string>
+    <string name="chat_delete_confirm_message">This action cannot be undone.</string>
+    <string name="button_delete">Delete</string>
+    <string name="chat_escalation_message">I\'m unable to answer that question accurately. I\'ll forward your concern to one of our receptionists, who will respond as soon as possible.</string>
+
+    <string name="chip_room_availability">Check Room Availability</string>
+    <string name="chip_booking_requirements">Booking Requirements</string>
+    <string name="chip_resort_rates">Resort Rates</string>
+    <string name="chip_pool_info">Swimming Pool Information</string>
+    <string name="chip_cottage_info">Cottage Information</string>
+    <string name="chip_booking_status">Check Booking Status</string>
+    <string name="chip_payment_instructions">Payment Instructions</string>
+    <string name="chip_cancellation_policy">Cancellation Policy</string>
+    <string name="chip_resort_amenities">Resort Amenities</string>
+    <string name="chip_contact_receptionist">Contact Receptionist</string>
+
+    <string name="faq_room_availability_answer">Room availability depends on your selected check-in and check-out dates. Please share your preferred dates and we\'ll check availability for you.</string>
+    <string name="faq_booking_requirements_answer">To book a stay, you\'ll need a valid ID, your preferred dates, and a down payment to confirm your reservation. Our team can guide you through each step.</string>
+    <string name="faq_resort_rates_answer">Our rates vary depending on the room or cottage type and the season. Let us know your preferred dates and accommodation type so we can share the applicable rates.</string>
+    <string name="faq_pool_info_answer">Agua Frio Garden Resort features swimming pools for both adults and children, open daily during your stay. Pool hours may vary by season.</string>
+    <string name="faq_cottage_info_answer">We offer several cottage types with varying capacities and amenities. Let us know your group size and we can recommend the best fit.</string>
+    <string name="faq_booking_status_answer">You can check your booking status anytime from the Bookings tab. If you need help locating a specific reservation, let us know your booking reference.</string>
+    <string name="faq_payment_instructions_answer">We accept various payment methods for your reservation. Please let us know your booking details and we\'ll send you the payment instructions.</string>
+    <string name="faq_cancellation_policy_answer">Our cancellation policy depends on how far in advance you cancel relative to your check-in date. Let us know your booking details so we can walk you through it.</string>
+    <string name="faq_resort_amenities_answer">Agua Frio Garden Resort offers swimming pools, cottages, function halls, and recreational areas for our guests to enjoy.</string>
+
+    <!-- Booking catalog (Book tab) -->
+    <string name="booking_catalog_title">BOOK</string>
+    <string name="booking_catalog_welcome">Welcome to Agua Frio Garden Resort</string>
+    <string name="booking_catalog_subtitle">Choose what you\'d like to book</string>
+    <string name="booking_browse_empty">No options are available in this category yet.</string>
+    <string name="hint_search_room_name">Search by name…</string>
+    <string name="button_filter">Filter</string>
+    <string name="filter_dialog_title">Filter by type</string>
+    <string name="filter_all">All</string>
+
+    <string name="category_hotel_rooms">Hotel Rooms</string>
+    <string name="category_ktv_rooms">KTV Consumable Rooms</string>
+    <string name="category_function_halls">Function Halls</string>
+    <string name="category_pool_cottage">Pool &amp; Cottage</string>
+
+    <string name="button_browse">BROWSE</string>
+    <string name="button_view_details">VIEW DETAILS</string>
+    <string name="button_book_now">BOOK NOW</string>
+
+    <string name="booking_status_available">Available</string>
+    <string name="booking_status_limited">Limited Slots</string>
+    <string name="booking_status_full">Fully Booked</string>
+    <string name="booking_price_unavailable">Contact us for rates</string>
+
+    <string name="label_description">Description</string>
+    <string name="label_amenities">What\'s Included</string>
+
+    <!-- Personal Information -->
+    <string name="personal_info_title">Personal Information</string>
+    <string name="personal_info_subheading">View and update your personal details. Make sure your information is always up to date.</string>
+    <string name="section_personal_details">PERSONAL DETAILS</string>
+    <string name="section_home_address">HOME ADDRESS</string>
+    <string name="section_account_information">ACCOUNT INFORMATION</string>
+    <string name="button_cancel">Cancel</string>
+    <string name="button_change">Change</string>
+    <string name="personal_info_success_title">Information Updated!</string>
+    <string name="personal_info_success_message">Your personal information has been successfully updated.</string>
+    <string name="back_to_profile">Back to Profile</string>
+
+    <!-- Change Password -->
+    <string name="change_password_title">Change Password</string>
+    <string name="change_password_notice_title">Keep your account secure</string>
+    <string name="change_password_notice_message">Use a strong password that you don\'t use on other websites or apps.</string>
+    <string name="label_current_password">Current Password</string>
+    <string name="hint_current_password">Enter your current password</string>
+    <string name="helper_current_password">Enter your current password to continue.</string>
+    <string name="label_new_password">New Password</string>
+    <string name="hint_new_password">Enter your new password</string>
+    <string name="label_confirm_new_password">Confirm New Password</string>
+    <string name="hint_confirm_new_password">Confirm your new password</string>
+    <string name="helper_confirm_new_password">Re-enter your new password to confirm.</string>
+    <string name="password_requirements_title">Password Requirements</string>
+    <string name="requirement_length">At least 8 characters long</string>
+    <string name="requirement_case">Include uppercase and lowercase letters</string>
+    <string name="requirement_number">Include at least one number</string>
+    <string name="requirement_special">Include at least one special character (e.g. !@#$%)</string>
+    <string name="button_update_password">Update Password</string>
+    <string name="password_success_title">Password Updated!</string>
+    <string name="password_success_message">Your password has been successfully updated.</string>
+
+    <!-- Valid ID -->
+    <string name="valid_id_title">Valid ID</string>
+    <string name="verification_status_label">Verification Status</string>
+    <string name="verification_status_verified_desc">Your valid ID has been verified.</string>
+    <string name="verification_status_pending_desc">Your valid ID is awaiting admin review.</string>
+    <string name="uploaded_id_label">Uploaded ID</string>
+    <string name="uploaded_on_format">Uploaded on %1$s</string>
+    <string name="id_number_format">ID No. %1$s</string>
+    <string name="id_notice_title">Keep your ID up to date</string>
+    <string name="id_notice_message">Your ID helps us verify your identity and protect your account.</string>
+    <string name="button_upload_new_id">Upload New ID</string>
+    <string name="button_view_id_guidelines">View ID Guidelines</string>
+    <string name="no_id_uploaded_message">You haven\'t uploaded a valid ID yet.</string>
+
+    <!-- Upload New ID -->
+    <string name="upload_new_id_title">Upload New ID</string>
+    <string name="acceptable_id_types_title">Acceptable ID Types</string>
+    <string name="acceptable_id_types_message">Driver\'s License, Passport, PhilID, SSS ID, or UMID</string>
+    <string name="step1_select_id_type">Step 1: Select ID Type</string>
+    <string name="step2_upload_images">Step 2: Upload ID Images</string>
+    <string name="label_front_side">Front Side</string>
+    <string name="label_back_side">Back Side (if applicable)</string>
+    <string name="upload_dropzone_hint">Tap to upload or drag and drop\nJPG, PNG • Max 5MB</string>
+    <string name="step3_additional_info">Step 3: Additional Information</string>
+    <string name="hint_id_number">Enter ID number</string>
+    <string name="label_expiry_date">Expiration Date (if applicable)</string>
+    <string name="hint_select_expiry_date">Select expiry date</string>
+    <string name="button_submit_verification">Submit for Verification</string>
+    <string name="id_submitted_message">Your ID was submitted for verification.</string>
+    <string name="error_id_number_required">Please enter the ID number.</string>
 </resources>

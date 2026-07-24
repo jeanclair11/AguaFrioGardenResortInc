@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Text on the primary button; muted while disabled. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false" android:color="?attr/textHint" />
+    <item android:color="?attr/onPrimaryButton" />
+</selector>

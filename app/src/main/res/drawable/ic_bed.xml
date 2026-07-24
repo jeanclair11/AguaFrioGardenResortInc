@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hotel Rooms category glyph: headboard + pillow + mattress + legs. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/accentPrimary">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M2,8h3v6h-3z M6,10h5v4h-5z M2,14h20v4h-20z M3,18h2v3h-2z M19,18h2v3h-2z" />
+</vector>

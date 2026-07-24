@@ -1,8 +1,86 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.AguaFrioGardenResortInc" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">@color/card_white</item>
-        <item name="android:statusBarColor">@color/primary_blue_dark</item>
+    <!-- Manifest/default theme; ThemeManager.apply() swaps in the user's
+         choice before each activity inflates. Dark is the default. -->
+    <style name="Theme.AguaFrioGardenResortInc" parent="Theme.AguaFrio.Dark" />
+
+    <!-- Light Mode: cream/ivory surfaces with Royal Blue buttons. The status
+         bar matches the espresso top bar, so its icons stay light; the cream
+         bottom nav gets dark system-nav icons. -->
+    <style name="Theme.AguaFrio.Light" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@drawable/bg_screen_gradient</item>
+        <item name="android:statusBarColor">@color/light_top_bar_start</item>
+        <item name="android:navigationBarColor">@color/light_nav_bar</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:colorAccent">@color/light_accent</item>
+        <item name="android:colorPrimary">@color/light_top_bar_start</item>
+        <item name="android:colorPrimaryDark">@color/light_top_bar_start</item>
+
+        <item name="screenGradientStart">@color/light_gradient_start</item>
+        <item name="screenGradientEnd">@color/light_gradient_end</item>
+        <item name="surfaceCard">@color/light_card</item>
+        <item name="surfaceRaised">@color/light_raised</item>
+        <item name="topBarGradientStart">@color/light_top_bar_start</item>
+        <item name="topBarGradientEnd">@color/light_top_bar_end</item>
+        <item name="onTopBar">@color/light_on_top_bar</item>
+        <item name="navBarBackground">@color/light_nav_bar</item>
+        <item name="navItemActive">@color/light_nav_active</item>
+        <item name="navItemInactive">@color/light_nav_inactive</item>
+        <item name="accentPrimary">@color/light_accent</item>
+        <item name="buttonGradientStart">@color/light_button_start</item>
+        <item name="buttonGradientEnd">@color/light_button_end</item>
+        <item name="onPrimaryButton">@color/light_on_button</item>
+        <item name="buttonDisabledColor">@color/light_disabled</item>
+        <item name="fieldBackground">@color/light_field</item>
+        <item name="fieldStroke">@color/light_field_stroke</item>
+        <item name="textPrimary">@color/light_text</item>
+        <item name="textMuted">@color/light_text_muted</item>
+        <item name="textHint">@color/light_text_hint</item>
+        <item name="iconMuted">@color/light_icon</item>
+        <item name="textOnScreen">@color/light_on_screen</item>
+        <item name="textOnScreenMuted">@color/light_on_screen_muted</item>
+        <item name="errorText">@color/light_error</item>
+        <item name="dividerColor">@color/light_divider</item>
+        <item name="rippleAccent">@color/light_ripple_accent</item>
+    </style>
+
+    <!-- Dark Mode: deep navy palette from mock 2's spec sheet. -->
+    <style name="Theme.AguaFrio.Dark" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@drawable/bg_screen_gradient</item>
+        <item name="android:statusBarColor">@color/dark_gradient_start</item>
+        <item name="android:navigationBarColor">@color/dark_nav_bar</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:colorAccent">@color/dark_accent</item>
+        <item name="android:colorPrimary">@color/dark_top_bar_start</item>
+        <item name="android:colorPrimaryDark">@color/dark_gradient_start</item>
+
+        <item name="screenGradientStart">@color/dark_gradient_start</item>
+        <item name="screenGradientEnd">@color/dark_gradient_end</item>
+        <item name="surfaceCard">@color/dark_card</item>
+        <item name="surfaceRaised">@color/dark_raised</item>
+        <item name="topBarGradientStart">@color/dark_top_bar_start</item>
+        <item name="topBarGradientEnd">@color/dark_top_bar_end</item>
+        <item name="onTopBar">@color/dark_on_top_bar</item>
+        <item name="navBarBackground">@color/dark_nav_bar</item>
+        <item name="navItemActive">@color/dark_nav_active</item>
+        <item name="navItemInactive">@color/dark_nav_inactive</item>
+        <item name="accentPrimary">@color/dark_accent</item>
+        <item name="buttonGradientStart">@color/dark_button_start</item>
+        <item name="buttonGradientEnd">@color/dark_button_end</item>
+        <item name="onPrimaryButton">@color/dark_on_button</item>
+        <item name="buttonDisabledColor">@color/dark_disabled</item>
+        <item name="fieldBackground">@color/dark_field</item>
+        <item name="fieldStroke">@color/dark_field_stroke</item>
+        <item name="textPrimary">@color/dark_text</item>
+        <item name="textMuted">@color/dark_text_muted</item>
+        <item name="textHint">@color/dark_text_hint</item>
+        <item name="iconMuted">@color/dark_icon</item>
+        <item name="textOnScreen">@color/dark_on_screen</item>
+        <item name="textOnScreenMuted">@color/dark_on_screen_muted</item>
+        <item name="errorText">@color/dark_error</item>
+        <item name="dividerColor">@color/dark_divider</item>
+        <item name="rippleAccent">@color/dark_ripple_accent</item>
     </style>
 </resources>

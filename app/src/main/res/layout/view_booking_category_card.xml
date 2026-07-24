@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One booking category card; inflated per entry from
+     BookingCatalogStore#getCategories() into bookingCategoryContainer.
+     Minimalist by design: only the title, a chevron and a Browse button —
+     no image, icon, descriptions or feature lists. Those live on the
+     browse/detail screens. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="14dp"
+    android:orientation="vertical"
+    android:background="@drawable/bg_card"
+    android:foreground="?android:attr/selectableItemBackground"
+    android:clipToOutline="true"
+    android:clickable="true"
+    android:focusable="true"
+    android:padding="18dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/categoryName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:textColor="?attr/textPrimary"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="8dp"
+            android:src="@drawable/ic_chevron_right"
+            android:importantForAccessibility="no" />
+    </LinearLayout>
+
+
+</LinearLayout>

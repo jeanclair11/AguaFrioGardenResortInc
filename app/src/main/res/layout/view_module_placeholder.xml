@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Stand-in body for a dashboard module until its real screen is built. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp">
+
+    <ImageView
+        android:id="@+id/moduleIcon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:tint="?attr/textOnScreen"
+        android:importantForAccessibility="no" />
+
+    <TextView
+        android:id="@+id/moduleTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="?attr/textOnScreen" />
+
+    <TextView
+        android:id="@+id/moduleDescription"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:textSize="14sp"
+        android:lineSpacingExtra="3dp"
+        android:textColor="?attr/textOnScreenMuted" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="@string/module_coming_soon"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="?attr/textOnScreen"
+        android:letterSpacing="0.06" />
+
+</LinearLayout>

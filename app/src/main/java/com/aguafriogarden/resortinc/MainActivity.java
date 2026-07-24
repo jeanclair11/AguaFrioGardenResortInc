@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.DatePickerDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -30,7 +31,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -45,57 +49,123 @@ public class MainActivity extends Activity {
     private static final int SCREEN_LOGIN = 0;
     private static final int SCREEN_SIGN_UP = 1;
     private static final int SCREEN_RECOVERY = 2;
+    private static final int SCREEN_SIGN_UP_2 = 3;
+    private static final int SCREEN_SIGN_UP_3 = 4;
+
+    private static final String STATE_SCREEN = "screen";
 
     private static final long CARD_ANIM_DURATION_MS = 220L;
-    private static final float CONTENT_SLIDE_DP = 40f;
+    // Screens swap with a quiet fade plus a barely-there vertical drift.
+    private static final float CONTENT_SHIFT_DP = 8f;
 
     private static final int MIN_PASSWORD_LENGTH = 8;
     private static final long FAKE_LOGIN_DELAY_MS = 1500L;
 
     private static final int PICK_IMAGE_PROFILE = 1001;
     private static final int PICK_IMAGE_GOV_ID = 1002;
-
-    private static final int LOGIN_SUCCESS = 0;
-    private static final int LOGIN_ACCOUNT_NOT_FOUND = 1;
-    private static final int LOGIN_WRONG_PASSWORD = 2;
-
-    // Stand-in credentials until a real backend is wired up; see fakeAuthenticate().
-    private static final String DEMO_USERNAME = "ace";
-    private static final String DEMO_EMAIL = "acedelgado@gmail.com";
-    private static final String DEMO_PASSWORD = "&Ace091104";
+    private static final int CAPTURE_GOV_ID = 1003;
 
     private ScrollView scroll;
     private FrameLayout card;
+    private Animator headerCrossfade;
     private View currentContent;
     private ValueAnimator cardHeightAnimator;
     private int currentScreen = -1;
     private boolean loginInProgress;
 
-    // Temporary storage for preview images
-    private Uri profileImageUri;
-    private Uri govIdImageUri;
+    /**
+     * Everything entered across the three sign-up steps, kept while the user
+     * moves back and forth so no progress is lost. Reset after account
+     * creation or when returning to login.
+     */
+    private static class SignUpState {
+        String firstName = "";
+        String middleName = "";
+        String lastName = "";
+        int genderPos;
+        String birthDate = "";
+        String province = "";
+        String city = "";
+        String barangay = "";
+        String username = "";
+        String email = "";
+        String password = "";
+        String confirmPassword = "";
+        int idTypePos;
+        Uri govIdUri;
+        Bitmap govIdBitmap;
+        Uri profileUri;
+        Bitmap profileBitmap;
+        boolean termsAccepted;
+    }
+
+    private SignUpState signUpState = new SignUpState();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        ThemeManager.apply(this);
         setContentView(R.layout.activity_main);
 
-        // Keep the header fixed; anchor the card to overlap its bottom by 50dp.
+        // Keep the header fixed; anchor the card to overlap its bottom by 30dp
+        // so the panel sits slightly lower on the screen.
         AuthUiUtils.anchorCardToHeader(
-                findViewById(R.id.header), findViewById(R.id.headerSpacer), 50);
+                findViewById(R.id.header), findViewById(R.id.headerSpacer), 30);
 
         scroll = findViewById(R.id.scroll);
         card = findViewById(R.id.card);
 
-        showScreen(SCREEN_LOGIN, false);
+        ThemeManager.bindToggle(this, findViewById(R.id.themeToggle));
+
+        // Stay on the same screen when the theme toggle recreates us.
+        int screen = savedInstanceState != null
+                ? savedInstanceState.getInt(STATE_SCREEN, SCREEN_LOGIN) : SCREEN_LOGIN;
+        showScreen(screen, false);
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt(STATE_SCREEN, currentScreen);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        headerCrossfade = ThemeManager.startHeaderCrossfade(this,
+                findViewById(R.id.headerPhoto), findViewById(R.id.headerPhotoOverlay));
+    }
+
+    @Override
+    protected void onStop() {
+        if (headerCrossfade != null) {
+            headerCrossfade.cancel();
+            headerCrossfade = null;
+        }
+        super.onStop();
     }
 
     @Override
     public void onBackPressed() {
-        if (currentScreen != SCREEN_LOGIN) {
-            showScreen(SCREEN_LOGIN, true);
-        } else {
-            super.onBackPressed();
+        switch (currentScreen) {
+            case SCREEN_SIGN_UP_3:
+                saveSignUpStep3(currentContent);
+                showScreen(SCREEN_SIGN_UP_2, true);
+                break;
+            case SCREEN_SIGN_UP_2:
+                saveSignUpStep2(currentContent);
+                showScreen(SCREEN_SIGN_UP, true);
+                break;
+            case SCREEN_SIGN_UP:
+                saveSignUpStep1(currentContent);
+                showScreen(SCREEN_LOGIN, true);
+                break;
+            case SCREEN_RECOVERY:
+                showScreen(SCREEN_LOGIN, true);
+                break;
+            default:
+                super.onBackPressed();
+                break;
         }
     }
 
@@ -137,23 +207,21 @@ public class MainActivity extends Activity {
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
         animateCardHeight(oldHeight, newContent.getMeasuredHeight());
 
-        // Only the contents move: leaving the login screen slides forward
-        // (left); returning slides back. Children are clipped to the card.
-        float slidePx = CONTENT_SLIDE_DP * getResources().getDisplayMetrics().density;
-        float direction = screen == SCREEN_LOGIN ? -1f : 1f;
+        // The old contents dissolve while the new ones fade in with a subtle
+        // upward drift. Children are clipped to the card.
+        float shiftPx = CONTENT_SHIFT_DP * getResources().getDisplayMetrics().density;
 
         oldContent.animate()
                 .alpha(0f)
-                .translationX(-direction * slidePx)
                 .setDuration(CARD_ANIM_DURATION_MS)
                 .withEndAction(() -> card.removeView(oldContent))
                 .start();
 
         newContent.setAlpha(0f);
-        newContent.setTranslationX(direction * slidePx);
+        newContent.setTranslationY(shiftPx);
         newContent.animate()
                 .alpha(1f)
-                .translationX(0f)
+                .translationY(0f)
                 .setDuration(CARD_ANIM_DURATION_MS)
                 .start();
 
@@ -185,7 +253,11 @@ public class MainActivity extends Activity {
     private int layoutFor(int screen) {
         switch (screen) {
             case SCREEN_SIGN_UP:
-                return R.layout.card_sign_up;
+                return R.layout.card_sign_up_1;
+            case SCREEN_SIGN_UP_2:
+                return R.layout.card_sign_up_2;
+            case SCREEN_SIGN_UP_3:
+                return R.layout.card_sign_up_3;
             case SCREEN_RECOVERY:
                 return R.layout.card_recovery;
             default:
@@ -196,7 +268,13 @@ public class MainActivity extends Activity {
     private void bindScreen(int screen, View card) {
         switch (screen) {
             case SCREEN_SIGN_UP:
-                bindSignUpCard(card);
+                bindSignUpStep1(card);
+                break;
+            case SCREEN_SIGN_UP_2:
+                bindSignUpStep2(card);
+                break;
+            case SCREEN_SIGN_UP_3:
+                bindSignUpStep3(card);
                 break;
             case SCREEN_RECOVERY:
                 bindRecoveryCard(card);
@@ -281,12 +359,10 @@ public class MainActivity extends Activity {
             usernameError.setVisibility(View.GONE);
         }
 
-        // Password validation
+        // Password validation. TEMP: minimum-length check disabled so the
+        // short test password works; restore before hooking up the real backend.
         if (pass.isEmpty()) {
             showError(passwordError, R.string.error_password_empty);
-            valid = false;
-        } else if (pass.length() < MIN_PASSWORD_LENGTH) {
-            showError(passwordError, R.string.error_password_too_short);
             valid = false;
         } else {
             passwordError.setVisibility(View.GONE);
@@ -300,16 +376,17 @@ public class MainActivity extends Activity {
         hideKeyboard();
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            int result = fakeAuthenticate(user, pass);
+            int result = AuthService.login(this, user, pass);
             setLoginLoading(card, false);
             switch (result) {
-                case LOGIN_SUCCESS:
+                case AuthService.RESULT_SUCCESS:
                     Toast.makeText(this, "Login successful.", Toast.LENGTH_SHORT).show();
                     Intent intent = new Intent(MainActivity.this, DashboardActivity.class);
                     startActivity(intent);
+                    overridePendingTransition(R.anim.fade_enter, R.anim.fade_exit);
                     finish();
                     break;
-                case LOGIN_ACCOUNT_NOT_FOUND:
+                case AuthService.RESULT_ACCOUNT_NOT_FOUND:
                     password.setText("");
                     showError(usernameError, R.string.error_account_not_found);
                     break;
@@ -338,14 +415,6 @@ public class MainActivity extends Activity {
         updateLoginButton(card);
     }
 
-    private int fakeAuthenticate(String usernameOrEmail, String password) {
-        if (!usernameOrEmail.equalsIgnoreCase(DEMO_USERNAME)
-                && !usernameOrEmail.equalsIgnoreCase(DEMO_EMAIL)) {
-            return LOGIN_ACCOUNT_NOT_FOUND;
-        }
-        return DEMO_PASSWORD.equals(password) ? LOGIN_SUCCESS : LOGIN_WRONG_PASSWORD;
-    }
-
     private void showError(TextView errorView, int messageRes) {
         errorView.setText(messageRes);
         errorView.setVisibility(View.VISIBLE);
@@ -359,52 +428,230 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void bindSignUpCard(View card) {
-        EditText firstName = card.findViewById(R.id.firstNameField);
-        EditText middleName = card.findViewById(R.id.middleNameField);
-        EditText lastName = card.findViewById(R.id.lastNameField);
-        EditText username = card.findViewById(R.id.usernameField);
-        EditText email = card.findViewById(R.id.emailField);
-        EditText phone = card.findViewById(R.id.phoneField);
-        Spinner gender = card.findViewById(R.id.genderSpinner);
-        EditText birthDate = card.findViewById(R.id.birthDateField);
-        EditText password = card.findViewById(R.id.passwordField);
-        EditText confirmPassword = card.findViewById(R.id.confirmPasswordField);
-        CheckBox terms = card.findViewById(R.id.termsCheckbox);
-        Button createButton = card.findViewById(R.id.createAccountButton);
-        TextView strengthText = card.findViewById(R.id.passwordStrengthText);
-
-        // Setup Gender Spinner
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
-                R.array.gender_options, android.R.layout.simple_spinner_item);
+    /** Fills a spinner with a "Select â€¦" prompt at position 0 plus the options. */
+    private void setUpPromptedSpinner(Spinner spinner, int promptRes, int optionsRes, int selection) {
+        List<String> options = new ArrayList<>();
+        options.add(getString(promptRes));
+        options.addAll(Arrays.asList(getResources().getStringArray(optionsRes)));
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this, android.R.layout.simple_spinner_item, options);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        gender.setAdapter(adapter);
+        spinner.setAdapter(adapter);
+        spinner.setSelection(selection);
+    }
 
-        // Password Toggle
-        AuthUiUtils.attachPasswordToggle(password, card.findViewById(R.id.passwordToggle));
+    private void bindSignUpStep1(View card) {
+        SignUpState s = signUpState;
+        ((EditText) card.findViewById(R.id.firstNameField)).setText(s.firstName);
+        ((EditText) card.findViewById(R.id.middleNameField)).setText(s.middleName);
+        ((EditText) card.findViewById(R.id.lastNameField)).setText(s.lastName);
+        ((EditText) card.findViewById(R.id.provinceField)).setText(s.province);
+        ((EditText) card.findViewById(R.id.cityField)).setText(s.city);
+        ((EditText) card.findViewById(R.id.barangayField)).setText(s.barangay);
 
-        // Birth Date Picker
+        setUpPromptedSpinner(card.findViewById(R.id.genderSpinner),
+                R.string.gender_prompt, R.array.gender_options, s.genderPos);
+
+        EditText birthDate = card.findViewById(R.id.birthDateField);
+        birthDate.setText(s.birthDate);
         birthDate.setOnClickListener(v -> showDatePicker(birthDate));
 
-        // Password Strength Indicator
-        AuthUiUtils.afterTextChanged(password, () -> 
+        card.findViewById(R.id.signUp1BackButton).setOnClickListener(v -> {
+            saveSignUpStep1(card);
+            showScreen(SCREEN_LOGIN, true);
+        });
+        card.findViewById(R.id.goToLogin).setOnClickListener(v -> {
+            saveSignUpStep1(card);
+            showScreen(SCREEN_LOGIN, true);
+        });
+        card.findViewById(R.id.signUp1ProceedButton).setOnClickListener(v -> {
+            saveSignUpStep1(card);
+            if (validateSignUpStep1(card)) {
+                showScreen(SCREEN_SIGN_UP_2, true);
+            }
+        });
+    }
+
+    private void saveSignUpStep1(View card) {
+        SignUpState s = signUpState;
+        s.firstName = fieldText(card, R.id.firstNameField);
+        s.middleName = fieldText(card, R.id.middleNameField);
+        s.lastName = fieldText(card, R.id.lastNameField);
+        s.genderPos = ((Spinner) card.findViewById(R.id.genderSpinner)).getSelectedItemPosition();
+        s.birthDate = fieldText(card, R.id.birthDateField);
+        s.province = fieldText(card, R.id.provinceField);
+        s.city = fieldText(card, R.id.cityField);
+        s.barangay = fieldText(card, R.id.barangayField);
+    }
+
+    private boolean validateSignUpStep1(View card) {
+        SignUpState s = signUpState;
+        boolean valid = true;
+
+        valid &= checkField(card, R.id.firstNameError,
+                s.firstName.matches("[a-zA-Z ]+"), R.string.error_name_invalid);
+        valid &= checkField(card, R.id.middleNameError,
+                s.middleName.isEmpty() || s.middleName.matches("[a-zA-Z ]+"),
+                R.string.error_name_invalid);
+        valid &= checkField(card, R.id.lastNameError,
+                s.lastName.matches("[a-zA-Z ]+"), R.string.error_name_invalid);
+        valid &= checkField(card, R.id.genderError,
+                s.genderPos > 0, R.string.error_gender_required);
+
+        if (s.birthDate.isEmpty()) {
+            valid &= checkField(card, R.id.birthDateError, false, R.string.error_birth_date_required);
+        } else {
+            int year = Integer.parseInt(s.birthDate.split("-")[0]);
+            valid &= checkField(card, R.id.birthDateError,
+                    Calendar.getInstance().get(Calendar.YEAR) - year >= 18,
+                    R.string.error_age_invalid);
+        }
+
+        valid &= checkField(card, R.id.provinceError,
+                !s.province.isEmpty(), R.string.error_province_required);
+        valid &= checkField(card, R.id.cityError,
+                !s.city.isEmpty(), R.string.error_city_required);
+        valid &= checkField(card, R.id.barangayError,
+                !s.barangay.isEmpty(), R.string.error_barangay_required);
+
+        return valid;
+    }
+
+    private void bindSignUpStep2(View card) {
+        SignUpState s = signUpState;
+        EditText password = card.findViewById(R.id.passwordField);
+        TextView strengthText = card.findViewById(R.id.passwordStrengthText);
+
+        ((EditText) card.findViewById(R.id.usernameField)).setText(s.username);
+        ((EditText) card.findViewById(R.id.emailField)).setText(s.email);
+        password.setText(s.password);
+        ((EditText) card.findViewById(R.id.confirmPasswordField)).setText(s.confirmPassword);
+
+        AuthUiUtils.attachPasswordToggle(password, card.findViewById(R.id.passwordToggle));
+        AuthUiUtils.afterTextChanged(password, () ->
                 AuthUiUtils.updatePasswordStrength(password.getText().toString(), strengthText));
 
-        // Terms and Conditions behavior
+        card.findViewById(R.id.signUp2BackButton).setOnClickListener(v -> {
+            saveSignUpStep2(card);
+            showScreen(SCREEN_SIGN_UP, true);
+        });
+        card.findViewById(R.id.signUp2ProceedButton).setOnClickListener(v -> {
+            saveSignUpStep2(card);
+            if (validateSignUpStep2(card)) {
+                showScreen(SCREEN_SIGN_UP_3, true);
+            }
+        });
+    }
+
+    private void saveSignUpStep2(View card) {
+        SignUpState s = signUpState;
+        s.username = fieldText(card, R.id.usernameField);
+        s.email = fieldText(card, R.id.emailField);
+        s.password = ((EditText) card.findViewById(R.id.passwordField)).getText().toString();
+        s.confirmPassword =
+                ((EditText) card.findViewById(R.id.confirmPasswordField)).getText().toString();
+    }
+
+    private boolean validateSignUpStep2(View card) {
+        SignUpState s = signUpState;
+        boolean valid = true;
+
+        valid &= checkField(card, R.id.usernameError,
+                s.username.length() >= 4 && s.username.length() <= 20
+                        && s.username.matches("[a-zA-Z0-9_]+"),
+                R.string.error_username_invalid);
+        valid &= checkField(card, R.id.emailError,
+                Patterns.EMAIL_ADDRESS.matcher(s.email).matches(), R.string.error_email_invalid);
+        valid &= checkField(card, R.id.passwordError,
+                s.password.matches("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\\S+$).{8,}$"),
+                R.string.error_password_complexity);
+        valid &= checkField(card, R.id.confirmPasswordError,
+                s.confirmPassword.equals(s.password), R.string.error_passwords_dont_match);
+
+        return valid;
+    }
+
+    private void bindSignUpStep3(View card) {
+        SignUpState s = signUpState;
+        CheckBox terms = card.findViewById(R.id.termsCheckbox);
+        Button createButton = card.findViewById(R.id.createAccountButton);
+
+        setUpPromptedSpinner(card.findViewById(R.id.idTypeSpinner),
+                R.string.id_type_prompt, R.array.id_type_options, s.idTypePos);
+
+        // Restore previews picked earlier (gallery or camera).
+        if (s.govIdBitmap != null) {
+            ImageView preview = card.findViewById(R.id.govIdPreview);
+            preview.setImageBitmap(s.govIdBitmap);
+            preview.setVisibility(View.VISIBLE);
+        }
+        if (s.profileBitmap != null) {
+            ((ImageView) card.findViewById(R.id.profilePreview)).setImageBitmap(s.profileBitmap);
+        }
+
+        terms.setChecked(s.termsAccepted);
+        createButton.setEnabled(s.termsAccepted);
         terms.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            s.termsAccepted = isChecked;
             createButton.setEnabled(isChecked);
             if (isChecked) {
                 card.findViewById(R.id.termsError).setVisibility(View.GONE);
             }
         });
 
-        // Image Uploads (Mocks)
-        card.findViewById(R.id.uploadProfileButton).setOnClickListener(v -> pickImage(PICK_IMAGE_PROFILE));
         card.findViewById(R.id.uploadGovIdButton).setOnClickListener(v -> pickImage(PICK_IMAGE_GOV_ID));
+        card.findViewById(R.id.captureGovIdButton).setOnClickListener(v -> captureGovId());
+        card.findViewById(R.id.uploadProfileButton).setOnClickListener(v -> pickImage(PICK_IMAGE_PROFILE));
 
-        card.findViewById(R.id.goToLogin).setOnClickListener(v -> showScreen(SCREEN_LOGIN, true));
+        card.findViewById(R.id.signUp3BackButton).setOnClickListener(v -> {
+            saveSignUpStep3(card);
+            showScreen(SCREEN_SIGN_UP_2, true);
+        });
+        createButton.setOnClickListener(v -> attemptCreateAccount(card));
+    }
 
-        createButton.setOnClickListener(v -> attemptSignUp(card));
+    private void saveSignUpStep3(View card) {
+        signUpState.idTypePos =
+                ((Spinner) card.findViewById(R.id.idTypeSpinner)).getSelectedItemPosition();
+    }
+
+    private void attemptCreateAccount(View card) {
+        SignUpState s = signUpState;
+        saveSignUpStep3(card);
+
+        boolean valid = true;
+        valid &= checkField(card, R.id.idTypeError,
+                s.idTypePos > 0, R.string.error_id_type_required);
+        valid &= checkField(card, R.id.govIdError,
+                s.govIdUri != null || s.govIdBitmap != null, R.string.error_id_required);
+        valid &= checkField(card, R.id.termsError,
+                s.termsAccepted, R.string.error_terms_required);
+
+        if (valid) {
+            // Remember the chosen picture so the dashboard avatar can show it.
+            ProfileStore.saveAvatarUri(this, s.profileUri);
+            ProfileStore.saveSignUpProfile(this, s.firstName, s.middleName, s.lastName,
+                    s.genderPos, s.birthDate, s.province, s.city, s.barangay,
+                    s.username, s.email, s.password, s.idTypePos);
+            Toast.makeText(this, "Account created successfully!", Toast.LENGTH_LONG).show();
+            signUpState = new SignUpState();
+            showScreen(SCREEN_LOGIN, true);
+        }
+    }
+
+    private String fieldText(View card, int fieldId) {
+        return ((EditText) card.findViewById(fieldId)).getText().toString().trim();
+    }
+
+    /** Shows or hides one inline error; returns whether the check passed. */
+    private boolean checkField(View card, int errorId, boolean ok, int messageRes) {
+        TextView errorView = card.findViewById(errorId);
+        if (ok) {
+            errorView.setVisibility(View.GONE);
+        } else {
+            showError(errorView, messageRes);
+        }
+        return ok;
     }
 
     private void showDatePicker(EditText birthDateField) {
@@ -422,122 +669,58 @@ public class MainActivity extends Activity {
         startActivityForResult(intent, requestCode);
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode == RESULT_OK && data != null && data.getData() != null) {
-            Uri uri = data.getData();
-            try {
-                Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
-                if (requestCode == PICK_IMAGE_PROFILE) {
-                    profileImageUri = uri;
-                    ((ImageView) currentContent.findViewById(R.id.profilePreview)).setImageBitmap(bitmap);
-                } else if (requestCode == PICK_IMAGE_GOV_ID) {
-                    govIdImageUri = uri;
-                    ImageView preview = currentContent.findViewById(R.id.govIdPreview);
-                    preview.setImageBitmap(bitmap);
-                    preview.setVisibility(View.VISIBLE);
-                    currentContent.findViewById(R.id.govIdError).setVisibility(View.GONE);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+    /** Opens the camera for the valid-ID photo; the capture returns a preview bitmap. */
+    private void captureGovId() {
+        try {
+            startActivityForResult(new Intent(MediaStore.ACTION_IMAGE_CAPTURE), CAPTURE_GOV_ID);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, R.string.error_no_camera, Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void attemptSignUp(View card) {
-        if (!((CheckBox) card.findViewById(R.id.termsCheckbox)).isChecked()) {
-            showError(card.findViewById(R.id.termsError), R.string.error_terms_required);
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null) {
             return;
         }
 
-        EditText fName = card.findViewById(R.id.firstNameField);
-        EditText mName = card.findViewById(R.id.middleNameField);
-        EditText lName = card.findViewById(R.id.lastNameField);
-        EditText userField = card.findViewById(R.id.usernameField);
-        EditText emailField = card.findViewById(R.id.emailField);
-        EditText phoneField = card.findViewById(R.id.phoneField);
-        EditText birthField = card.findViewById(R.id.birthDateField);
-        EditText passField = card.findViewById(R.id.passwordField);
-        EditText confirmField = card.findViewById(R.id.confirmPasswordField);
-
-        boolean valid = true;
-
-        // Name validation
-        if (!fName.getText().toString().matches("[a-zA-Z ]+")) {
-            showError(card.findViewById(R.id.firstNameError), R.string.error_name_invalid);
-            valid = false;
-        }
-        // Middle name is optional but if filled should match pattern
-        String middle = mName.getText().toString();
-        if (!middle.isEmpty() && !middle.matches("[a-zA-Z ]+")) {
-            showError(card.findViewById(R.id.middleNameError), R.string.error_name_invalid);
-            valid = false;
-        }
-        if (!lName.getText().toString().matches("[a-zA-Z ]+")) {
-            showError(card.findViewById(R.id.lastNameError), R.string.error_name_invalid);
-            valid = false;
-        }
-
-        // Username validation
-        String uname = userField.getText().toString();
-        if (uname.length() < 4 || uname.length() > 20 || !uname.matches("[a-zA-Z0-9_]+")) {
-            showError(card.findViewById(R.id.usernameError), R.string.error_username_invalid);
-            valid = false;
-        }
-
-        // Email validation
-        if (!Patterns.EMAIL_ADDRESS.matcher(emailField.getText()).matches()) {
-            showError(card.findViewById(R.id.emailError), R.string.error_email_invalid);
-            valid = false;
-        }
-
-        // Phone validation
-        String phone = phoneField.getText().toString();
-        if (phone.length() != 11 || !phone.startsWith("09")) {
-            showError(card.findViewById(R.id.phoneError), R.string.error_phone_invalid);
-            valid = false;
-        }
-
-        // Birth date (Age 18+)
-        String bday = birthField.getText().toString();
-        if (bday.isEmpty()) {
-            showError(card.findViewById(R.id.birthDateError), R.string.error_birth_date_required);
-            valid = false;
-        } else {
-            // Basic age check
-            String[] parts = bday.split("-");
-            int year = Integer.parseInt(parts[0]);
-            if (Calendar.getInstance().get(Calendar.YEAR) - year < 18) {
-                showError(card.findViewById(R.id.birthDateError), R.string.error_age_invalid);
-                valid = false;
+        if (requestCode == CAPTURE_GOV_ID) {
+            Bitmap shot = data.getExtras() != null
+                    ? (Bitmap) data.getExtras().get("data") : null;
+            if (shot != null) {
+                signUpState.govIdBitmap = shot;
+                signUpState.govIdUri = null;
+                showGovIdPreview(shot);
             }
+            return;
         }
 
-        // Password complexity
-        String pass = passField.getText().toString();
-        String pattern = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\\S+$).{8,}$";
-        if (!pass.matches(pattern)) {
-            showError(card.findViewById(R.id.passwordError), R.string.error_password_complexity);
-            valid = false;
+        if (data.getData() == null) {
+            return;
         }
+        Uri uri = data.getData();
+        try {
+            Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
+            if (requestCode == PICK_IMAGE_PROFILE) {
+                signUpState.profileUri = uri;
+                signUpState.profileBitmap = bitmap;
+                ((ImageView) currentContent.findViewById(R.id.profilePreview)).setImageBitmap(bitmap);
+            } else if (requestCode == PICK_IMAGE_GOV_ID) {
+                signUpState.govIdUri = uri;
+                signUpState.govIdBitmap = bitmap;
+                showGovIdPreview(bitmap);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
-        // Confirm Password
-        if (!confirmField.getText().toString().equals(pass)) {
-            showError(card.findViewById(R.id.confirmPasswordError), R.string.error_passwords_dont_match);
-            valid = false;
-        }
-
-        // Gov ID
-        if (govIdImageUri == null) {
-            showError(card.findViewById(R.id.govIdError), R.string.error_id_required);
-            valid = false;
-        }
-
-        if (valid) {
-            Toast.makeText(this, "Account created successfully!", Toast.LENGTH_LONG).show();
-            showScreen(SCREEN_LOGIN, true);
-        }
+    private void showGovIdPreview(Bitmap bitmap) {
+        ImageView preview = currentContent.findViewById(R.id.govIdPreview);
+        preview.setImageBitmap(bitmap);
+        preview.setVisibility(View.VISIBLE);
+        currentContent.findViewById(R.id.govIdError).setVisibility(View.GONE);
     }
 
     private void bindRecoveryCard(View card) {

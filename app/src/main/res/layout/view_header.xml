@@ -1,15 +1,26 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Shared resort header. Included at the top of every auth screen. -->
 
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="250dp">
 
-    <!-- Background Image -->
+    <!-- Background photos: MainActivity picks the pair for the active theme
+         and slowly crossfades between them (only the overlay's alpha moves;
+         everything else in the header stays fixed). -->
     <ImageView
+        android:id="@+id/headerPhoto"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:src="@drawable/agua_frio_bgimg"
+        android:src="@drawable/agua_night_mode"
+        android:scaleType="centerCrop"
+        android:contentDescription="@null" />
+
+    <ImageView
+        android:id="@+id/headerPhotoOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0"
         android:scaleType="centerCrop"
         android:contentDescription="@null" />
 
@@ -58,7 +69,7 @@
             android:layout_marginTop="-5dp"
             android:letterSpacing="0.18"
             android:text="@string/resort_subtitle"
-            android:textColor="@color/accent_orange"
+            android:textColor="?attr/accentPrimary"
             android:textSize="11sp"
             android:textStyle="bold" />
 

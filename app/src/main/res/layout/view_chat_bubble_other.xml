@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One assistant/receptionist message bubble; inflated repeatedly into
+     chatMessageContainer. Same avatar/thread throughout, per REQ127-129. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginEnd="60dp"
+    android:layout_marginBottom="14dp"
+    android:orientation="horizontal">
+
+    <ImageView
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:padding="6dp"
+        android:src="@drawable/ic_person"
+        android:tint="?attr/textOnScreen"
+        android:background="@drawable/bg_module_icon_circle"
+        android:importantForAccessibility="no" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/bubbleText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_chat_bubble_other"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:textColor="?attr/textPrimary"
+            android:textSize="14sp"
+            android:lineSpacingExtra="1dp" />
+
+        <TextView
+            android:id="@+id/bubbleTimestamp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="?attr/textOnScreenMuted"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+</LinearLayout>

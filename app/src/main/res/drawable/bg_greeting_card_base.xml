@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Opaque base so the greeting card's rounded-rect outline (used for both
+     clipToOutline and the elevation shadow) is well-defined; always fully
+     covered by the time-of-day photo drawn above it. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/white" />
+    <corners android:radius="28dp" />
+</shape>

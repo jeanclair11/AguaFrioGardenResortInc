@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Persistent shell for the Reservation module's step-by-step booking
+     wizard. BookingWizardController keeps one instance of this alive across
+     tab switches (only the step indicator text and stepFrame's child swap),
+     so in-progress answers survive navigating to another module and back. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/wizardStepIndicator"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/surfaceRaised"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:textColor="?attr/textOnScreenMuted"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.06" />
+
+    <FrameLayout
+        android:id="@+id/wizardStepFrame"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+</LinearLayout>

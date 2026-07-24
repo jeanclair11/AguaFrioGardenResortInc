@@ -3,36 +3,99 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <!-- App palette -->
-    <color name="screen_background">#EDEDEA</color>
-    <color name="card_white">#FFFFFFFF</color>
+    <!-- Brand constants (same in every theme) -->
+    <color name="header_overlay_dark">#D90A121E</color>
+    <color name="header_overlay_mid">#990E1828</color>
+    <color name="header_overlay_light">#4D0A121E</color>
 
-    <!-- Modern Royal Blue Gradient -->
-    <color name="royal_blue_top">#4F8BFF</color>
-    <color name="royal_blue_center">#2F6CFF</color>
-    <color name="royal_blue_bottom">#1848C7</color>
+    <!-- Warm, low-opacity shadow tint (API 28+) so elevated cards cast a
+         soft diffused shadow that blends with the beige background instead
+         of a harsh black one. Ambient is fainter than spot. -->
+    <color name="card_shadow_ambient">#1A3A2E1E</color>
+    <color name="card_shadow_spot">#2E3A2E1E</color>
 
-    <color name="primary_blue">#35619F</color>
-    <color name="primary_blue_dark">#264F86</color>
-    <color name="button_disabled">#BDBDBD</color>
+    <!-- Greeting card glass overlay: the card shows a time-of-day photo
+         (see DashboardActivity$GreetingPeriod) under a frosted glass tint,
+         so its palette is fixed white/translucent regardless of the app's
+         Light/Dark theme. -->
+    <color name="glass_overlay_fill">#4DFFFFFF</color>
+    <color name="glass_overlay_border">#66FFFFFF</color>
+    <color name="glass_icon_chip">#4DFFFFFF</color>
+    <color name="glass_divider">#40FFFFFF</color>
+    <color name="glass_text_primary">#FFFFFFFF</color>
+    <color name="glass_text_secondary">#D9FFFFFF</color>
+    <color name="glass_text_welcome">#E6FFFFFF</color>
+    <!-- Sits between the photo and the frosted glass tint so bright sky
+         areas don't wash out the text; kept within 20-30% so the scenery
+         still reads through. -->
+    <color name="glass_black_overlay">#4D000000</color>
 
-    <!-- Translucent blue scrim layered over the header photo for text contrast -->
-    <color name="header_overlay_dark">#B3264F86</color>
-    <color name="header_overlay_mid">#8035619F</color>
-    <color name="header_overlay_light">#4D35619F</color>
+    <!-- Booking catalog tile tints: fixed per category (same in both themes),
+         used as the image placeholder behind each category's icon until real
+         photography is wired up via the backend. -->
+    <color name="catalog_tile_hotel">#6E5240</color>
+    <color name="catalog_tile_ktv">#453368</color>
+    <color name="catalog_tile_halls">#3E4A5C</color>
+    <color name="catalog_tile_pool">#2E6E7A</color>
 
-    <color name="accent_orange">#E0912E</color>
+    <!-- Light theme: the warm cream/ivory palette with Royal Blue reserved
+         for primary buttons and interactive accents. -->
+    <color name="light_gradient_start">#F8F2E6</color>
+    <color name="light_gradient_end">#EFE4CD</color>
+    <color name="light_card">#FCF8EF</color>
+    <color name="light_raised">#EFE6D3</color>
+    <color name="light_top_bar_start">#63503A</color>
+    <color name="light_top_bar_end">#4A3826</color>
+    <color name="light_on_top_bar">#F8F2E6</color>
+    <color name="light_nav_bar">#FCF8EF</color>
+    <color name="light_nav_active">#2450C4</color>
+    <color name="light_nav_inactive">#8E8069</color>
+    <color name="light_accent">#2450C4</color>
+    <color name="light_button_start">#4A78E8</color>
+    <color name="light_button_end">#2450C4</color>
+    <color name="light_on_button">#FFFFFFFF</color>
+    <color name="light_disabled">#D9CDB6</color>
+    <color name="light_field">#F2EADA</color>
+    <color name="light_field_stroke">#E0D3BA</color>
+    <color name="light_text">#382F22</color>
+    <color name="light_text_muted">#6F6350</color>
+    <color name="light_text_hint">#A2947D</color>
+    <color name="light_icon">#8E8069</color>
+    <color name="light_on_screen">#382F22</color>
+    <color name="light_on_screen_muted">#6F6350</color>
+    <color name="light_error">#B3402F</color>
+    <color name="light_divider">#E8DCC6</color>
+    <color name="light_ripple_accent">#332450C4</color>
 
-    <color name="field_background">#EBE4D8</color>
-    <color name="field_stroke">#DED6C8</color>
-
-    <color name="text_dark">#2B2B2B</color>
-    <color name="text_muted">#7A7A72</color>
-    <color name="text_hint">#9A9A8E</color>
-    <color name="icon_muted">#8A897E</color>
-
-    <color name="error_red">#C62828</color>
-
-    <color name="divider">#E1DCD1</color>
-    <color name="header_gold">#D8C29A</color>
+    <!-- Dark theme: the original night-navy palette, paired with a Sunset
+         Orange accent used consistently across the interface. -->
+    <color name="dark_gradient_start">#0A121E</color>
+    <color name="dark_gradient_end">#16233A</color>
+    <!-- A lighter shade of the gradient (not darker, at any scroll
+         position) so cards read as a gentle, harmonious lift off the
+         background instead of a harsh dark block. -->
+    <color name="dark_card">#182640</color>
+    <color name="dark_raised">#20304C</color>
+    <color name="dark_top_bar_start">#16233A</color>
+    <color name="dark_top_bar_end">#16233A</color>
+    <color name="dark_on_top_bar">#FFFFFFFF</color>
+    <color name="dark_nav_bar">#111C2B</color>
+    <color name="dark_nav_active">#FF8A50</color>
+    <color name="dark_nav_inactive">#7C8CA5</color>
+    <color name="dark_accent">#FF8A50</color>
+    <color name="dark_button_start">#FF8A50</color>
+    <color name="dark_button_end">#E85D2C</color>
+    <color name="dark_on_button">#FFFFFFFF</color>
+    <color name="dark_disabled">#2A3A52</color>
+    <color name="dark_field">#152232</color>
+    <color name="dark_field_stroke">#28394F</color>
+    <color name="dark_text">#F2F5FA</color>
+    <color name="dark_text_muted">#93A2B8</color>
+    <color name="dark_text_hint">#5F7089</color>
+    <color name="dark_icon">#7C8CA5</color>
+    <color name="dark_on_screen">#F2F5FA</color>
+    <color name="dark_on_screen_muted">#93A2B8</color>
+    <color name="dark_error">#FF6B6B</color>
+    <color name="dark_divider">#223048</color>
+    <color name="dark_ripple_accent">#33FF8A50</color>
 </resources>

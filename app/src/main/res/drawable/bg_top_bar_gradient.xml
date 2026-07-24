@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Top app bar: horizontal navy-to-blue gradient (#16213E -> #2563EB
+     per the design spec). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="0"
+        android:startColor="?attr/topBarGradientStart"
+        android:endColor="?attr/topBarGradientEnd"
+        android:type="linear" />
+</shape>

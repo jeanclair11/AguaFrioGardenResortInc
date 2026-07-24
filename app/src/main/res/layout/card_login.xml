@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- "Welcome Back" login content, swapped inside the fixed white card. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -15,7 +15,7 @@
         android:fontFamily="serif"
         android:gravity="center"
         android:text="@string/login_heading"
-        android:textColor="@color/text_dark"
+        android:textColor="?attr/textPrimary"
         android:textSize="24sp"
         android:textStyle="bold" />
 
@@ -25,7 +25,7 @@
         android:layout_marginTop="4dp"
         android:gravity="center"
         android:text="@string/login_subheading"
-        android:textColor="@color/text_muted"
+        android:textColor="?attr/textMuted"
         android:textSize="13sp" />
 
     <!-- Username / Email -->
@@ -75,7 +75,7 @@
             android:background="?android:attr/selectableItemBackground"
             android:padding="4dp"
             android:text="@string/forgot_password"
-            android:textColor="@color/accent_orange"
+            android:textColor="?attr/accentPrimary"
             android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
@@ -119,7 +119,7 @@
             android:layout_width="26dp"
             android:layout_height="26dp"
             android:layout_gravity="center"
-            android:indeterminateTint="@color/white"
+            android:indeterminateTint="?attr/onPrimaryButton"
             android:visibility="gone" />
     </FrameLayout>
 
@@ -136,7 +136,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/no_account_prompt"
-            android:textColor="@color/text_muted"
+            android:textColor="?attr/textMuted"
             android:textSize="13sp" />
 
         <TextView
@@ -147,7 +147,7 @@
             android:background="?android:attr/selectableItemBackground"
             android:padding="4dp"
             android:text="@string/sign_up"
-            android:textColor="@color/accent_orange"
+            android:textColor="?attr/accentPrimary"
             android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>

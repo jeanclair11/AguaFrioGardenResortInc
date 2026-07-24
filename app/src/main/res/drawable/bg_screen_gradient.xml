@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App-wide background gradient. Light mode: vivid royal blue wash;
+     dark mode: deep navy (#08111F -> #1A365D per the design spec). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="270"
+        android:startColor="?attr/screenGradientStart"
+        android:endColor="?attr/screenGradientEnd"
+        android:type="linear" />
+</shape>

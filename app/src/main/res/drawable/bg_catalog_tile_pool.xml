@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Plain (unrounded) image-placeholder tile; see bg_catalog_tile_hotel. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/catalog_tile_pool" />
+</shape>

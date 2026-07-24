@@ -1,13 +1,19 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
 
     <style name="FieldLabel">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginTop">8dp</item>
-        <item name="android:textColor">@color/text_dark</item>
+        <item name="android:textColor">?attr/textPrimary</item>
         <item name="android:textSize">13sp</item>
         <item name="android:textStyle">bold</item>
+    </style>
+
+    <!-- FieldLabel variant for labels sitting directly on the gradient
+         background (booking wizard) rather than inside a card. -->
+    <style name="FieldLabelOnScreen" parent="FieldLabel">
+        <item name="android:textColor">?attr/textOnScreen</item>
     </style>
 
     <style name="InputField">
@@ -33,8 +39,8 @@
         <item name="android:layout_height">match_parent</item>
         <item name="android:layout_weight">1</item>
         <item name="android:background">@null</item>
-        <item name="android:textColor">@color/text_dark</item>
-        <item name="android:textColorHint">@color/text_hint</item>
+        <item name="android:textColor">?attr/textPrimary</item>
+        <item name="android:textColorHint">?attr/textHint</item>
         <item name="android:textSize">15sp</item>
         <item name="android:paddingTop">0dp</item>
         <item name="android:paddingBottom">0dp</item>
@@ -56,20 +62,53 @@
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginTop">4dp</item>
         <item name="android:paddingStart">4dp</item>
-        <item name="android:textColor">@color/error_red</item>
+        <item name="android:textColor">?attr/errorText</item>
         <item name="android:textSize">12sp</item>
         <item name="android:visibility">gone</item>
     </style>
 
     <style name="PrimaryButton">
         <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">54dp</item>
+        <item name="android:layout_height">48dp</item>
         <item name="android:background">@drawable/bg_button_primary</item>
-        <item name="android:textColor">@color/white</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/button_primary_text</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:letterSpacing">0.08</item>
+        <item name="android:letterSpacing">0.06</item>
+        <item name="android:elevation">2dp</item>
+        <item name="android:outlineAmbientShadowColor">@color/card_shadow_ambient</item>
+        <item name="android:outlineSpotShadowColor">@color/card_shadow_spot</item>
+    </style>
+
+    <!-- Outlined counterpart to PrimaryButton, used for "Back" actions.
+         Sits on the gradient background, so its text uses the on-screen color. -->
+    <style name="SecondaryButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:background">@drawable/bg_button_secondary</item>
+        <item name="android:textColor">?attr/textOnScreen</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.06</item>
         <item name="android:stateListAnimator">@null</item>
     </style>
 
+    <!-- Messenger-style outlined suggestion chip in the Chat tab. -->
+    <style name="ChatChip">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginEnd">10dp</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingEnd">14dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="android:background">@drawable/bg_chip</item>
+        <item name="android:textColor">?attr/accentPrimary</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+
 </resources>
+

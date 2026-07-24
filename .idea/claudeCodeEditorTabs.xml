@@ -1,20 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ClaudeCodeEditorTabs">
-    <option name="activeSessionId" value="f9485734-fdd7-466f-b526-9826a7952d98" />
+    <option name="activeSessionId" value="91b95675-5370-4829-ba31-03024074ddb2" />
     <option name="openSessionIds">
       <list>
         <option value="f9485734-fdd7-466f-b526-9826a7952d98" />
+        <option value="91b95675-5370-4829-ba31-03024074ddb2" />
       </list>
     </option>
     <option name="sessionPaths">
       <map>
-        <entry key="f9485734-fdd7-466f-b526-9826a7952d98" value="/sessions/new" />
+        <entry key="91b95675-5370-4829-ba31-03024074ddb2" value="/sessions/4c1dfbac-4505-4b1c-89d2-00a25949b291" />
+        <entry key="f9485734-fdd7-466f-b526-9826a7952d98" value="/sessions/a39f25fd-7d3f-42fc-8844-f6d807748a51" />
       </map>
     </option>
     <option name="sessionTitles">
       <map>
-        <entry key="f9485734-fdd7-466f-b526-9826a7952d98" value="Claude Code" />
+        <entry key="91b95675-5370-4829-ba31-03024074ddb2" value="I want to redesign the Greeting Card on the Home D" />
+        <entry key="f9485734-fdd7-466f-b526-9826a7952d98" value="Home Module Flow and UI Layout Home Module Overvie" />
       </map>
     </option>
   </component>

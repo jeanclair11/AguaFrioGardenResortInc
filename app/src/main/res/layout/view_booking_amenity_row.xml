@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One amenity line on the item detail screen; inflated per entry from
+     BookingCatalogStore.ServiceItem#amenities. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical">
+
+    <ImageView
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:src="@drawable/ic_check_circle"
+        android:tint="?attr/accentPrimary"
+        android:importantForAccessibility="no" />
+
+    <TextView
+        android:id="@+id/amenityText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="10dp"
+        android:textColor="?attr/textOnScreenMuted"
+        android:textSize="14sp" />
+
+</LinearLayout>

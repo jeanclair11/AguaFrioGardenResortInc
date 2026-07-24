@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Reusable confirmation screen (Personal Information / Password updates). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp">
+
+    <FrameLayout
+        android:layout_width="88dp"
+        android:layout_height="88dp"
+        android:background="@drawable/bg_module_icon_circle">
+
+        <ImageView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_check_circle"
+            android:importantForAccessibility="no" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/successTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="?attr/textOnScreen" />
+
+    <TextView
+        android:id="@+id/successMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:textSize="14sp"
+        android:lineSpacingExtra="3dp"
+        android:textColor="?attr/textOnScreenMuted" />
+
+    <Button
+        android:id="@+id/successButton"
+        style="@style/PrimaryButton"
+        android:layout_width="match_parent"
+        android:layout_marginTop="28dp"
+        android:text="@string/back_to_profile" />
+
+</LinearLayout>

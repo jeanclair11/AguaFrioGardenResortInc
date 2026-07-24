@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Outlined "Back" button: recedes next to a PrimaryButton without
+     competing for attention. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?attr/rippleAccent">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+            <stroke
+                android:width="1.5dp"
+                android:color="?attr/fieldStroke" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+</ripple>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Content view for the "Feedback Submitted!" AlertDialog. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@drawable/bg_card"
+    android:padding="24dp">
+
+    <ImageView
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:src="@drawable/ic_check_circle"
+        android:importantForAccessibility="no" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:text="@string/feedback_success_title"
+        android:textColor="?attr/textPrimary"
+        android:textSize="17sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center"
+        android:text="@string/feedback_success_message"
+        android:textColor="?attr/textMuted"
+        android:textSize="13sp"
+        android:lineSpacingExtra="2dp" />
+
+    <Button
+        android:id="@+id/feedbackSuccessOkButton"
+        style="@style/PrimaryButton"
+        android:layout_marginTop="22dp"
+        android:text="@string/button_ok" />
+
+</LinearLayout>

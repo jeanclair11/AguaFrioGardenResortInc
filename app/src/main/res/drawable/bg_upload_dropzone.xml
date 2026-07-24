@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dashed drop-zone for the ID upload steps. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="?attr/fieldBackground" />
+    <corners android:radius="14dp" />
+    <stroke
+        android:width="1.5dp"
+        android:color="?attr/fieldStroke"
+        android:dashWidth="6dp"
+        android:dashGap="4dp" />
+</shape>
