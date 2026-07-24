@@ -35,6 +35,7 @@ final class ProfileStore {
     private static final String KEY_ID_TYPE_POS = "id_type_pos";
     private static final String KEY_ID_NUMBER = "id_number";
     private static final String KEY_ID_UPLOAD_DATE = "id_upload_date";
+    private static final String KEY_AUTH_TOKEN = "auth_token";
 
     private ProfileStore() {
     }
@@ -195,6 +196,39 @@ final class ProfileStore {
                 .putString(KEY_ID_NUMBER, "")
                 .putString(KEY_ID_UPLOAD_DATE, "")
                 .putBoolean(KEY_ID_VERIFIED, false)
+                .apply();
+    }
+
+    /** The Sanctum bearer token for the account that's currently logged in on the shared backend. */
+    static String getAuthToken(Context context) {
+        return prefs(context).getString(KEY_AUTH_TOKEN, "");
+    }
+
+    static void saveAuthToken(Context context, String token) {
+        prefs(context).edit().putString(KEY_AUTH_TOKEN, token).apply();
+    }
+
+    static void clearAuthToken(Context context) {
+        prefs(context).edit().remove(KEY_AUTH_TOKEN).apply();
+    }
+
+    /**
+     * Called after a successful login against the live backend, to sync real
+     * profile fields for display. Only fields that map cleanly onto this
+     * store's existing shape are synced (gender/address are stored here as a
+     * spinner position and province/city/barangay respectively, which the
+     * server's plain gender/address strings can't be losslessly split back
+     * into, so those stay whatever the device already had).
+     */
+    static void saveServerProfile(Context context, String firstName, String middleName,
+            String lastName, String birthDate, String username, String email) {
+        prefs(context).edit()
+                .putString(KEY_FIRST_NAME, firstName)
+                .putString(KEY_MIDDLE_NAME, middleName)
+                .putString(KEY_LAST_NAME, lastName)
+                .putString(KEY_BIRTH_DATE, birthDate)
+                .putString(KEY_USERNAME, username)
+                .putString(KEY_EMAIL, email)
                 .apply();
     }
 

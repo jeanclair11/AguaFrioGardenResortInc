@@ -2,50 +2,88 @@ package com.aguafriogarden.resortinc;
 
 import android.content.Context;
 
+import com.aguafriogarden.resortinc.network.ApiClient;
+import com.aguafriogarden.resortinc.network.LoginResponse;
+import com.aguafriogarden.resortinc.network.ProfileResponse;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 /**
- * Single seam for authentication. Everything else in the app (profile
- * fields, bookings, notifications, etc.) is placeholder/dynamic data, but a
- * fixed test account is kept here on purpose so the app can be logged into
- * and exercised during development without a backend.
- *
- * TODO(backend): once the Laravel API is available, replace the body of
- * login() with a POST /login call (and delete TEST_EMAIL/TEST_PASSWORD).
- * The signature and result codes are already shaped for that: callers only
- * see RESULT_SUCCESS / RESULT_ACCOUNT_NOT_FOUND / RESULT_WRONG_PASSWORD, so
- * swapping the implementation won't require touching MainActivity.
+ * Single seam for authentication. A fixed test account is kept here on
+ * purpose so the app can be logged into and exercised without a network
+ * connection; every other login goes to the live Laravel backend so mobile
+ * accounts are the same accounts the website uses.
  */
 final class AuthService {
 
     static final int RESULT_SUCCESS = 0;
     static final int RESULT_ACCOUNT_NOT_FOUND = 1;
     static final int RESULT_WRONG_PASSWORD = 2;
+    static final int RESULT_NETWORK_ERROR = 3;
 
     // The only hardcoded data in the app: a test account for development,
-    // used purely to get past the login screen. It seeds no profile data —
-    // Profile still shows placeholders until a real account signs up or the
-    // backend returns actual guest details.
+    // used purely to get past the login screen without a network call.
     private static final String TEST_EMAIL = "delgadojeanclair@gmail.com";
     private static final String TEST_PASSWORD = "12345";
+
+    interface LoginCallback {
+        void onResult(int resultCode);
+    }
 
     private AuthService() {
     }
 
-    static int login(Context context, String usernameOrEmail, String password) {
+    static void login(Context context, String usernameOrEmail, String password, LoginCallback callback) {
         if (usernameOrEmail.equalsIgnoreCase(TEST_EMAIL)) {
-            return TEST_PASSWORD.equals(password) ? RESULT_SUCCESS : RESULT_WRONG_PASSWORD;
+            callback.onResult(TEST_PASSWORD.equals(password) ? RESULT_SUCCESS : RESULT_WRONG_PASSWORD);
+            return;
         }
 
-        // Accounts created through the in-app sign-up wizard, until sign-up
-        // itself is wired to a real POST /register call.
-        String storedUsername = ProfileStore.getUsername(context);
-        String storedEmail = ProfileStore.getEmail(context);
-        boolean matchesStoredAccount = (!storedUsername.isEmpty() && usernameOrEmail.equalsIgnoreCase(storedUsername))
-                || (!storedEmail.isEmpty() && usernameOrEmail.equalsIgnoreCase(storedEmail));
-        if (matchesStoredAccount) {
-            return ProfileStore.getPassword(context).equals(password)
-                    ? RESULT_SUCCESS : RESULT_WRONG_PASSWORD;
-        }
+        ApiClient.authApi().login(usernameOrEmail, password).enqueue(new Callback<LoginResponse>() {
+            @Override
+            public void onResponse(Call<LoginResponse> call, Response<LoginResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    LoginResponse body = response.body();
+                    ProfileStore.saveAuthToken(context, body.token);
+                    fetchAndSaveProfile(context, body.token);
+                    callback.onResult(RESULT_SUCCESS);
+                } else if (response.code() == 404) {
+                    callback.onResult(RESULT_ACCOUNT_NOT_FOUND);
+                } else if (response.code() == 401) {
+                    callback.onResult(RESULT_WRONG_PASSWORD);
+                } else {
+                    callback.onResult(RESULT_NETWORK_ERROR);
+                }
+            }
 
-        return RESULT_ACCOUNT_NOT_FOUND;
+            @Override
+            public void onFailure(Call<LoginResponse> call, Throwable t) {
+                callback.onResult(RESULT_NETWORK_ERROR);
+            }
+        });
+    }
+
+    /**
+     * Fetches the full guest profile in the background so the Profile tab has
+     * real data; login itself doesn't wait on this (it only needs the token).
+     */
+    private static void fetchAndSaveProfile(Context context, String token) {
+        ApiClient.authApi().getProfile("Bearer " + token).enqueue(new Callback<ProfileResponse>() {
+            @Override
+            public void onResponse(Call<ProfileResponse> call, Response<ProfileResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    ProfileResponse profile = response.body();
+                    ProfileStore.saveServerProfile(context, profile.Firstname, profile.Middlename,
+                            profile.Lastname, profile.birthday, profile.username, profile.email);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ProfileResponse> call, Throwable t) {
+                // Best-effort sync; login has already succeeded regardless.
+            }
+        });
     }
 }

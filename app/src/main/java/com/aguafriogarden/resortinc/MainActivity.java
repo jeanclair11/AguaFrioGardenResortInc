@@ -10,8 +10,6 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.Patterns;
 import android.view.LayoutInflater;
@@ -30,12 +28,27 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.aguafriogarden.resortinc.network.ApiClient;
+import com.aguafriogarden.resortinc.network.ErrorResponse;
+import com.aguafriogarden.resortinc.network.MessageResponse;
+import com.aguafriogarden.resortinc.network.RegisterResponse;
+import com.aguafriogarden.resortinc.network.VerifyResponse;
+
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
+
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 /**
  * Hosts all three authentication screens (Login, Sign Up, Recovery) behind a
@@ -51,6 +64,7 @@ public class MainActivity extends Activity {
     private static final int SCREEN_RECOVERY = 2;
     private static final int SCREEN_SIGN_UP_2 = 3;
     private static final int SCREEN_SIGN_UP_3 = 4;
+    private static final int SCREEN_SIGN_UP_OTP = 5;
 
     private static final String STATE_SCREEN = "screen";
 
@@ -59,7 +73,6 @@ public class MainActivity extends Activity {
     private static final float CONTENT_SHIFT_DP = 8f;
 
     private static final int MIN_PASSWORD_LENGTH = 8;
-    private static final long FAKE_LOGIN_DELAY_MS = 1500L;
 
     private static final int PICK_IMAGE_PROFILE = 1001;
     private static final int PICK_IMAGE_GOV_ID = 1002;
@@ -97,6 +110,7 @@ public class MainActivity extends Activity {
         Uri profileUri;
         Bitmap profileBitmap;
         boolean termsAccepted;
+        String registrationToken = "";
     }
 
     private SignUpState signUpState = new SignUpState();
@@ -148,6 +162,9 @@ public class MainActivity extends Activity {
     @Override
     public void onBackPressed() {
         switch (currentScreen) {
+            case SCREEN_SIGN_UP_OTP:
+                showScreen(SCREEN_SIGN_UP_3, true);
+                break;
             case SCREEN_SIGN_UP_3:
                 saveSignUpStep3(currentContent);
                 showScreen(SCREEN_SIGN_UP_2, true);
@@ -258,6 +275,8 @@ public class MainActivity extends Activity {
                 return R.layout.card_sign_up_2;
             case SCREEN_SIGN_UP_3:
                 return R.layout.card_sign_up_3;
+            case SCREEN_SIGN_UP_OTP:
+                return R.layout.card_sign_up_otp;
             case SCREEN_RECOVERY:
                 return R.layout.card_recovery;
             default:
@@ -275,6 +294,9 @@ public class MainActivity extends Activity {
                 break;
             case SCREEN_SIGN_UP_3:
                 bindSignUpStep3(card);
+                break;
+            case SCREEN_SIGN_UP_OTP:
+                bindSignUpStepOtp(card);
                 break;
             case SCREEN_RECOVERY:
                 bindRecoveryCard(card);
@@ -375,8 +397,7 @@ public class MainActivity extends Activity {
         setLoginLoading(card, true);
         hideKeyboard();
 
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            int result = AuthService.login(this, user, pass);
+        AuthService.login(this, user, pass, result -> {
             setLoginLoading(card, false);
             switch (result) {
                 case AuthService.RESULT_SUCCESS:
@@ -390,12 +411,15 @@ public class MainActivity extends Activity {
                     password.setText("");
                     showError(usernameError, R.string.error_account_not_found);
                     break;
+                case AuthService.RESULT_NETWORK_ERROR:
+                    Toast.makeText(this, R.string.error_network, Toast.LENGTH_SHORT).show();
+                    break;
                 default:
                     password.setText("");
                     showError(passwordError, R.string.error_password_incorrect);
                     break;
             }
-        }, FAKE_LOGIN_DELAY_MS);
+        });
     }
 
     private void setLoginLoading(View card, boolean loading) {
@@ -417,6 +441,11 @@ public class MainActivity extends Activity {
 
     private void showError(TextView errorView, int messageRes) {
         errorView.setText(messageRes);
+        errorView.setVisibility(View.VISIBLE);
+    }
+
+    private void showError(TextView errorView, String message) {
+        errorView.setText(message);
         errorView.setVisibility(View.VISIBLE);
     }
 
@@ -627,16 +656,215 @@ public class MainActivity extends Activity {
         valid &= checkField(card, R.id.termsError,
                 s.termsAccepted, R.string.error_terms_required);
 
-        if (valid) {
-            // Remember the chosen picture so the dashboard avatar can show it.
-            ProfileStore.saveAvatarUri(this, s.profileUri);
-            ProfileStore.saveSignUpProfile(this, s.firstName, s.middleName, s.lastName,
-                    s.genderPos, s.birthDate, s.province, s.city, s.barangay,
-                    s.username, s.email, s.password, s.idTypePos);
-            Toast.makeText(this, "Account created successfully!", Toast.LENGTH_LONG).show();
-            signUpState = new SignUpState();
-            showScreen(SCREEN_LOGIN, true);
+        if (!valid) {
+            return;
         }
+
+        // Remember the chosen picture locally so the dashboard avatar can show it
+        // even before the server round-trip finishes.
+        ProfileStore.saveAvatarUri(this, s.profileUri);
+
+        setCreateAccountLoading(card, true);
+
+        RequestBody profileImagePart = imagePart(s.profileUri, s.profileBitmap);
+        RequestBody validIdPart = imagePart(s.govIdUri, s.govIdBitmap);
+
+        ApiClient.authApi().register(
+                textPart(s.username),
+                textPart(s.email),
+                textPart(s.password),
+                textPart(s.confirmPassword),
+                textPart(s.firstName),
+                optionalTextPart(s.middleName),
+                textPart(s.lastName),
+                optionalTextPart(genderApiValue(s.genderPos)),
+                optionalTextPart(s.birthDate),
+                null,
+                optionalTextPart(buildAddress(s)),
+                toMultipart("profile_image", "profile.jpg", profileImagePart),
+                toMultipart("validID", "valid_id.jpg", validIdPart)
+        ).enqueue(new Callback<RegisterResponse>() {
+            @Override
+            public void onResponse(Call<RegisterResponse> call, Response<RegisterResponse> response) {
+                setCreateAccountLoading(card, false);
+                if (response.isSuccessful() && response.body() != null) {
+                    s.registrationToken = response.body().registration_token;
+                    Toast.makeText(MainActivity.this, response.body().message, Toast.LENGTH_LONG).show();
+                    showScreen(SCREEN_SIGN_UP_OTP, true);
+                } else {
+                    ErrorResponse error = ApiClient.parseError(response.errorBody());
+                    String message = error.firstMessage() != null
+                            ? error.firstMessage() : getString(R.string.error_registration_failed);
+                    Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<RegisterResponse> call, Throwable t) {
+                setCreateAccountLoading(card, false);
+                Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void setCreateAccountLoading(View card, boolean loading) {
+        card.findViewById(R.id.signUp3BackButton).setEnabled(!loading);
+        card.findViewById(R.id.termsCheckbox).setEnabled(!loading);
+
+        Button createButton = card.findViewById(R.id.createAccountButton);
+        createButton.setText(loading ? "" : getString(R.string.create_account));
+        createButton.setEnabled(!loading && signUpState.termsAccepted);
+        card.findViewById(R.id.createAccountProgress)
+                .setVisibility(loading ? View.VISIBLE : View.GONE);
+    }
+
+    /** "Barangay, City, Province" — the website stores this as one free-text address field. */
+    private static String buildAddress(SignUpState s) {
+        StringBuilder address = new StringBuilder();
+        for (String part : new String[]{s.barangay, s.city, s.province}) {
+            if (part != null && !part.isEmpty()) {
+                if (address.length() > 0) {
+                    address.append(", ");
+                }
+                address.append(part);
+            }
+        }
+        return address.toString();
+    }
+
+    /** Maps the sign-up spinner position to the website's gender enum (Male/Female/Other). */
+    private static String genderApiValue(int genderPos) {
+        switch (genderPos) {
+            case 1:
+                return "Male";
+            case 2:
+                return "Female";
+            case 3:
+                return "Other";
+            default:
+                return null;
+        }
+    }
+
+    private static RequestBody textPart(String value) {
+        return RequestBody.create(value != null ? value : "", MediaType.parse("text/plain"));
+    }
+
+    /** Null (rather than an empty string) so Retrofit omits the part entirely, matching the backend's "nullable" fields. */
+    private static RequestBody optionalTextPart(String value) {
+        return (value == null || value.isEmpty()) ? null : textPart(value);
+    }
+
+    /** Reads the picked gallery image or captured camera preview into an upload-ready request body. */
+    private RequestBody imagePart(Uri uri, Bitmap bitmap) {
+        try {
+            if (uri != null) {
+                try (InputStream in = getContentResolver().openInputStream(uri)) {
+                    if (in == null) {
+                        return null;
+                    }
+                    byte[] bytes = readAllBytes(in);
+                    String mime = getContentResolver().getType(uri);
+                    return RequestBody.create(bytes, MediaType.parse(mime != null ? mime : "image/jpeg"));
+                }
+            } else if (bitmap != null) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out);
+                return RequestBody.create(out.toByteArray(), MediaType.parse("image/jpeg"));
+            }
+        } catch (IOException e) {
+            return null;
+        }
+        return null;
+    }
+
+    private static MultipartBody.Part toMultipart(String fieldName, String filename, RequestBody body) {
+        return body != null ? MultipartBody.Part.createFormData(fieldName, filename, body) : null;
+    }
+
+    private static byte[] readAllBytes(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+        }
+        return out.toByteArray();
+    }
+
+    private void bindSignUpStepOtp(View card) {
+        EditText otpField = card.findViewById(R.id.otpField);
+        TextView otpError = card.findViewById(R.id.otpError);
+
+        AuthUiUtils.afterTextChanged(otpField, () -> otpError.setVisibility(View.GONE));
+
+        card.findViewById(R.id.verifyOtpButton).setOnClickListener(v -> attemptVerifyOtp(card));
+        card.findViewById(R.id.resendOtpButton).setOnClickListener(v -> attemptResendOtp(card));
+    }
+
+    private void attemptVerifyOtp(View card) {
+        EditText otpField = card.findViewById(R.id.otpField);
+        TextView otpError = card.findViewById(R.id.otpError);
+        String otp = otpField.getText().toString().trim();
+
+        if (otp.length() != 6) {
+            showError(otpError, R.string.error_otp_required);
+            return;
+        }
+
+        setVerifyOtpLoading(card, true);
+        ApiClient.authApi().verifyOtp(signUpState.registrationToken, otp)
+                .enqueue(new Callback<VerifyResponse>() {
+                    @Override
+                    public void onResponse(Call<VerifyResponse> call, Response<VerifyResponse> response) {
+                        setVerifyOtpLoading(card, false);
+                        if (response.isSuccessful()) {
+                            Toast.makeText(MainActivity.this, R.string.account_created_message,
+                                    Toast.LENGTH_LONG).show();
+                            signUpState = new SignUpState();
+                            showScreen(SCREEN_LOGIN, true);
+                        } else {
+                            ErrorResponse error = ApiClient.parseError(response.errorBody());
+                            showError(otpError, error.firstMessage() != null
+                                    ? error.firstMessage() : getString(R.string.error_registration_failed));
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<VerifyResponse> call, Throwable t) {
+                        setVerifyOtpLoading(card, false);
+                        Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    private void attemptResendOtp(View card) {
+        ApiClient.authApi().resendOtp(signUpState.registrationToken)
+                .enqueue(new Callback<MessageResponse>() {
+                    @Override
+                    public void onResponse(Call<MessageResponse> call, Response<MessageResponse> response) {
+                        if (response.isSuccessful()) {
+                            Toast.makeText(MainActivity.this, R.string.resend_code_sent, Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(MainActivity.this, R.string.error_registration_failed, Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<MessageResponse> call, Throwable t) {
+                        Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    private void setVerifyOtpLoading(View card, boolean loading) {
+        card.findViewById(R.id.otpField).setEnabled(!loading);
+        card.findViewById(R.id.resendOtpButton).setEnabled(!loading);
+
+        Button verifyButton = card.findViewById(R.id.verifyOtpButton);
+        verifyButton.setText(loading ? "" : getString(R.string.button_verify));
+        verifyButton.setEnabled(!loading);
+        card.findViewById(R.id.verifyOtpProgress).setVisibility(loading ? View.VISIBLE : View.GONE);
     }
 
     private String fieldText(View card, int fieldId) {

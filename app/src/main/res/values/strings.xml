@@ -26,6 +26,8 @@
     <string name="error_password_empty">Please enter your password.</string>
     <string name="error_password_too_short">Password must be at least 8 characters long.</string>
     <string name="error_password_incorrect">The password you entered is incorrect.</string>
+    <string name="error_network">Couldn\'t reach the server. Check your internet connection and try again.</string>
+    <string name="error_registration_failed">Something went wrong. Please check your details and try again.</string>
 
     <!-- Sign up -->
     <string name="signup_heading">Create Account</string>
@@ -59,9 +61,20 @@
     <string name="log_in_link">Log In</string>
 
     <!-- Sign up wizard steps -->
-    <string name="signup_step1_subheading">Step 1 of 3 — Personal Information</string>
-    <string name="signup_step2_subheading">Step 2 of 3 — Account Information</string>
-    <string name="signup_step3_subheading">Step 3 of 3 — Identity Verification</string>
+    <string name="signup_step1_subheading">Step 1 of 4 — Personal Information</string>
+    <string name="signup_step2_subheading">Step 2 of 4 — Account Information</string>
+    <string name="signup_step3_subheading">Step 3 of 4 — Identity Verification</string>
+    <string name="signup_step4_subheading">Step 4 of 4 — Verify Your Email</string>
+
+    <string name="otp_heading">Check Your Email</string>
+    <string name="otp_subheading">We\'ve sent a 6-digit verification code to your email address. Enter it below to finish creating your account.</string>
+    <string name="label_otp_code">Verification Code</string>
+    <string name="hint_otp_code">Enter 6-digit code</string>
+    <string name="button_verify">VERIFY</string>
+    <string name="resend_code">Resend Code</string>
+    <string name="resend_code_sent">A new code has been sent to your email.</string>
+    <string name="error_otp_required">Please enter the 6-digit code.</string>
+    <string name="account_created_message">Account created successfully! You can now log in.</string>
 
     <string name="label_home_address">Home Address</string>
     <string name="label_province">Province</string>
