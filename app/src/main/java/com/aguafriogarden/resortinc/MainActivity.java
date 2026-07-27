@@ -4,12 +4,12 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.app.Activity;
-import android.app.DatePickerDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.util.Patterns;
 import android.view.LayoutInflater;
@@ -65,10 +65,14 @@ public class MainActivity extends Activity {
     private static final int SCREEN_SIGN_UP_2 = 3;
     private static final int SCREEN_SIGN_UP_3 = 4;
     private static final int SCREEN_SIGN_UP_OTP = 5;
+    private static final int SCREEN_RECOVERY_OTP = 6;
+    private static final int SCREEN_RECOVERY_RESET = 7;
+    private static final int SCREEN_RECOVERY_SUCCESS = 8;
 
     private static final String STATE_SCREEN = "screen";
 
     private static final long CARD_ANIM_DURATION_MS = 220L;
+    private static final long CLOCK_TICK_MS = 1000L;
     // Screens swap with a quiet fade plus a barely-there vertical drift.
     private static final float CONTENT_SHIFT_DP = 8f;
 
@@ -82,6 +86,8 @@ public class MainActivity extends Activity {
     private FrameLayout card;
     private Animator headerCrossfade;
     private View currentContent;
+    private Handler clockHandler;
+    private Runnable clockTick;
     private ValueAnimator cardHeightAnimator;
     private int currentScreen = -1;
     private boolean loginInProgress;
@@ -113,7 +119,13 @@ public class MainActivity extends Activity {
         String registrationToken = "";
     }
 
+    private static class RecoveryState {
+        String email = "";
+        String otp = "";
+    }
+
     private SignUpState signUpState = new SignUpState();
+    private RecoveryState recoveryState = new RecoveryState();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -148,6 +160,30 @@ public class MainActivity extends Activity {
         super.onStart();
         headerCrossfade = ThemeManager.startHeaderCrossfade(this,
                 findViewById(R.id.headerPhoto), findViewById(R.id.headerPhotoOverlay));
+
+        clockHandler = new Handler(android.os.Looper.getMainLooper());
+        clockTick = new Runnable() {
+            @Override
+            public void run() {
+                updateHeaderClock();
+                clockHandler.postDelayed(this, CLOCK_TICK_MS);
+            }
+        };
+        clockTick.run();
+    }
+
+    private void updateHeaderClock() {
+        Calendar now = Calendar.getInstance();
+        TextView dateView = findViewById(R.id.headerDate);
+        TextView timeView = findViewById(R.id.headerTime);
+        if (dateView != null) {
+            dateView.setText(new java.text.SimpleDateFormat(
+                    "EEEE • MMMM d", Locale.getDefault()).format(now.getTime()));
+        }
+        if (timeView != null) {
+            timeView.setText(new java.text.SimpleDateFormat(
+                    "h:mm a", Locale.getDefault()).format(now.getTime()));
+        }
     }
 
     @Override
@@ -155,6 +191,9 @@ public class MainActivity extends Activity {
         if (headerCrossfade != null) {
             headerCrossfade.cancel();
             headerCrossfade = null;
+        }
+        if (clockHandler != null && clockTick != null) {
+            clockHandler.removeCallbacks(clockTick);
         }
         super.onStop();
     }
@@ -179,6 +218,12 @@ public class MainActivity extends Activity {
                 break;
             case SCREEN_RECOVERY:
                 showScreen(SCREEN_LOGIN, true);
+                break;
+            case SCREEN_RECOVERY_OTP:
+                showScreen(SCREEN_RECOVERY, true);
+                break;
+            case SCREEN_RECOVERY_RESET:
+                showScreen(SCREEN_RECOVERY_OTP, true);
                 break;
             default:
                 super.onBackPressed();
@@ -279,6 +324,12 @@ public class MainActivity extends Activity {
                 return R.layout.card_sign_up_otp;
             case SCREEN_RECOVERY:
                 return R.layout.card_recovery;
+            case SCREEN_RECOVERY_OTP:
+                return R.layout.card_recovery_otp;
+            case SCREEN_RECOVERY_RESET:
+                return R.layout.card_recovery_reset;
+            case SCREEN_RECOVERY_SUCCESS:
+                return R.layout.card_recovery_success;
             default:
                 return R.layout.card_login;
         }
@@ -300,6 +351,15 @@ public class MainActivity extends Activity {
                 break;
             case SCREEN_RECOVERY:
                 bindRecoveryCard(card);
+                break;
+            case SCREEN_RECOVERY_OTP:
+                bindRecoveryOtpCard(card);
+                break;
+            case SCREEN_RECOVERY_RESET:
+                bindRecoveryResetCard(card);
+                break;
+            case SCREEN_RECOVERY_SUCCESS:
+                bindRecoverySuccessCard(card);
                 break;
             default:
                 bindLoginCard(card);
@@ -883,13 +943,21 @@ public class MainActivity extends Activity {
     }
 
     private void showDatePicker(EditText birthDateField) {
-        Calendar cal = Calendar.getInstance();
-        DatePickerDialog dialog = new DatePickerDialog(this, (view, year, month, day) -> {
-            String date = String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, day);
+        long current = -1;
+        try {
+            if (!birthDateField.getText().toString().isEmpty()) {
+                Calendar c = Calendar.getInstance();
+                String[] parts = birthDateField.getText().toString().split("-");
+                c.set(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1, Integer.parseInt(parts[2]));
+                current = c.getTimeInMillis();
+            }
+        } catch (Exception ignored) {}
+
+        GlassDatePicker.showBirthdatePicker(this, current, millis -> {
+            String date = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date(millis));
             birthDateField.setText(date);
             currentContent.findViewById(R.id.birthDateError).setVisibility(View.GONE);
-        }, cal.get(Calendar.YEAR) - 18, cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
-        dialog.show();
+        });
     }
 
     private void pickImage(int requestCode) {
@@ -952,12 +1020,97 @@ public class MainActivity extends Activity {
     }
 
     private void bindRecoveryCard(View card) {
+        EditText emailField = card.findViewById(R.id.emailField);
+        emailField.setText(recoveryState.email);
+
         card.findViewById(R.id.backToLogin).setOnClickListener(v ->
                 showScreen(SCREEN_LOGIN, true));
-        card.findViewById(R.id.sendOtpButton).setOnClickListener(this::onSendOtp);
+
+        card.findViewById(R.id.sendOtpButton).setOnClickListener(v -> {
+            String email = emailField.getText().toString().trim();
+            if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                Toast.makeText(this, R.string.error_email_invalid, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            recoveryState.email = email;
+            // Mock API call success
+            Toast.makeText(this, "OTP sent to " + email, Toast.LENGTH_SHORT).show();
+            showScreen(SCREEN_RECOVERY_OTP, true);
+        });
     }
 
-    private void onSendOtp(View v) {
-        // OTP delivery
+    private void bindRecoveryOtpCard(View card) {
+        EditText[] boxes = {
+                card.findViewById(R.id.otp1), card.findViewById(R.id.otp2),
+                card.findViewById(R.id.otp3), card.findViewById(R.id.otp4),
+                card.findViewById(R.id.otp5), card.findViewById(R.id.otp6)
+        };
+        TextView otpError = card.findViewById(R.id.otpError);
+
+        AuthUiUtils.setupOtpBoxes(boxes, () -> otpError.setVisibility(View.GONE));
+
+        card.findViewById(R.id.backToLogin).setOnClickListener(v ->
+                showScreen(SCREEN_LOGIN, true));
+
+        card.findViewById(R.id.verifyOtpButton).setOnClickListener(v -> {
+            StringBuilder sb = new StringBuilder();
+            for (EditText box : boxes) sb.append(box.getText().toString().trim());
+            String otp = sb.toString();
+
+            if (otp.length() != 6) {
+                otpError.setText(R.string.error_otp_required);
+                otpError.setVisibility(View.VISIBLE);
+                return;
+            }
+            recoveryState.otp = otp;
+            // Mock verification success
+            showScreen(SCREEN_RECOVERY_RESET, true);
+        });
+
+        card.findViewById(R.id.resendOtpButton).setOnClickListener(v ->
+                Toast.makeText(this, R.string.resend_code_sent, Toast.LENGTH_SHORT).show());
     }
+
+    private void bindRecoveryResetCard(View card) {
+        EditText newPass = card.findViewById(R.id.newPasswordField);
+        EditText confirmPass = card.findViewById(R.id.confirmPasswordField);
+        TextView error = card.findViewById(R.id.resetError);
+
+        AuthUiUtils.attachPasswordToggle(newPass, card.findViewById(R.id.newPasswordToggle));
+        AuthUiUtils.attachPasswordToggle(confirmPass, card.findViewById(R.id.confirmPasswordToggle));
+
+        card.findViewById(R.id.backToLogin).setOnClickListener(v ->
+                showScreen(SCREEN_LOGIN, true));
+
+        card.findViewById(R.id.resetPasswordButton).setOnClickListener(v -> {
+            String p1 = newPass.getText().toString();
+            String p2 = confirmPass.getText().toString();
+
+            if (p1.length() < 8) {
+                error.setText(R.string.error_password_too_short);
+                error.setVisibility(View.VISIBLE);
+                return;
+            }
+            if (!p1.equals(p2)) {
+                error.setText(R.string.error_passwords_dont_match);
+                error.setVisibility(View.VISIBLE);
+                return;
+            }
+
+            // Mock password reset success
+            showScreen(SCREEN_RECOVERY_SUCCESS, true);
+        });
+
+        AuthUiUtils.afterTextChanged(newPass, () -> error.setVisibility(View.GONE));
+        AuthUiUtils.afterTextChanged(confirmPass, () -> error.setVisibility(View.GONE));
+    }
+
+    private void bindRecoverySuccessCard(View card) {
+        new Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            if (currentScreen == SCREEN_RECOVERY_SUCCESS) {
+                showScreen(SCREEN_LOGIN, true);
+            }
+        }, 2000);
+    }
+
 }

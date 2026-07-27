@@ -3,18 +3,12 @@ package com.aguafriogarden.resortinc;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Locale;
 
 /**
  * Post-login home screen: a top bar (logo + paired notification/profile
@@ -29,41 +23,6 @@ public class DashboardActivity extends Activity {
     private static final long CONTENT_FADE_MS = 150L;
 
     private static final String STATE_MODULE = "module";
-
-    private static final long CLOCK_TICK_MS = 30_000L;
-
-    private static final long GREETING_FADE_MS = 400L;
-
-    /** Time-of-day bucket driving the greeting card's photo, icon and label. */
-    private enum GreetingPeriod {
-        MORNING(R.string.greeting_morning, R.drawable.bg_good_morning, R.drawable.ic_good_morning),
-        AFTERNOON(R.string.greeting_afternoon, R.drawable.bg_good_afternoon, R.drawable.ic_good_afternoon),
-        EVENING(R.string.greeting_evening, R.drawable.bg_good_evening, R.drawable.ic_good_evening),
-        NIGHT(R.string.greeting_night, R.drawable.bg_good_night, R.drawable.ic_good_night);
-
-        final int greetingRes;
-        final int backgroundRes;
-        final int iconRes;
-
-        GreetingPeriod(int greetingRes, int backgroundRes, int iconRes) {
-            this.greetingRes = greetingRes;
-            this.backgroundRes = backgroundRes;
-            this.iconRes = iconRes;
-        }
-
-        /** 5-11:59 morning, 12-16:59 afternoon, 17-18:59 evening, else night. */
-        static GreetingPeriod forHour(int hour) {
-            if (hour >= 5 && hour < 12) {
-                return MORNING;
-            } else if (hour < 17) {
-                return AFTERNOON;
-            } else if (hour < 19) {
-                return EVENING;
-            } else {
-                return NIGHT;
-            }
-        }
-    }
 
     // Order matches the modules array: the first NAV_COUNT entries are the
     // bottom-nav tabs; Profile and Notifications are reached from the Home
@@ -94,11 +53,11 @@ public class DashboardActivity extends Activity {
 
     private final Module[] modules = {
             new Module(R.string.nav_home, R.string.module_dashboard_title,
-                    R.string.module_dashboard_desc, R.drawable.ic_dashboard),
+                    R.string.module_dashboard_desc, R.drawable.ic_home),
             new Module(R.string.nav_reservation, R.string.module_reservation_title,
                     R.string.module_reservation_desc, R.drawable.ic_reservation),
             new Module(R.string.nav_booking, R.string.module_booking_title,
-                    R.string.module_booking_desc, R.drawable.ic_booking),
+                    R.string.module_booking_desc, R.drawable.ic_calendar),
             new Module(R.string.nav_chat, R.string.module_chat_title,
                     R.string.module_chat_desc, R.drawable.ic_chat),
             new Module(R.string.nav_feedback, R.string.module_feedback_title,
@@ -114,6 +73,7 @@ public class DashboardActivity extends Activity {
     private View topBarRow;
     private LinearLayout bottomNav;
     private FrameLayout moduleContainer;
+    private DashboardHomeController dashboardHome;
     private BookingWizardController bookingWizard;
     private BookingCatalogController bookingCatalog;
     private ProfileController profileController;
@@ -130,8 +90,10 @@ public class DashboardActivity extends Activity {
         topBarRow = findViewById(R.id.topBarRow);
         bottomNav = findViewById(R.id.bottomNav);
         moduleContainer = findViewById(R.id.moduleContainer);
+        dashboardHome = new DashboardHomeController(this);
         bookingWizard = new BookingWizardController(this);
-        bookingCatalog = new BookingCatalogController(this, () -> showModule(MODULE_RESERVATION, true));
+        bookingCatalog = new BookingCatalogController(this,
+                () -> showModule(MODULE_RESERVATION, true), () -> showModule(MODULE_DASHBOARD, true));
         profileController = new ProfileController(this,
                 () -> showModule(MODULE_DASHBOARD, true), this::logout);
         feedbackController = new FeedbackController(this);
@@ -154,6 +116,9 @@ public class DashboardActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (currentModule == MODULE_DASHBOARD && dashboardHome.handleBackPressed()) {
+            return;
+        }
         if (currentModule == MODULE_ME && profileController.handleBackPressed()) {
             return;
         }
@@ -170,6 +135,7 @@ public class DashboardActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         profileController.onActivityResult(requestCode, resultCode, data);
+        bookingCatalog.onActivityResult(requestCode, resultCode, data);
     }
 
     private void buildBottomNav() {
@@ -209,7 +175,7 @@ public class DashboardActivity extends Activity {
 
         View content;
         if (index == MODULE_DASHBOARD) {
-            content = buildDashboardHome();
+            content = dashboardHome.getRootView();
         } else if (index == MODULE_RESERVATION) {
             content = bookingWizard.getRootView();
         } else if (index == MODULE_BOOKING) {
@@ -245,103 +211,6 @@ public class DashboardActivity extends Activity {
     /** Shows the shared top bar only on Home; the bottom nav stays visible everywhere. */
     private void updateChromeVisibility() {
         topBarRow.setVisibility(currentModule == MODULE_DASHBOARD ? View.VISIBLE : View.GONE);
-    }
-
-    /**
-     * Dashboard tab: greeting card (name, date, live clock) plus empty-state
-     * booking progress and recent transaction cards. The clock ticks every
-     * {@link #CLOCK_TICK_MS} while this view is attached.
-     */
-    private View buildDashboardHome() {
-        View home = LayoutInflater.from(this)
-                .inflate(R.layout.view_dashboard_home, moduleContainer, false);
-
-        Handler handler = new Handler(Looper.getMainLooper());
-        Runnable tick = new Runnable() {
-            @Override
-            public void run() {
-                updateGreeting(home);
-                handler.postDelayed(this, CLOCK_TICK_MS);
-            }
-        };
-        home.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
-            @Override
-            public void onViewAttachedToWindow(View v) {
-                tick.run();
-            }
-
-            @Override
-            public void onViewDetachedFromWindow(View v) {
-                handler.removeCallbacks(tick);
-            }
-        });
-        return home;
-    }
-
-    private void updateGreeting(View home) {
-        Calendar now = Calendar.getInstance();
-        GreetingPeriod period = GreetingPeriod.forHour(now.get(Calendar.HOUR_OF_DAY));
-        // The view's tag holds the period it's currently showing; null right
-        // after inflation, which tells applyGreetingPeriod to apply the first
-        // photo/icon/label immediately instead of crossfading from nothing.
-        GreetingPeriod previous = (GreetingPeriod) home.getTag();
-        if (period != previous) {
-            home.setTag(period);
-            applyGreetingPeriod(home, period, previous != null);
-        }
-
-        ((TextView) home.findViewById(R.id.greetingName))
-                .setText(ProfileStore.getDisplayFirstName(this));
-        ((TextView) home.findViewById(R.id.greetingDate)).setText(
-                new SimpleDateFormat("EEEE • MMMM d", Locale.getDefault()).format(now.getTime()));
-        ((TextView) home.findViewById(R.id.greetingTime)).setText(
-                new SimpleDateFormat("h:mm a", Locale.getDefault()).format(now.getTime()));
-    }
-
-    /**
-     * Crossfades the greeting card's background photo, icon and label into
-     * the new time-of-day period. The back ImageView is primed with the
-     * incoming photo while the front one (currently showing it on top) fades
-     * out to reveal it, then swaps to the new resource so it's ready to be
-     * the fade target next time.
-     */
-    private void applyGreetingPeriod(View home, GreetingPeriod period, boolean animate) {
-        ImageView back = home.findViewById(R.id.greetingBackgroundBack);
-        ImageView front = home.findViewById(R.id.greetingBackground);
-        ImageView icon = home.findViewById(R.id.greetingIcon);
-        TextView label = home.findViewById(R.id.greetingLabel);
-
-        if (!animate) {
-            front.setImageResource(period.backgroundRes);
-            front.setAlpha(1f);
-            icon.setImageResource(period.iconRes);
-            icon.setAlpha(1f);
-            label.setText(period.greetingRes);
-            label.setAlpha(1f);
-            return;
-        }
-
-        back.setImageResource(period.backgroundRes);
-        front.animate().cancel();
-        front.animate().alpha(0f).setDuration(GREETING_FADE_MS)
-                .withEndAction(() -> {
-                    front.setImageResource(period.backgroundRes);
-                    front.setAlpha(1f);
-                }).start();
-
-        icon.animate().cancel();
-        icon.animate().alpha(0f).setDuration(GREETING_FADE_MS / 2)
-                .withEndAction(() -> {
-                    icon.setImageResource(period.iconRes);
-                    icon.animate().alpha(1f).setDuration(GREETING_FADE_MS / 2).start();
-                }).start();
-
-        label.animate().cancel();
-        label.animate().alpha(0f).setDuration(GREETING_FADE_MS / 2)
-                .withEndAction(() -> {
-                    label.setText(period.greetingRes);
-                    label.animate().alpha(1f).setDuration(GREETING_FADE_MS / 2).start();
-                }).start();
     }
 
     private void logout() {

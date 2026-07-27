@@ -1,7 +1,6 @@
 package com.aguafriogarden.resortinc;
 
 import android.app.Activity;
-import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -621,24 +620,24 @@ final class ProfileController {
     }
 
     private void showPastDatePicker(String initialDate, DateCallback callback) {
-        Calendar cal = Calendar.getInstance();
-        if (!initialDate.isEmpty()) {
-            String[] parts = initialDate.split("-");
-            cal.set(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1, Integer.parseInt(parts[2]));
-        }
-        DatePickerDialog dialog = new DatePickerDialog(activity, (view, year, month, day) ->
-                callback.onDatePicked(String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, day)),
-                cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
-        dialog.getDatePicker().setMaxDate(System.currentTimeMillis());
-        dialog.show();
+        long current = -1;
+        try {
+            if (!initialDate.isEmpty()) {
+                Calendar c = Calendar.getInstance();
+                String[] parts = initialDate.split("-");
+                c.set(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1, Integer.parseInt(parts[2]));
+                current = c.getTimeInMillis();
+            }
+        } catch (Exception ignored) {}
+
+        GlassDatePicker.showBirthdatePicker(activity, current, millis -> {
+            callback.onDatePicked(new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date(millis)));
+        });
     }
 
     private void showFutureDatePicker(DateCallback callback) {
-        Calendar cal = Calendar.getInstance();
-        DatePickerDialog dialog = new DatePickerDialog(activity, (view, year, month, day) ->
-                callback.onDatePicked(String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, day)),
-                cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
-        dialog.getDatePicker().setMinDate(System.currentTimeMillis() - 1000L);
-        dialog.show();
+        GlassDatePicker.showCalendarPicker(activity, -1, System.currentTimeMillis() - 1000L, millis -> {
+            callback.onDatePicked(new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date(millis)));
+        });
     }
 }

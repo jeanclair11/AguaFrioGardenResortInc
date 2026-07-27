@@ -43,6 +43,8 @@
         <item name="textOnScreenMuted">@color/light_on_screen_muted</item>
         <item name="errorText">@color/light_error</item>
         <item name="dividerColor">@color/light_divider</item>
+        <item name="glassSurface">#CCFCF8EF</item>
+        <item name="glassBorder">#4D382F22</item>
         <item name="rippleAccent">@color/light_ripple_accent</item>
     </style>
 
@@ -81,6 +83,8 @@
         <item name="textOnScreenMuted">@color/dark_on_screen_muted</item>
         <item name="errorText">@color/dark_error</item>
         <item name="dividerColor">@color/dark_divider</item>
+        <item name="glassSurface">#B3182640</item>
+        <item name="glassBorder">#4DFFFFFF</item>
         <item name="rippleAccent">@color/dark_ripple_accent</item>
     </style>
 </resources>

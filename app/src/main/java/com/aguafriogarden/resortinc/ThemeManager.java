@@ -10,6 +10,8 @@ import android.graphics.Canvas;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.PathInterpolator;
 import android.widget.ImageView;
@@ -140,5 +142,24 @@ final class ThemeManager {
 
     private static SharedPreferences prefs(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    /**
+     * Applies a glassmorphism background blur and dim effect to the given window.
+     * Works on Android 12 (API 31) and above.
+     */
+    static void applyGlassEffect(Window window) {
+        if (window == null) return;
+        
+        // Dim background
+        window.setDimAmount(0.5f);
+
+        // Blur background (API 31+)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND);
+            WindowManager.LayoutParams lp = window.getAttributes();
+            lp.setBlurBehindRadius(60);
+            window.setAttributes(lp);
+        }
     }
 }

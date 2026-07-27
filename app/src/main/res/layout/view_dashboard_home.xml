@@ -138,8 +138,13 @@
             </LinearLayout>
         </FrameLayout>
 
-        <!-- Booking progress card -->
+        <!-- Booking progress section: an empty-state card (unchanged) when the
+             guest has no active bookings, or a title row + horizontally
+             scrolling row of compact cards (one per active booking, see
+             view_home_booking_card.xml) when they do. Only one of the two
+             is visible at a time; DashboardHomeController toggles them. -->
         <LinearLayout
+            android:id="@+id/bookingProgressEmptyCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
@@ -179,6 +184,55 @@
                     android:textSize="13sp"
                     android:lineSpacingExtra="2dp" />
             </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/bookingProgressSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/booking_progress_title"
+                    android:textColor="?attr/textOnScreen"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/bookingProgressRefreshButton"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:padding="7dp"
+                    android:src="@drawable/ic_refresh"
+                    android:tint="?attr/iconMuted"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/button_refresh_description" />
+            </LinearLayout>
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:clipToPadding="false"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/bookingProgressCardContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal" />
+            </HorizontalScrollView>
         </LinearLayout>
 
         <!-- Recent transaction card -->

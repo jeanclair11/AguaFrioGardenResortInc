@@ -134,7 +134,15 @@
     <string name="recovery_subheading">Recover secure access to your Agua Frio Portal.</string>
     <string name="label_registered_email">Registered Email</string>
     <string name="hint_registered_email">nardie@email.com</string>
-    <string name="send_otp">Send OTP Code</string>
+    <string name="send_otp">SEND OTP</string>
+    <string name="verify_otp">VERIFY OTP</string>
+    <string name="reset_password_caps">RESET PASSWORD</string>
+    <string name="recovery_otp_subheading">Enter 6 digit code sent to your email.</string>
+    <string name="didnt_receive_code">Didn\'t receive a code? Resend</string>
+    <string name="recovery_reset_subheading">Create a new secure password</string>
+    <string name="recovery_success_heading">PASSWORD UPDATED</string>
+    <string name="recovery_success_subheading">Your password has been updated successfully.</string>
+    <string name="back_to_login_caps">BACK TO LOG IN</string>
     <string name="back_to_login">Back to Login</string>
 
     <string name="toggle_theme">Switch between light and dark mode</string>
@@ -250,6 +258,34 @@
     <string name="dashboard_welcome_message">Welcome back to Agua Frio Garden Resort</string>
     <string name="booking_progress_title">Booking Progress</string>
     <string name="booking_progress_empty">You have no active reservation yet. Reserve a stay to track its progress here.</string>
+    <string name="button_refresh_description">Refresh booking progress</string>
+
+    <string name="service_type_hotel">Hotel Room</string>
+    <string name="service_type_ktv">KTV Room</string>
+    <string name="service_type_cottage">Pool &amp; Cottage</string>
+    <string name="service_type_hall">Function Hall</string>
+
+    <string name="step_pending_approval">Pending Approval</string>
+    <string name="step_confirmed">Confirmed</string>
+    <string name="step_waiting_checkin">Waiting for Check-in</string>
+    <string name="step_waiting_schedule">Waiting for Schedule</string>
+    <string name="step_ongoing_stay">Ongoing Stay</string>
+    <string name="step_ongoing">Ongoing</string>
+    <string name="step_completed">Completed</string>
+    <string name="status_cancelled">Cancelled</string>
+
+    <string name="booking_details_title">Booking Details</string>
+    <string name="section_booking_reference">BOOKING REFERENCE</string>
+    <string name="section_booking_status">BOOKING STATUS</string>
+    <string name="section_selected_services">SELECTED SERVICES</string>
+    <string name="section_charges">CHARGES</string>
+    <string name="section_payment_information">PAYMENT INFORMATION</string>
+    <string name="label_subtotal">Subtotal</string>
+    <string name="label_amount_paid_details">Amount Paid</string>
+    <string name="label_remaining_balance_details">Remaining Balance</string>
+    <string name="label_payment_status">Payment Status</string>
+    <string name="label_total_guests_format">%1$d Guests</string>
+
     <string name="recent_transaction_title">Recent Transaction</string>
     <string name="recent_transaction_empty">No recent transactions yet.</string>
 
@@ -297,6 +333,8 @@
     <string name="feedback_admin_label">Resort Administrator</string>
     <string name="feedback_response_date_format">Responded on %1$s</string>
     <string name="button_ok">OK</string>
+    <string name="button_cancel_caps">CANCEL</string>
+    <string name="button_ok_caps">OK</string>
 
     <!-- Chat -->
     <string name="chat_header_title">Customer Support</string>
@@ -426,4 +464,112 @@
     <string name="button_submit_verification">Submit for Verification</string>
     <string name="id_submitted_message">Your ID was submitted for verification.</string>
     <string name="error_id_number_required">Please enter the ID number.</string>
+
+    <!-- Hotel Room booking flow (Book tab -> Hotel Rooms) -->
+    <string name="hotel_dates_title">Choose Your Stay Dates</string>
+    <string name="hotel_dates_subtitle">To help us find the best available accommodation for your preferred schedule, please select your check-in and check-out dates before exploring our rooms.</string>
+    <string name="button_next">Next</string>
+    <string name="button_skip">Skip</string>
+
+    <string name="hotel_rooms_title">Hotel Rooms</string>
+    <string name="hotel_rooms_subtitle">Available rooms for your selected stay</string>
+    <string name="label_quantity">Quantity</string>
+    <string name="dialog_no_room_title">No Room Selected</string>
+    <string name="dialog_no_room_message">Please select at least one room before continuing.</string>
+    <string name="no_rooms_available_message">No rooms are available for your selected dates and number of guests. Please try different dates.</string>
+    <string name="format_capacity">Up to %1$d Guests</string>
+    <string name="button_checking_availability">Checking Availability…</string>
+    <string name="toast_session_expired">Your session has expired. Please log in again.</string>
+    <string name="toast_availability_check_failed">We couldn\'t check room availability right now. Please try again.</string>
+    <string name="toast_network_error">Couldn\'t reach the server. Check your internet connection and try again.</string>
+
+    <string name="hotel_review_title">Review Your Selection</string>
+    <string name="hotel_review_subtitle">Here\'s what you\'ve picked for your stay.</string>
+    <string name="section_stay_details">STAY DETAILS</string>
+    <string name="section_selected_rooms">SELECTED ROOMS</string>
+    <string name="section_special_request">SPECIAL REQUEST</string>
+    <string name="hint_special_request_flow">Tell us if you have any special requests…</string>
+    <string name="helper_special_request_flow">Special requests are subject to availability and are not guaranteed.</string>
+    <string name="label_stay_check_in">Check-in</string>
+    <string name="label_stay_check_out">Check-out</string>
+    <string name="label_stay_guests">Guests</string>
+    <string name="label_stay_nights">Nights</string>
+    <string name="format_price_per_night">PHP %1$s / night</string>
+    <string name="format_subtotal">Subtotal: PHP %1$s</string>
+    <string name="format_quantity">Quantity: %1$d</string>
+
+    <string name="hotel_amenity_title">Choose Amenity</string>
+    <string name="hotel_amenity_subtitle">Add amenities to your stay. You can skip this if you don\'t need any.</string>
+    <string name="dialog_no_amenity_title">No Amenities Selected</string>
+    <string name="dialog_no_amenity_message">You haven\'t selected any amenities. Please select an amenity or tap Skip to continue without one.</string>
+    <string name="button_loading">Loading…</string>
+    <string name="toast_amenities_load_failed">We couldn\'t load amenities right now. Please try again.</string>
+
+    <string name="hotel_food_title">Order Food</string>
+    <string name="hotel_food_subtitle">Pre-order food for your stay. You can skip this step if you don\'t need any.</string>
+    <string name="dialog_no_food_title">No Food Selected</string>
+    <string name="dialog_no_food_message">You haven\'t added any food to your order. Add an item or tap Skip to continue without ordering food.</string>
+    <string name="toast_food_load_failed">We couldn\'t load the food menu right now. Please try again.</string>
+
+    <string name="hotel_billing_title">Billing Summary</string>
+    <string name="hotel_billing_subtitle">Please review your details before proceeding.</string>
+    <string name="section_guest_information">GUEST INFORMATION</string>
+    <string name="section_accommodation">ACCOMMODATION</string>
+    <string name="section_amenities">AMENITIES</string>
+    <string name="section_food_orders">FOOD ORDERS</string>
+    <string name="section_payment_summary">PAYMENT SUMMARY</string>
+    <string name="section_payment_option">PAYMENT OPTION</string>
+    <string name="label_full_name">Full Name</string>
+    <string name="label_email_address">Email Address</string>
+    <string name="label_mobile_number">Mobile Number</string>
+    <string name="label_address">Address</string>
+    <string name="label_number_of_nights">Number of Nights</string>
+    <string name="label_billing_adults">Adults</string>
+    <string name="label_billing_children">Children</string>
+    <string name="label_total_guests">Total Guests</string>
+    <string name="label_room_charges">Room Charges</string>
+    <string name="label_amenities_total">Amenities</string>
+    <string name="label_food_total">Food Orders</string>
+    <string name="label_grand_total">Grand Total</string>
+    <string name="payment_option_full_title">FULL PAYMENT</string>
+    <string name="payment_option_full_desc">Pay the total amount today.</string>
+    <string name="payment_option_partial_title">PARTIAL PAYMENT</string>
+    <string name="payment_option_partial_desc">Pay the required 30% downpayment.</string>
+    <string name="label_remaining_balance">Remaining Balance</string>
+    <string name="checkbox_agree_terms">I agree to the Resort\'s Terms and Conditions.</string>
+    <string name="checkbox_agree_cancellation">I understand the Cancellation Policy.</string>
+    <string name="button_proceed_to_payment">Proceed to Payment →</string>
+    <string name="toast_select_payment_option">Please select a payment option.</string>
+    <string name="toast_agree_terms_required">Please agree to both the Terms and Conditions and the Cancellation Policy.</string>
+    <string name="format_currency">PHP %1$s</string>
+
+    <string name="hotel_payment_title">Payment</string>
+    <string name="hotel_payment_subtitle">Complete your payment to finish your booking.</string>
+    <string name="section_amount_due">AMOUNT DUE</string>
+    <string name="section_scan_to_pay">SCAN TO PAY VIA GCASH</string>
+    <string name="gcash_placeholder_name">Agua Frio Garden Resort Inc.</string>
+    <string name="gcash_placeholder_number">0912 345 6789</string>
+    <string name="gcash_qr_hint">Please scan the QR code above or send the amount due to our GCash account, then submit your payment details below.</string>
+    <string name="section_submit_payment_details">SUBMIT PAYMENT DETAILS</string>
+    <string name="label_amount_paid">Amount Paid</string>
+    <string name="hint_amount_paid">Enter amount paid</string>
+    <string name="label_reference_number">Reference Number</string>
+    <string name="hint_reference_number">Enter GCash reference number</string>
+    <string name="section_payment_screenshot">PAYMENT SCREENSHOT</string>
+    <string name="upload_payment_screenshot">Upload Payment Screenshot</string>
+    <string name="helper_payment_screenshot">Required — a screenshot of your GCash payment confirmation.</string>
+    <string name="button_complete_booking">Complete Booking</string>
+    <string name="toast_amount_paid_required">Please enter the amount you paid.</string>
+    <string name="toast_reference_number_required">Please enter the GCash reference number.</string>
+    <string name="toast_screenshot_required">Please upload a screenshot of your payment.</string>
+
+    <string name="hotel_success_label">BOOKING SUBMITTED</string>
+    <string name="hotel_success_title">Thank You for Choosing Agua Frio Garden Resort!</string>
+    <string name="hotel_success_message">Your reservation has been submitted successfully. Your payment is currently pending verification.</string>
+    <string name="label_booking_reference">Booking Reference</string>
+    <string name="format_booking_reference">AFR-%1$s-001</string>
+    <string name="button_view_booking">View Booking</string>
+    <string name="button_back_to_home">Back to Home</string>
+    <string name="toast_view_booking_placeholder">Your booking history isn\'t available yet — check back soon!</string>
+
 </resources>

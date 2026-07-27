@@ -232,6 +232,7 @@ final class FeedbackController {
                 .create();
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            ThemeManager.applyGlassEffect(dialog.getWindow());
         }
         dialogView.findViewById(R.id.feedbackSuccessOkButton).setOnClickListener(view -> {
             dialog.dismiss();

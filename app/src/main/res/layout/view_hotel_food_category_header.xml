@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One "BREAKFAST" / "MEALS" / etc. section label above a group of food
+     items on the Order Food screen; also reused above room variants grouped
+     by category on the Hotel Rooms screen. -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/foodCategoryLabel"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="6dp"
+    android:layout_marginBottom="10dp"
+    android:letterSpacing="0.04"
+    android:textAllCaps="true"
+    android:textColor="?attr/textOnScreen"
+    android:textSize="13sp"
+    android:textStyle="bold" />

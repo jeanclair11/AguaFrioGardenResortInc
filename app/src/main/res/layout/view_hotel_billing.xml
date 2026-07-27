@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hotel booking flow, screen 6: guest info, stay/accommodation recap,
+     totals and payment option. See HotelBookingFlowController#bindBilling. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingTop="16dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="20dp">
+
+            <include
+                android:id="@+id/hotelBillingHeaderBar"
+                layout="@layout/view_screen_header" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="18dp"
+                android:text="@string/hotel_billing_subtitle"
+                android:textColor="?attr/textOnScreenMuted"
+                android:textSize="13sp" />
+
+            <!-- Guest Information -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp">
+
+                <TextView
+                    style="@style/BillingSectionLabel"
+                    android:text="@string/section_guest_information" />
+
+                <include android:id="@+id/billingRowFullName" layout="@layout/view_hotel_label_value_row" />
+                <include android:id="@+id/billingRowEmail" layout="@layout/view_hotel_label_value_row" />
+                <include android:id="@+id/billingRowMobile" layout="@layout/view_hotel_label_value_row" />
+                <include android:id="@+id/billingRowAddress" layout="@layout/view_hotel_label_value_row" />
+            </LinearLayout>
+
+            <!-- Stay Details -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp">
+
+                <TextView
+                    style="@style/BillingSectionLabel"
+                    android:text="@string/section_stay_details" />
+
+                <include android:id="@+id/billingRowCheckIn" layout="@layout/view_hotel_label_value_row" />
+                <include android:id="@+id/billingRowCheckOut" layout="@layout/view_hotel_label_value_row" />
+                <include android:id="@+id/billingRowNights" layout="@layout/view_hotel_label_value_row" />
+                <include android:id="@+id/billingRowAdults" layout="@layout/view_hotel_label_value_row" />
+                <include android:id="@+id/billingRowChildren" layout="@layout/view_hotel_label_value_row" />
+                <include android:id="@+id/billingRowTotalGuests" layout="@layout/view_hotel_label_value_row" />
+            </LinearLayout>
+
+            <!-- Accommodation -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp">
+
+                <TextView
+                    style="@style/BillingSectionLabel"
+                    android:text="@string/section_accommodation" />
+
+                <LinearLayout
+                    android:id="@+id/billingAccommodationContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
+
+            <!-- Amenities (only shown when at least one is selected) -->
+            <LinearLayout
+                android:id="@+id/billingAmenitiesCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    style="@style/BillingSectionLabel"
+                    android:text="@string/section_amenities" />
+
+                <LinearLayout
+                    android:id="@+id/billingAmenitiesContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
+
+            <!-- Food Orders (only shown when at least one is selected) -->
+            <LinearLayout
+                android:id="@+id/billingFoodCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    style="@style/BillingSectionLabel"
+                    android:text="@string/section_food_orders" />
+
+                <LinearLayout
+                    android:id="@+id/billingFoodContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
+
+            <!-- Payment Summary -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp">
+
+                <TextView
+                    style="@style/BillingSectionLabel"
+                    android:text="@string/section_payment_summary" />
+
+                <include android:id="@+id/billingRowRoomCharges" layout="@layout/view_hotel_billing_line_row" />
+                <include android:id="@+id/billingRowAmenitiesTotal" layout="@layout/view_hotel_billing_line_row" />
+                <include android:id="@+id/billingRowFoodTotal" layout="@layout/view_hotel_billing_line_row" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="12dp"
+                    android:background="?attr/dividerColor" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/label_grand_total"
+                        android:textColor="?attr/textPrimary"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/billingGrandTotal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="?attr/accentPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Payment Option -->
+            <TextView
+                style="@style/FieldLabelOnScreen"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="10dp"
+                android:letterSpacing="0.04"
+                android:textAllCaps="true"
+                android:textColor="?attr/textOnScreen"
+                android:text="@string/section_payment_option" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/paymentOptionFullCard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_selectable_card"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:letterSpacing="0.03"
+                        android:text="@string/payment_option_full_title"
+                        android:textColor="?attr/accentPrimary"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/payment_option_full_desc"
+                        android:textColor="?attr/textMuted"
+                        android:textSize="11sp" />
+
+                    <TextView
+                        android:id="@+id/paymentOptionFullPrice"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:textColor="?attr/textPrimary"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/paymentOptionPartialCard"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_selectable_card"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:letterSpacing="0.03"
+                        android:text="@string/payment_option_partial_title"
+                        android:textColor="?attr/accentPrimary"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/payment_option_partial_desc"
+                        android:textColor="?attr/textMuted"
+                        android:textSize="11sp" />
+
+                    <TextView
+                        android:id="@+id/paymentOptionPartialPrice"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:textColor="?attr/textPrimary"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/paymentOptionPartialRemaining"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textColor="?attr/textMuted"
+                        android:textSize="11sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:gravity="top"
+                android:orientation="horizontal">
+
+                <CheckBox
+                    android:id="@+id/checkboxTerms"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:padding="0dp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/checkbox_agree_terms"
+                    android:textColor="?attr/textOnScreenMuted"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="top"
+                android:orientation="horizontal">
+
+                <CheckBox
+                    android:id="@+id/checkboxCancellation"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:padding="0dp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/checkbox_agree_cancellation"
+                    android:textColor="?attr/textOnScreenMuted"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="16dp">
+
+        <Button
+            android:id="@+id/hotelBillingProceedButton"
+            style="@style/PrimaryButton"
+            android:text="@string/button_proceed_to_payment" />
+    </LinearLayout>
+
+</LinearLayout>

@@ -2,6 +2,7 @@ package com.aguafriogarden.resortinc;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,26 +18,33 @@ import android.widget.TextView;
  * screen. All content comes from {@link BookingCatalogStore}'s placeholder
  * data (shaped for a future Laravel REST swap). Book Now on the detail
  * screen hands off to the existing Reserve tab booking wizard (see the
- * onBookNow callback) rather than duplicating that flow here.
+ * onBookNow callback) rather than duplicating that flow here. Hotel Rooms is
+ * the exception: tapping that category card skips straight into the
+ * {@link HotelBookingFlowController} wizard (stay dates -> ... -> success)
+ * instead of the browse/detail screens.
  */
 final class BookingCatalogController {
 
     private static final int SCREEN_CATALOG = 0;
     private static final int SCREEN_BROWSE = 1;
     private static final int SCREEN_DETAIL = 2;
+    private static final int SCREEN_HOTEL_FLOW = 3;
 
     private final Activity activity;
     private final Runnable onBookNow;
+    private final Runnable onBackToHome;
     private final FrameLayout root;
 
     private int currentScreen = -1;
     private int browseCategoryId = -1;
     private String browseSearchQuery = "";
     private String browseFilterTag; // null means "All"
+    private HotelBookingFlowController hotelBookingFlow;
 
-    BookingCatalogController(Activity activity, Runnable onBookNow) {
+    BookingCatalogController(Activity activity, Runnable onBookNow, Runnable onBackToHome) {
         this.activity = activity;
         this.onBookNow = onBookNow;
+        this.onBackToHome = onBackToHome;
         root = new FrameLayout(activity);
         showCatalog();
     }
@@ -47,6 +55,9 @@ final class BookingCatalogController {
 
     /** Steps back Detail -> Browse -> Catalog; returns false once already on the catalog. */
     boolean handleBackPressed() {
+        if (currentScreen == SCREEN_HOTEL_FLOW) {
+            return hotelBookingFlow.handleBackPressed();
+        }
         if (currentScreen == SCREEN_DETAIL) {
             showBrowse(browseCategoryId);
             return true;
@@ -56,6 +67,13 @@ final class BookingCatalogController {
             return true;
         }
         return false;
+    }
+
+    /** Forwards the payment-screenshot picker result to the hotel booking flow, if active. */
+    void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (hotelBookingFlow != null) {
+            hotelBookingFlow.onActivityResult(requestCode, resultCode, data);
+        }
     }
 
     // ---- Catalog screen: the four service categories, minimal cards -----
@@ -70,13 +88,28 @@ final class BookingCatalogController {
             View card = inflater.inflate(R.layout.view_booking_category_card, container, false);
             ((TextView) card.findViewById(R.id.categoryName)).setText(category.nameRes);
 
-            card.setOnClickListener(view -> showBrowse(category.id));
+            if (category.id == BookingCatalogStore.CATEGORY_HOTEL) {
+                card.setOnClickListener(view -> showHotelFlow());
+            } else {
+                card.setOnClickListener(view -> showBrowse(category.id));
+            }
 
             container.addView(card);
         }
 
         root.removeAllViews();
         root.addView(v);
+    }
+
+    // ---- Hotel Rooms booking flow: stay dates -> ... -> success ---------
+
+    private void showHotelFlow() {
+        currentScreen = SCREEN_HOTEL_FLOW;
+        if (hotelBookingFlow == null) {
+            hotelBookingFlow = new HotelBookingFlowController(activity, this::showCatalog, onBackToHome);
+        }
+        root.removeAllViews();
+        root.addView(hotelBookingFlow.getRootView());
     }
 
     // ---- Browse screen: catalog of items within one category ------------
@@ -159,15 +192,17 @@ final class BookingCatalogController {
             }
         }
 
-        new AlertDialog.Builder(activity)
+        AlertDialog dialog = new AlertDialog.Builder(activity)
                 .setTitle(R.string.filter_dialog_title)
-                .setSingleChoiceItems(options, checked, (dialog, which) -> {
+                .setSingleChoiceItems(options, checked, (d, which) -> {
                     browseFilterTag = which == 0 ? null : options[which];
-                    dialog.dismiss();
+                    d.dismiss();
                     updateFilterButtonLabel(screen);
                     renderBrowseList(screen, categoryId);
                 })
-                .show();
+                .create();
+        ThemeManager.applyGlassEffect(dialog.getWindow());
+        dialog.show();
     }
 
     private void updateFilterButtonLabel(View screen) {

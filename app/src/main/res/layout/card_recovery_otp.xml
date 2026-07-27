@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingTop="32dp"
+    android:paddingEnd="24dp"
+    android:paddingBottom="32dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="serif"
+        android:text="@string/recovery_heading"
+        android:textColor="?attr/textPrimary"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/recovery_otp_subheading"
+        android:textColor="?attr/textMuted"
+        android:textSize="13sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <EditText android:id="@+id/otp1" style="@style/OtpBox" android:importantForAutofill="no" />
+        <EditText android:id="@+id/otp2" style="@style/OtpBox" android:importantForAutofill="no" />
+        <EditText android:id="@+id/otp3" style="@style/OtpBox" android:importantForAutofill="no" />
+        <EditText android:id="@+id/otp4" style="@style/OtpBox" android:importantForAutofill="no" />
+        <EditText android:id="@+id/otp5" style="@style/OtpBox" android:importantForAutofill="no" />
+        <EditText android:id="@+id/otp6" style="@style/OtpBox" android:importantForAutofill="no" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/otpError"
+        style="@style/FieldError" />
+
+    <Button
+        android:id="@+id/verifyOtpButton"
+        style="@style/PrimaryButton"
+        android:layout_marginTop="22dp"
+        android:text="@string/verify_otp" />
+
+    <TextView
+        android:id="@+id/resendOtpButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="18dp"
+        android:background="?android:attr/selectableItemBackground"
+        android:padding="6dp"
+        android:text="@string/didnt_receive_code"
+        android:textColor="?attr/accentPrimary"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/backToLogin"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:background="?android:attr/selectableItemBackground"
+        android:padding="6dp"
+        android:text="@string/back_to_login_caps"
+        android:textColor="?attr/accentPrimary"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+</LinearLayout>

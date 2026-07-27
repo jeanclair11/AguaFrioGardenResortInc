@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="40dp">
+
+    <!-- Background for range selection (between start and end) -->
+    <View
+        android:id="@+id/dayRangeBg"
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:layout_gravity="center"
+        android:background="#33FF8A50"
+        android:visibility="gone" />
+
+    <!-- Circle background for selected start/end or single date -->
+    <View
+        android:id="@+id/daySelectedBg"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_progress_dot_filled"
+        android:backgroundTint="?attr/accentPrimary"
+        android:visibility="gone" />
+
+    <!-- Indicator for today -->
+    <View
+        android:id="@+id/dayTodayIndicator"
+        android:layout_width="4dp"
+        android:layout_height="4dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="4dp"
+        android:background="@drawable/bg_progress_dot_filled"
+        android:backgroundTint="?attr/accentPrimary"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/dayText"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:textColor="?attr/textPrimary"
+        android:textSize="14sp" />
+
+</FrameLayout>

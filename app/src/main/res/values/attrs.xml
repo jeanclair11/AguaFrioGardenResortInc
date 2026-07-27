@@ -45,6 +45,10 @@
     <attr name="errorText" format="color|reference" />
     <attr name="dividerColor" format="color|reference" />
 
+    <!-- Glassmorphism attributes -->
+    <attr name="glassSurface" format="color|reference" />
+    <attr name="glassBorder" format="color|reference" />
+
     <!-- Translucent accent tint for button press ripples -->
     <attr name="rippleAccent" format="color|reference" />
 </resources>

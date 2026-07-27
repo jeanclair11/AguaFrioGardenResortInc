@@ -170,27 +170,31 @@ final class ChatController {
     }
 
     private void offerDelete(int index) {
-        new AlertDialog.Builder(activity)
+        AlertDialog dialog = new AlertDialog.Builder(activity)
                 .setItems(new CharSequence[]{
                         activity.getString(R.string.chat_delete_message_action),
                         activity.getString(R.string.button_cancel)
-                }, (dialog, which) -> {
+                }, (d, which) -> {
                     if (which == 0) {
                         confirmDelete(index);
                     }
                 })
-                .show();
+                .create();
+        ThemeManager.applyGlassEffect(dialog.getWindow());
+        dialog.show();
     }
 
     private void confirmDelete(int index) {
-        new AlertDialog.Builder(activity)
+        AlertDialog dialog = new AlertDialog.Builder(activity)
                 .setTitle(R.string.chat_delete_confirm_title)
                 .setMessage(R.string.chat_delete_confirm_message)
-                .setPositiveButton(R.string.button_delete, (dialog, which) -> {
+                .setPositiveButton(R.string.button_delete, (d, which) -> {
                     ChatStore.deleteMessage(activity, index);
                     renderMessages(false);
                 })
                 .setNegativeButton(R.string.button_cancel, null)
-                .show();
+                .create();
+        ThemeManager.applyGlassEffect(dialog.getWindow());
+        dialog.show();
     }
 }

@@ -127,4 +127,38 @@ final class AuthUiUtils {
             strengthLabel.setTextColor(Color.parseColor("#2E7D32")); // Green
         }
     }
+
+    /**
+     * Wires multiple OTP boxes to auto-focus forward and backward.
+     */
+    static void setupOtpBoxes(final EditText[] boxes, final Runnable onChange) {
+        for (int i = 0; i < boxes.length; i++) {
+            final int index = i;
+            boxes[i].addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {}
+                @Override
+                public void afterTextChanged(Editable s) {
+                    if (s.length() == 1 && index < boxes.length - 1) {
+                        boxes[index + 1].requestFocus();
+                    }
+                    onChange.run();
+                }
+            });
+
+            boxes[i].setOnKeyListener((v, keyCode, event) -> {
+                if (keyCode == android.view.KeyEvent.KEYCODE_DEL
+                        && event.getAction() == android.view.KeyEvent.ACTION_DOWN
+                        && boxes[index].getText().length() == 0
+                        && index > 0) {
+                    boxes[index - 1].requestFocus();
+                    boxes[index - 1].setText("");
+                    return true;
+                }
+                return false;
+            });
+        }
+    }
 }

@@ -1,7 +1,6 @@
 package com.aguafriogarden.resortinc;
 
 import android.app.Activity;
-import android.app.DatePickerDialog;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -36,11 +35,7 @@ final class BookingWizardController {
     private static final long STEP_ANIM_DURATION_MS = 200L;
     // Steps swap with a quiet fade plus a barely-there vertical drift.
     private static final float STEP_SHIFT_DP = 8f;
-    private static final long ONE_DAY_MS = 24L * 60 * 60 * 1000;
 
-    private interface DateCallback {
-        void onDatePicked(String date);
-    }
 
     private final Activity activity;
     private final View root;
@@ -155,20 +150,19 @@ final class BookingWizardController {
         adultsValue.setText(String.valueOf(adults));
         childrenValue.setText(String.valueOf(children));
 
-        checkIn.setOnClickListener(view -> showFutureDatePicker(System.currentTimeMillis() - 1000L, date -> {
-            checkInDate = date;
-            checkIn.setText(date);
-            checkInError.setVisibility(View.GONE);
-        }));
-        checkOut.setOnClickListener(view -> {
-            long min = checkInDate.isEmpty()
-                    ? System.currentTimeMillis() - 1000L : parseDateMillis(checkInDate) + ONE_DAY_MS;
-            showFutureDatePicker(min, date -> {
-                checkOutDate = date;
-                checkOut.setText(date);
+        checkIn.setOnClickListener(view -> {
+            long start = checkInDate.isEmpty() ? -1 : parseDateMillis(checkInDate);
+            long end = checkOutDate.isEmpty() ? -1 : parseDateMillis(checkOutDate);
+            GlassDatePicker.showRangePicker(activity, start, end, System.currentTimeMillis() - 1000L, (s, e) -> {
+                checkInDate = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date(s));
+                checkOutDate = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date(e));
+                checkIn.setText(checkInDate);
+                checkOut.setText(checkOutDate);
+                checkInError.setVisibility(View.GONE);
                 checkOutError.setVisibility(View.GONE);
             });
         });
+        checkOut.setOnClickListener(view -> checkIn.performClick());
 
         v.findViewById(R.id.adultsMinus).setOnClickListener(view -> {
             if (adults > 1) {
@@ -261,7 +255,8 @@ final class BookingWizardController {
 
         EditText guestBirthDate = v.findViewById(R.id.guestBirthDateField);
         TextView guestBirthDateError = v.findViewById(R.id.guestBirthDateError);
-        guestBirthDate.setOnClickListener(view -> showPastDatePicker(date -> {
+        guestBirthDate.setOnClickListener(view -> GlassDatePicker.showBirthdatePicker(activity, -1, millis -> {
+            String date = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date(millis));
             guestBirthDate.setText(date);
             guestBirthDateError.setVisibility(View.GONE);
         }));
@@ -367,26 +362,7 @@ final class BookingWizardController {
         errorView.setVisibility(View.VISIBLE);
     }
 
-    private void showFutureDatePicker(long minMillis, DateCallback callback) {
-        Calendar cal = Calendar.getInstance();
-        if (minMillis > cal.getTimeInMillis()) {
-            cal.setTimeInMillis(minMillis);
-        }
-        DatePickerDialog dialog = new DatePickerDialog(activity, (view, year, month, day) ->
-                callback.onDatePicked(String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, day)),
-                cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
-        dialog.getDatePicker().setMinDate(minMillis);
-        dialog.show();
-    }
 
-    private void showPastDatePicker(DateCallback callback) {
-        Calendar cal = Calendar.getInstance();
-        DatePickerDialog dialog = new DatePickerDialog(activity, (view, year, month, day) ->
-                callback.onDatePicked(String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, day)),
-                cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
-        dialog.getDatePicker().setMaxDate(System.currentTimeMillis());
-        dialog.show();
-    }
 
     private long parseDateMillis(String yyyyMmDd) {
         String[] parts = yyyyMmDd.split("-");

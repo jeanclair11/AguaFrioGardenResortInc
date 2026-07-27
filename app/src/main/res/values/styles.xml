@@ -93,6 +93,18 @@
         <item name="android:stateListAnimator">@null</item>
     </style>
 
+    <!-- Small uppercase section heading inside a card, e.g. "GUEST
+         INFORMATION" on the Billing Summary screen. -->
+    <style name="BillingSectionLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:letterSpacing">0.04</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textColor">?attr/accentPrimary</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
     <!-- Messenger-style outlined suggestion chip in the Chat tab. -->
     <style name="ChatChip">
         <item name="android:layout_width">wrap_content</item>
@@ -108,6 +120,19 @@
         <item name="android:textStyle">bold</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
+    </style>
+
+    <style name="OtpBox">
+        <item name="android:layout_width">42dp</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:layout_margin">4dp</item>
+        <item name="android:background">@drawable/bg_input_selector</item>
+        <item name="android:gravity">center</item>
+        <item name="android:inputType">number</item>
+        <item name="android:maxLength">1</item>
+        <item name="android:textColor">?attr/textPrimary</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
     </style>
 
 </resources>
