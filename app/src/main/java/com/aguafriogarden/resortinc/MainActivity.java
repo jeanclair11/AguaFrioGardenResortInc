@@ -17,6 +17,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -40,6 +41,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -529,14 +531,151 @@ public class MainActivity extends Activity {
         spinner.setSelection(selection);
     }
 
+    /**
+     * Wires the Province -> City/Municipality -> Barangay cascade. Each level loads its
+     * options from AddressRepository (a bundled dataset today, swappable for a real
+     * backend call later without touching this method), restores a previously selected
+     * value by name when re-binding the screen, and only attaches its selection listener
+     * *after* the initial setSelection so restoring never spuriously resets the children.
+     */
+    private void setUpAddressSpinners(View card) {
+        SignUpState s = signUpState;
+        resetCitySpinner(card);
+        resetBarangaySpinner(card);
+
+        Spinner provinceSpinner = card.findViewById(R.id.provinceSpinner);
+        provinceSpinner.setOnItemSelectedListener(null);
+        AddressRepository.getProvinces(this, provinces -> {
+            List<String> options = new ArrayList<>();
+            options.add(getString(R.string.province_prompt));
+            options.addAll(provinces);
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                    this, android.R.layout.simple_spinner_item, options);
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            provinceSpinner.setAdapter(adapter);
+
+            int restoreIndex = s.province.isEmpty() ? 0 : Math.max(0, options.indexOf(s.province));
+            provinceSpinner.setSelection(restoreIndex);
+            if (restoreIndex > 0) {
+                loadCitiesForProvince(card, s.province, s.city);
+            }
+
+            provinceSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                    s.province = position > 0 ? options.get(position) : "";
+                    s.city = "";
+                    s.barangay = "";
+                    if (position > 0) {
+                        loadCitiesForProvince(card, s.province, "");
+                    } else {
+                        resetCitySpinner(card);
+                        resetBarangaySpinner(card);
+                    }
+                }
+
+                @Override
+                public void onNothingSelected(AdapterView<?> parent) {
+                }
+            });
+        });
+    }
+
+    private void loadCitiesForProvince(View card, String provinceName, String restoreCityName) {
+        SignUpState s = signUpState;
+        Spinner citySpinner = card.findViewById(R.id.citySpinner);
+        citySpinner.setOnItemSelectedListener(null);
+        AddressRepository.getCities(this, provinceName, cities -> {
+            List<String> options = new ArrayList<>();
+            options.add(getString(R.string.city_prompt));
+            options.addAll(cities);
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                    this, android.R.layout.simple_spinner_item, options);
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            citySpinner.setAdapter(adapter);
+            citySpinner.setEnabled(true);
+
+            int restoreIndex = restoreCityName.isEmpty() ? 0 : Math.max(0, options.indexOf(restoreCityName));
+            citySpinner.setSelection(restoreIndex);
+            if (restoreIndex > 0) {
+                loadBarangaysForCity(card, provinceName, restoreCityName, s.barangay);
+            } else {
+                resetBarangaySpinner(card);
+            }
+
+            citySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                    s.city = position > 0 ? options.get(position) : "";
+                    s.barangay = "";
+                    if (position > 0) {
+                        loadBarangaysForCity(card, provinceName, s.city, "");
+                    } else {
+                        resetBarangaySpinner(card);
+                    }
+                }
+
+                @Override
+                public void onNothingSelected(AdapterView<?> parent) {
+                }
+            });
+        });
+    }
+
+    private void loadBarangaysForCity(View card, String provinceName, String cityName, String restoreBarangayName) {
+        SignUpState s = signUpState;
+        Spinner barangaySpinner = card.findViewById(R.id.barangaySpinner);
+        barangaySpinner.setOnItemSelectedListener(null);
+        AddressRepository.getBarangays(this, provinceName, cityName, barangays -> {
+            List<String> options = new ArrayList<>();
+            options.add(getString(R.string.barangay_prompt));
+            options.addAll(barangays);
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                    this, android.R.layout.simple_spinner_item, options);
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            barangaySpinner.setAdapter(adapter);
+            barangaySpinner.setEnabled(true);
+
+            int restoreIndex = restoreBarangayName.isEmpty() ? 0 : Math.max(0, options.indexOf(restoreBarangayName));
+            barangaySpinner.setSelection(restoreIndex);
+
+            barangaySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                    s.barangay = position > 0 ? options.get(position) : "";
+                }
+
+                @Override
+                public void onNothingSelected(AdapterView<?> parent) {
+                }
+            });
+        });
+    }
+
+    private void resetCitySpinner(View card) {
+        setSingleOptionSpinner(card.findViewById(R.id.citySpinner), R.string.city_prompt_select_province_first);
+        card.findViewById(R.id.citySpinner).setEnabled(false);
+    }
+
+    private void resetBarangaySpinner(View card) {
+        setSingleOptionSpinner(card.findViewById(R.id.barangaySpinner), R.string.barangay_prompt_select_city_first);
+        card.findViewById(R.id.barangaySpinner).setEnabled(false);
+    }
+
+    private void setSingleOptionSpinner(Spinner spinner, int promptRes) {
+        spinner.setOnItemSelectedListener(null);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item,
+                Collections.singletonList(getString(promptRes)));
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setSelection(0);
+    }
+
     private void bindSignUpStep1(View card) {
         SignUpState s = signUpState;
         ((EditText) card.findViewById(R.id.firstNameField)).setText(s.firstName);
         ((EditText) card.findViewById(R.id.middleNameField)).setText(s.middleName);
         ((EditText) card.findViewById(R.id.lastNameField)).setText(s.lastName);
-        ((EditText) card.findViewById(R.id.provinceField)).setText(s.province);
-        ((EditText) card.findViewById(R.id.cityField)).setText(s.city);
-        ((EditText) card.findViewById(R.id.barangayField)).setText(s.barangay);
 
         setUpPromptedSpinner(card.findViewById(R.id.genderSpinner),
                 R.string.gender_prompt, R.array.gender_options, s.genderPos);
@@ -544,6 +683,8 @@ public class MainActivity extends Activity {
         EditText birthDate = card.findViewById(R.id.birthDateField);
         birthDate.setText(s.birthDate);
         birthDate.setOnClickListener(v -> showDatePicker(birthDate));
+
+        setUpAddressSpinners(card);
 
         card.findViewById(R.id.signUp1BackButton).setOnClickListener(v -> {
             saveSignUpStep1(card);
@@ -568,9 +709,8 @@ public class MainActivity extends Activity {
         s.lastName = fieldText(card, R.id.lastNameField);
         s.genderPos = ((Spinner) card.findViewById(R.id.genderSpinner)).getSelectedItemPosition();
         s.birthDate = fieldText(card, R.id.birthDateField);
-        s.province = fieldText(card, R.id.provinceField);
-        s.city = fieldText(card, R.id.cityField);
-        s.barangay = fieldText(card, R.id.barangayField);
+        // s.province/city/barangay are kept current live by the address spinner
+        // listeners (setUpAddressSpinners), so there's nothing to read here.
     }
 
     private boolean validateSignUpStep1(View card) {

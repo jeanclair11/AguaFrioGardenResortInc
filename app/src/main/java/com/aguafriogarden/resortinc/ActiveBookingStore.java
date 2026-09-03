@@ -57,13 +57,13 @@ final class ActiveBookingStore {
         }
     }
 
-    /** The 5 lifecycle step labels for a service type, wording adjusted per service (e.g. "Check-in" vs "Schedule"). */
-    static int[] stepLabelsRes(int serviceType) {
-        if (serviceType == SERVICE_HOTEL) {
-            return new int[]{R.string.step_pending_approval, R.string.step_confirmed,
-                    R.string.step_waiting_checkin, R.string.step_ongoing_stay, R.string.step_completed};
-        }
-        return new int[]{R.string.step_pending_approval, R.string.step_confirmed,
-                R.string.step_waiting_schedule, R.string.step_ongoing, R.string.step_completed};
-    }
+    /** The 4 lifecycle step labels, indexed by a reservation's current_step (0-3). Same across all service types. */
+    static final int[] STEP_LABELS_RES = {
+            R.string.step_pending_booking, R.string.step_confirmed, R.string.step_ongoing, R.string.step_checked_out,
+    };
+
+    /** The short description shown above the progress indicator for each current_step (0-3). */
+    static final int[] STEP_DESCRIPTIONS_RES = {
+            R.string.desc_pending_booking, R.string.desc_confirmed, R.string.desc_ongoing, R.string.desc_checked_out,
+    };
 }

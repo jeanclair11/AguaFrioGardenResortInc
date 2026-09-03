@@ -74,11 +74,12 @@ public class DashboardActivity extends Activity {
     private LinearLayout bottomNav;
     private FrameLayout moduleContainer;
     private DashboardHomeController dashboardHome;
-    private BookingWizardController bookingWizard;
+    private ReservationFlowController reservationFlow;
     private BookingCatalogController bookingCatalog;
     private ProfileController profileController;
     private FeedbackController feedbackController;
     private ChatController chatController;
+    private NotificationController notificationController;
     private int currentModule = -1;
 
     @Override
@@ -90,14 +91,25 @@ public class DashboardActivity extends Activity {
         topBarRow = findViewById(R.id.topBarRow);
         bottomNav = findViewById(R.id.bottomNav);
         moduleContainer = findViewById(R.id.moduleContainer);
-        dashboardHome = new DashboardHomeController(this);
-        bookingWizard = new BookingWizardController(this);
+        // Forces ReservationStore's static seeding (and the notifications it pushes) to run
+        // immediately, so the Alerts tab isn't empty for a guest who taps the bell before ever
+        // opening the Reserve tab (Java only runs a class's static initializer on first use).
+        ReservationStore.all();
+        reservationFlow = new ReservationFlowController(this, () -> showModule(MODULE_DASHBOARD, true));
         bookingCatalog = new BookingCatalogController(this,
                 () -> showModule(MODULE_RESERVATION, true), () -> showModule(MODULE_DASHBOARD, true));
+        dashboardHome = new DashboardHomeController(this, () -> {
+            bookingCatalog.showHotelFlow();
+            showModule(MODULE_BOOKING, true);
+        });
         profileController = new ProfileController(this,
                 () -> showModule(MODULE_DASHBOARD, true), this::logout);
         feedbackController = new FeedbackController(this);
         chatController = new ChatController(this);
+        notificationController = new NotificationController(this, ref -> {
+            showModule(MODULE_RESERVATION, true);
+            reservationFlow.openDetails(ref);
+        });
 
         findViewById(R.id.bellButton).setOnClickListener(v -> showModule(MODULE_ALERTS, true));
         findViewById(R.id.profileButton).setOnClickListener(v -> showModule(MODULE_ME, true));
@@ -115,6 +127,22 @@ public class DashboardActivity extends Activity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if (currentModule == MODULE_CHAT) {
+            chatController.onShown();
+        } else if (currentModule == MODULE_FEEDBACK) {
+            feedbackController.onShown();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        chatController.onHidden();
+    }
+
+    @Override
     public void onBackPressed() {
         if (currentModule == MODULE_DASHBOARD && dashboardHome.handleBackPressed()) {
             return;
@@ -126,6 +154,9 @@ public class DashboardActivity extends Activity {
             return;
         }
         if (currentModule == MODULE_BOOKING && bookingCatalog.handleBackPressed()) {
+            return;
+        }
+        if (currentModule == MODULE_RESERVATION && reservationFlow.handleBackPressed()) {
             return;
         }
         super.onBackPressed();
@@ -161,6 +192,9 @@ public class DashboardActivity extends Activity {
         if (index == currentModule) {
             return;
         }
+        if (currentModule == MODULE_CHAT) {
+            chatController.onHidden();
+        }
         currentModule = index;
         Module module = modules[index];
 
@@ -177,15 +211,19 @@ public class DashboardActivity extends Activity {
         if (index == MODULE_DASHBOARD) {
             content = dashboardHome.getRootView();
         } else if (index == MODULE_RESERVATION) {
-            content = bookingWizard.getRootView();
+            content = reservationFlow.getRootView();
         } else if (index == MODULE_BOOKING) {
             content = bookingCatalog.getRootView();
         } else if (index == MODULE_CHAT) {
             content = chatController.getRootView();
+            chatController.onShown();
         } else if (index == MODULE_FEEDBACK) {
             content = feedbackController.getRootView();
+            feedbackController.onShown();
         } else if (index == MODULE_ME) {
             content = profileController.getRootView();
+        } else if (index == MODULE_ALERTS) {
+            content = notificationController.getRootView();
         } else {
             content = LayoutInflater.from(this)
                     .inflate(R.layout.view_module_placeholder, moduleContainer, false);

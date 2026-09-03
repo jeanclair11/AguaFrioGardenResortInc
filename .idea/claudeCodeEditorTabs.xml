@@ -1,26 +1,53 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ClaudeCodeEditorTabs">
-    <option name="activeSessionId" value="d7206d04-6b53-46ee-a349-e415ffb796f2" />
+    <option name="activeSessionId" value="812331c8-fae5-416b-9eaf-4d17e9aebedd" />
     <option name="openSessionIds">
       <list>
-        <option value="62bf6951-9121-47a8-a017-4761043653aa" />
-        <option value="bbff073e-b991-4814-8506-18e261951ff3" />
-        <option value="d7206d04-6b53-46ee-a349-e415ffb796f2" />
+        <option value="7e5d4578-a487-4a13-b032-e0688eaa0495" />
+        <option value="294aa309-e661-40b6-8e0b-8479c087cb32" />
+        <option value="e1a888ed-eeb7-4d2f-8095-01c782770003" />
+        <option value="0b11b24d-0353-46c8-9ea6-a93fe7a12b3c" />
+        <option value="9f8f8018-de9e-4acc-ae04-cea23775c85e" />
+        <option value="6d592add-7af8-4921-9210-e097be8abbe6" />
+        <option value="55dcb3da-1075-4d65-8c43-1d2e042b74bc" />
+        <option value="a955a0a8-405c-49ba-b2d7-3e7a74fda7ac" />
+        <option value="6ca2255c-5795-4ed0-8d20-84c656a42292" />
+        <option value="04ce8c1b-7480-40d9-a8cb-adffcc16602d" />
+        <option value="629932d6-7442-41ba-9426-6d5030c16124" />
+        <option value="812331c8-fae5-416b-9eaf-4d17e9aebedd" />
       </list>
     </option>
     <option name="sessionPaths">
       <map>
-        <entry key="62bf6951-9121-47a8-a017-4761043653aa" value="/sessions/d1637d84-b9e8-4fa3-bc6e-a88e4a6b404e" />
-        <entry key="bbff073e-b991-4814-8506-18e261951ff3" value="/sessions/6974b483-3480-437f-bc55-2d44349994ed" />
-        <entry key="d7206d04-6b53-46ee-a349-e415ffb796f2" value="/sessions/933007ef-2f03-4678-bca6-7e0a368809ed" />
+        <entry key="04ce8c1b-7480-40d9-a8cb-adffcc16602d" value="/sessions/248a7bfb-2bd9-4974-8f55-cc86f82360fb" />
+        <entry key="0b11b24d-0353-46c8-9ea6-a93fe7a12b3c" value="/sessions/24c2d477-bdd6-4325-8913-f986523ffbb8" />
+        <entry key="294aa309-e661-40b6-8e0b-8479c087cb32" value="/sessions/3794024d-1f4a-4f55-a52a-22c2f60ffbea" />
+        <entry key="55dcb3da-1075-4d65-8c43-1d2e042b74bc" value="/sessions/449883a1-403f-4ec2-9837-6476c17fc458" />
+        <entry key="629932d6-7442-41ba-9426-6d5030c16124" value="/sessions/641f855d-ba88-4d8d-b7bf-f772326fe755" />
+        <entry key="6ca2255c-5795-4ed0-8d20-84c656a42292" value="/sessions/73f349c6-3e92-4ebf-b2a0-e0d89b9ea0f3" />
+        <entry key="6d592add-7af8-4921-9210-e097be8abbe6" value="/sessions/new" />
+        <entry key="7e5d4578-a487-4a13-b032-e0688eaa0495" value="/sessions/93ced271-20bd-43fc-a8e9-5c118b13ac3a" />
+        <entry key="812331c8-fae5-416b-9eaf-4d17e9aebedd" value="/sessions/de5fb960-d869-4dee-bc01-db858fa41f26" />
+        <entry key="9f8f8018-de9e-4acc-ae04-cea23775c85e" value="/sessions/new" />
+        <entry key="a955a0a8-405c-49ba-b2d7-3e7a74fda7ac" value="/sessions/7b94cb5a-3fad-4e60-9e1d-e3c7bb4fe7ab" />
+        <entry key="e1a888ed-eeb7-4d2f-8095-01c782770003" value="/sessions/b8337342-cc87-40fe-8c51-a9005e8993bb" />
       </map>
     </option>
     <option name="sessionTitles">
       <map>
-        <entry key="62bf6951-9121-47a8-a017-4761043653aa" value="can you fix this please" />
-        <entry key="bbff073e-b991-4814-8506-18e261951ff3" value="Settings" />
-        <entry key="d7206d04-6b53-46ee-a349-e415ffb796f2" value="can you scan my booking tab in the mobile then rep" />
+        <entry key="04ce8c1b-7480-40d9-a8cb-adffcc16602d" value="i have a question only, do not do something but an" />
+        <entry key="0b11b24d-0353-46c8-9ea6-a93fe7a12b3c" value="The background image that was previously added beh" />
+        <entry key="294aa309-e661-40b6-8e0b-8479c087cb32" value="IMPORTANT: FOCUS ONLY ON THE HOMEPAGE OF THE OFFIC" />
+        <entry key="55dcb3da-1075-4d65-8c43-1d2e042b74bc" value="I want you to fix an issue in the Guest Mobile App" />
+        <entry key="629932d6-7442-41ba-9426-6d5030c16124" value="i want you to check if this modules objectives of" />
+        <entry key="6ca2255c-5795-4ed0-8d20-84c656a42292" value="i have a question only, do not do something but an" />
+        <entry key="6d592add-7af8-4921-9210-e097be8abbe6" value="Claude Code" />
+        <entry key="7e5d4578-a487-4a13-b032-e0688eaa0495" value="Design the Hotel Rooms section of the Home Module" />
+        <entry key="812331c8-fae5-416b-9eaf-4d17e9aebedd" value="I want you to design and implement the RESERVATION" />
+        <entry key="9f8f8018-de9e-4acc-ae04-cea23775c85e" value="Claude Code" />
+        <entry key="a955a0a8-405c-49ba-b2d7-3e7a74fda7ac" value="I want to connect the Chat Module of the Guest Mob" />
+        <entry key="e1a888ed-eeb7-4d2f-8095-01c782770003" value="can you check up on our website in the receptionis" />
       </map>
     </option>
   </component>

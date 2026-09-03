@@ -34,7 +34,7 @@
     <string name="signup_subheading">Register for your Agua Frio account.</string>
     <string name="label_first_name">First Name</string>
     <string name="hint_first_name">e.g. Maynard</string>
-    <string name="label_middle_name">Middle Name</string>
+    <string name="label_middle_name">Middle Name (Optional)</string>
     <string name="hint_middle_name">e.g. Cruz</string>
     <string name="label_last_name">Last Name</string>
     <string name="hint_last_name">e.g. Pesic</string>
@@ -83,6 +83,11 @@
     <string name="hint_city">e.g. San Jose del Monte</string>
     <string name="label_barangay">Barangay</string>
     <string name="hint_barangay">e.g. Tungkong Mangga</string>
+    <string name="province_prompt">Select Province</string>
+    <string name="city_prompt">Select City/Municipality</string>
+    <string name="barangay_prompt">Select Barangay</string>
+    <string name="city_prompt_select_province_first">Select a province first</string>
+    <string name="barangay_prompt_select_city_first">Select a city/municipality first</string>
 
     <string name="label_id_type">Valid ID Type</string>
     <string name="id_type_prompt">Select ID Type</string>
@@ -260,19 +265,39 @@
     <string name="booking_progress_empty">You have no active reservation yet. Reserve a stay to track its progress here.</string>
     <string name="button_refresh_description">Refresh booking progress</string>
 
+    <string name="hotel_rooms_section_title">🏨 Hotel Rooms</string>
+    <string name="hotel_rooms_section_subtitle">Discover comfortable rooms for your stay.</string>
+    <string name="hotel_rooms_empty_state">No rooms are available right now. Please check back soon.</string>
+    <string name="format_capacity_pax">👤 Up to %1$d Guests</string>
+    <string name="status_room_available">🟢 Available</string>
+    <string name="status_room_fully_booked">🔴 Fully Booked</string>
+    <string name="button_see_more_rooms">See More Rooms →</string>
+    <string name="all_rooms_title">All Hotel Rooms</string>
+
+    <string name="room_details_title">Room Details</string>
+
     <string name="service_type_hotel">Hotel Room</string>
     <string name="service_type_ktv">KTV Room</string>
     <string name="service_type_cottage">Pool &amp; Cottage</string>
     <string name="service_type_hall">Function Hall</string>
 
-    <string name="step_pending_approval">Pending Approval</string>
+    <string name="step_pending_booking">Pending Booking</string>
     <string name="step_confirmed">Confirmed</string>
-    <string name="step_waiting_checkin">Waiting for Check-in</string>
-    <string name="step_waiting_schedule">Waiting for Schedule</string>
-    <string name="step_ongoing_stay">Ongoing Stay</string>
     <string name="step_ongoing">Ongoing</string>
-    <string name="step_completed">Completed</string>
+    <string name="step_checked_out">Checked Out</string>
     <string name="status_cancelled">Cancelled</string>
+
+    <string name="desc_pending_booking">Your booking is currently being reviewed by our receptionist. Please wait while we verify your booking details. You will receive a notification once your booking has been processed.</string>
+    <string name="desc_confirmed">Your booking has been confirmed. We look forward to welcoming you to Agua Frio Garden Resort. Please arrive on your scheduled check-in date.</string>
+    <string name="desc_ongoing">Welcome to Agua Frio Garden Resort! We hope you enjoy your stay and have a relaxing and memorable experience with us.</string>
+    <string name="desc_checked_out">Thank you for staying at Agua Frio Garden Resort. We appreciate your visit and hope to welcome you again soon.</string>
+    <string name="desc_cancelled">Your booking has been cancelled. If you believe this was made in error or you need further assistance, please contact the resort through the Chat module or our official contact channels.</string>
+
+    <string name="label_accommodation_type">Accommodation Type</string>
+    <string name="label_room_type">Room Type</string>
+    <string name="label_room_category">Category</string>
+    <string name="label_cancelled_on">Cancelled on</string>
+    <string name="label_cancellation_reason">Reason</string>
 
     <string name="booking_details_title">Booking Details</string>
     <string name="section_booking_reference">BOOKING REFERENCE</string>
@@ -345,13 +370,7 @@
     <string name="hint_chat_message">Type your message…</string>
     <string name="chat_status_sending">Sending…</string>
     <string name="chat_status_sent">Sent</string>
-    <string name="chat_status_delivered">Delivered</string>
     <string name="chat_status_read">Read</string>
-    <string name="chat_delete_message_action">Delete Message</string>
-    <string name="chat_delete_confirm_title">Delete this message?</string>
-    <string name="chat_delete_confirm_message">This action cannot be undone.</string>
-    <string name="button_delete">Delete</string>
-    <string name="chat_escalation_message">I\'m unable to answer that question accurately. I\'ll forward your concern to one of our receptionists, who will respond as soon as possible.</string>
 
     <string name="chip_room_availability">Check Room Availability</string>
     <string name="chip_booking_requirements">Booking Requirements</string>
@@ -363,16 +382,6 @@
     <string name="chip_cancellation_policy">Cancellation Policy</string>
     <string name="chip_resort_amenities">Resort Amenities</string>
     <string name="chip_contact_receptionist">Contact Receptionist</string>
-
-    <string name="faq_room_availability_answer">Room availability depends on your selected check-in and check-out dates. Please share your preferred dates and we\'ll check availability for you.</string>
-    <string name="faq_booking_requirements_answer">To book a stay, you\'ll need a valid ID, your preferred dates, and a down payment to confirm your reservation. Our team can guide you through each step.</string>
-    <string name="faq_resort_rates_answer">Our rates vary depending on the room or cottage type and the season. Let us know your preferred dates and accommodation type so we can share the applicable rates.</string>
-    <string name="faq_pool_info_answer">Agua Frio Garden Resort features swimming pools for both adults and children, open daily during your stay. Pool hours may vary by season.</string>
-    <string name="faq_cottage_info_answer">We offer several cottage types with varying capacities and amenities. Let us know your group size and we can recommend the best fit.</string>
-    <string name="faq_booking_status_answer">You can check your booking status anytime from the Bookings tab. If you need help locating a specific reservation, let us know your booking reference.</string>
-    <string name="faq_payment_instructions_answer">We accept various payment methods for your reservation. Please let us know your booking details and we\'ll send you the payment instructions.</string>
-    <string name="faq_cancellation_policy_answer">Our cancellation policy depends on how far in advance you cancel relative to your check-in date. Let us know your booking details so we can walk you through it.</string>
-    <string name="faq_resort_amenities_answer">Agua Frio Garden Resort offers swimming pools, cottages, function halls, and recreational areas for our guests to enjoy.</string>
 
     <!-- Booking catalog (Book tab) -->
     <string name="booking_catalog_title">BOOK</string>
@@ -547,8 +556,8 @@
     <string name="hotel_payment_subtitle">Complete your payment to finish your booking.</string>
     <string name="section_amount_due">AMOUNT DUE</string>
     <string name="section_scan_to_pay">SCAN TO PAY VIA GCASH</string>
-    <string name="gcash_placeholder_name">Agua Frio Garden Resort Inc.</string>
-    <string name="gcash_placeholder_number">0912 345 6789</string>
+    <string name="gcash_account_name">JE*N CL**R D.</string>
+    <string name="gcash_account_number">+63 963 120 ••••</string>
     <string name="gcash_qr_hint">Please scan the QR code above or send the amount due to our GCash account, then submit your payment details below.</string>
     <string name="section_submit_payment_details">SUBMIT PAYMENT DETAILS</string>
     <string name="label_amount_paid">Amount Paid</string>
@@ -562,14 +571,139 @@
     <string name="toast_amount_paid_required">Please enter the amount you paid.</string>
     <string name="toast_reference_number_required">Please enter the GCash reference number.</string>
     <string name="toast_screenshot_required">Please upload a screenshot of your payment.</string>
+    <string name="toast_booking_failed">We couldn\'t submit your booking. Please try again.</string>
 
     <string name="hotel_success_label">BOOKING SUBMITTED</string>
     <string name="hotel_success_title">Thank You for Choosing Agua Frio Garden Resort!</string>
     <string name="hotel_success_message">Your reservation has been submitted successfully. Your payment is currently pending verification.</string>
     <string name="label_booking_reference">Booking Reference</string>
-    <string name="format_booking_reference">AFR-%1$s-001</string>
     <string name="button_view_booking">View Booking</string>
     <string name="button_back_to_home">Back to Home</string>
     <string name="toast_view_booking_placeholder">Your booking history isn\'t available yet — check back soon!</string>
+
+    <!-- Reservation Module (Reserve tab). A reservation is a request to hold
+         a schedule for receptionist review — distinct from a paid Booking,
+         so this flow has no payment step anywhere. -->
+    <string name="reservation_dates_title">Choose Your Reservation Dates</string>
+    <string name="reservation_dates_subtitle">Select your preferred dates and number of guests to check available accommodations.</string>
+    <string name="link_view_my_reservations">View My Reservations →</string>
+    <string name="error_check_in_past">Check-in date cannot be in the past.</string>
+
+    <string name="reservation_rooms_title">Hotel Rooms</string>
+    <string name="reservation_rooms_subtitle">Available rooms for your selected reservation dates</string>
+
+    <string name="reservation_review_title">Review Your Reservation</string>
+    <string name="reservation_review_subtitle">Here\'s what you\'ve selected for your reservation.</string>
+    <string name="section_reservation_details">RESERVATION DETAILS</string>
+    <string name="section_selected_accommodation">SELECTED ACCOMMODATION</string>
+    <string name="format_estimated_value">Estimated Value: PHP %1$s</string>
+
+    <string name="reservation_guest_info_title">Guest Information</string>
+    <string name="reservation_guest_info_subtitle">Please provide the information needed for your reservation request.</string>
+    <string name="hint_full_name">Guest\'s Name</string>
+    <string name="hint_guest_mobile">Guest Mobile Number</string>
+    <string name="hint_guest_address">Guest Address</string>
+    <string name="label_purpose_of_reservation">Purpose of Reservation</string>
+    <string name="hint_optional">Optional</string>
+    <string name="error_guest_full_name_required">Please enter the guest\'s full name.</string>
+    <string name="error_guest_email_required">Please enter an email address.</string>
+    <string name="error_guest_mobile_required">Please enter a mobile number.</string>
+    <string name="error_guest_address_required">Please enter an address.</string>
+
+    <string name="reservation_summary_title">Reservation Summary</string>
+    <string name="reservation_summary_subtitle">Please review your reservation details before submitting your request.</string>
+    <string name="label_estimated_reservation_value">Estimated Reservation Value</string>
+    <string name="message_no_payment_required">No payment is required at this stage.</string>
+    <string name="section_reservation_information">RESERVATION INFORMATION</string>
+    <string name="reservation_info_line1">Your reservation is a request to hold the selected accommodation for your preferred schedule. It is not yet a confirmed booking.</string>
+    <string name="reservation_info_line2">The resort receptionist will review your request and verify availability.</string>
+    <string name="reservation_info_line3">You will receive a notification through the app and email once your reservation status has been updated.</string>
+    <string name="checkbox_reservation_policy">I have reviewed and agree to the Resort\'s Reservation Policy.</string>
+    <string name="checkbox_confirmation_subject">I understand that this reservation is subject to receptionist confirmation.</string>
+    <string name="button_submit_reservation_request">SUBMIT RESERVATION REQUEST</string>
+    <string name="toast_agree_reservation_required">Please agree to both the Reservation Policy and the confirmation notice.</string>
+
+    <string name="reservation_submitted_title">Reservation Request Submitted!</string>
+    <string name="reservation_submitted_message">Your reservation request has been successfully submitted.</string>
+    <string name="label_reference_no">Reference No.</string>
+    <string name="label_accommodation">Accommodation</string>
+    <string name="label_date">Date</string>
+    <string name="message_pending_wait">Please wait while our receptionist reviews your reservation request and verifies availability.</string>
+    <string name="section_what_happens_next">WHAT HAPPENS NEXT?</string>
+    <string name="what_happens_next_message">Our receptionist will review your reservation request. You will receive a notification in the app and an email when your reservation status is updated.</string>
+    <string name="outcome_confirmed">✓ Confirmed</string>
+    <string name="outcome_additional_confirmation">↻ Additional Confirmation Required</string>
+    <string name="outcome_rejected">✕ Rejected</string>
+    <string name="outcome_cancelled">⚠ Cancelled</string>
+    <string name="button_view_my_reservation">VIEW MY RESERVATION</string>
+
+    <string name="reservation_my_list_title">My Reservations</string>
+    <string name="tab_all">ALL</string>
+    <string name="tab_pending">PENDING</string>
+    <string name="tab_confirmed">CONFIRMED</string>
+    <string name="tab_cancelled">CANCELLED</string>
+    <string name="reservation_list_empty">You have no reservations in this category yet.</string>
+    <string name="reservation_type_hotel">Hotel Reservation</string>
+
+    <string name="reservation_details_title">Reservation Details</string>
+    <string name="section_reservation_timeline">RESERVATION TIMELINE</string>
+
+    <string name="res_status_pending">PENDING</string>
+    <string name="res_status_additional_confirmation">ADDITIONAL CONFIRMATION REQUIRED</string>
+    <string name="res_status_action_required">ACTION REQUIRED</string>
+    <string name="res_status_confirmed">CONFIRMED</string>
+    <string name="res_status_rejected">REJECTED</string>
+    <string name="res_status_cancelled">CANCELLED</string>
+    <string name="res_desc_pending">Waiting for receptionist confirmation</string>
+    <string name="res_desc_additional_confirmation">Receptionist needs more time to verify your request</string>
+    <string name="res_desc_action_required">Please review the proposed alternative schedule</string>
+    <string name="res_desc_confirmed">Reservation confirmed by the receptionist</string>
+    <string name="res_desc_rejected">Reservation could not be accommodated</string>
+    <string name="res_desc_cancelled">Reservation is no longer active</string>
+
+    <string name="label_current_request">CURRENT REQUEST</string>
+    <string name="label_proposed_schedule">PROPOSED SCHEDULE</string>
+    <string name="button_accept_new_schedule">ACCEPT NEW SCHEDULE</string>
+    <string name="button_decline">DECLINE</string>
+    <string name="message_alt_schedule_1">Your requested schedule is currently unavailable.</string>
+    <string name="message_alt_schedule_2">Our receptionist has proposed an alternative schedule.</string>
+    <string name="message_additional_confirmation_1">Our receptionist needs additional time to verify your reservation request.</string>
+    <string name="message_additional_confirmation_2">Your reservation request is still active and has not been rejected.</string>
+    <string name="message_additional_confirmation_3">We will notify you once a final decision has been made.</string>
+    <string name="message_confirmed_next_step">Your reservation has been confirmed. Please follow the resort\'s instructions for the next step toward booking/payment.</string>
+    <string name="section_reason">REASON</string>
+    <string name="reason_room_unavailable">The selected room is no longer available for your requested dates.</string>
+    <string name="button_try_another_date">TRY ANOTHER DATE</string>
+    <string name="button_view_other_rooms">VIEW OTHER ROOMS</string>
+    <string name="button_back_to_my_reservations">BACK TO MY RESERVATIONS</string>
+
+    <string name="timeline_reservation_submitted">Reservation Submitted</string>
+    <string name="timeline_under_review">Under Review</string>
+    <string name="timeline_under_review_desc">Receptionist is checking availability</string>
+    <string name="timeline_decision_pending">Decision Pending</string>
+    <string name="timeline_confirmed">Reservation Confirmed</string>
+    <string name="timeline_rejected">Reservation Rejected</string>
+    <string name="timeline_additional_confirmation">Additional Confirmation Requested</string>
+    <string name="timeline_alternative_proposed">Alternative Schedule Proposed</string>
+    <string name="timeline_alternative_accepted">Alternative Schedule Accepted</string>
+    <string name="timeline_cancelled_by_guest">Cancelled by Guest</string>
+
+    <string name="notification_screen_title">Notifications</string>
+    <string name="notification_empty_message">You have no notifications yet.</string>
+    <string name="notif_title_submitted">Reservation Request Received</string>
+    <string name="notif_message_submitted_format">Your reservation request %1$s has been submitted and is waiting for receptionist confirmation.</string>
+    <string name="notif_title_confirmed">Reservation Confirmed!</string>
+    <string name="notif_message_confirmed_format">Your reservation for %1$s on %2$s has been confirmed.</string>
+    <string name="notif_button_view_reservation">VIEW RESERVATION</string>
+    <string name="notif_title_additional_confirmation">Reservation Review Extended</string>
+    <string name="notif_message_additional_confirmation">Our receptionist needs additional time to verify your reservation request. We\'ll notify you once there is an update.</string>
+    <string name="notif_title_alternative">Alternative Schedule Available</string>
+    <string name="notif_message_alternative">The receptionist proposed a new schedule for your reservation.</string>
+    <string name="notif_button_review_proposal">REVIEW PROPOSAL</string>
+    <string name="notif_title_rejected">Reservation Request Rejected</string>
+    <string name="notif_message_rejected">Your reservation request could not be accommodated for the selected schedule.</string>
+    <string name="notif_button_view_details">VIEW DETAILS</string>
+    <string name="notif_title_cancelled">Reservation Cancelled</string>
+    <string name="notif_message_cancelled_format">Your reservation %1$s has been cancelled.</string>
 
 </resources>

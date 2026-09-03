@@ -159,15 +159,18 @@
         android:layout_marginTop="12dp"
         android:text="@string/label_province" />
 
-    <LinearLayout style="@style/InputField">
+    <LinearLayout
+        style="@style/InputField"
+        android:paddingEnd="4dp">
 
         <ImageView style="@style/InputIcon" android:src="@drawable/ic_location" />
 
-        <EditText
-            android:id="@+id/provinceField"
-            style="@style/InputEditText"
-            android:hint="@string/hint_province"
-            android:inputType="textCapWords" />
+        <Spinner
+            android:id="@+id/provinceSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@null"
+            android:spinnerMode="dropdown" />
     </LinearLayout>
 
     <TextView
@@ -179,15 +182,18 @@
         android:layout_marginTop="16dp"
         android:text="@string/label_city" />
 
-    <LinearLayout style="@style/InputField">
+    <LinearLayout
+        style="@style/InputField"
+        android:paddingEnd="4dp">
 
         <ImageView style="@style/InputIcon" android:src="@drawable/ic_location" />
 
-        <EditText
-            android:id="@+id/cityField"
-            style="@style/InputEditText"
-            android:hint="@string/hint_city"
-            android:inputType="textCapWords" />
+        <Spinner
+            android:id="@+id/citySpinner"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@null"
+            android:spinnerMode="dropdown" />
     </LinearLayout>
 
     <TextView
@@ -199,15 +205,18 @@
         android:layout_marginTop="16dp"
         android:text="@string/label_barangay" />
 
-    <LinearLayout style="@style/InputField">
+    <LinearLayout
+        style="@style/InputField"
+        android:paddingEnd="4dp">
 
         <ImageView style="@style/InputIcon" android:src="@drawable/ic_location" />
 
-        <EditText
-            android:id="@+id/barangayField"
-            style="@style/InputEditText"
-            android:hint="@string/hint_barangay"
-            android:inputType="textCapWords" />
+        <Spinner
+            android:id="@+id/barangaySpinner"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@null"
+            android:spinnerMode="dropdown" />
     </LinearLayout>
 
     <TextView

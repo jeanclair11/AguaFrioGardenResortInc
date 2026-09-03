@@ -64,6 +64,9 @@
     <color name="light_on_screen">#382F22</color>
     <color name="light_on_screen_muted">#6F6350</color>
     <color name="light_error">#B3402F</color>
+    <color name="light_success">#2E7D4F</color>
+    <color name="light_warning">#B37B12</color>
+    <color name="light_info">#2D6CB3</color>
     <color name="light_divider">#E8DCC6</color>
     <color name="light_ripple_accent">#332450C4</color>
 
@@ -96,6 +99,9 @@
     <color name="dark_on_screen">#F2F5FA</color>
     <color name="dark_on_screen_muted">#93A2B8</color>
     <color name="dark_error">#FF6B6B</color>
+    <color name="dark_success">#4CD787</color>
+    <color name="dark_warning">#FFC24C</color>
+    <color name="dark_info">#4FA8FF</color>
     <color name="dark_divider">#223048</color>
     <color name="dark_ripple_accent">#33FF8A50</color>
 </resources>

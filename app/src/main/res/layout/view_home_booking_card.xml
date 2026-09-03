@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One compact active-booking summary card in Home's horizontally-scrolling
-     Booking Progress section. See DashboardHomeController#bindBookingCard. -->
+<!-- One compact booking-status summary card in Home's horizontally-scrolling
+     Booking Progress section (Pending Booking/Confirmed/Ongoing/Checked Out,
+     or terminal Cancelled). See DashboardHomeController#bindBookingCard. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="256dp"
     android:layout_height="wrap_content"
@@ -46,19 +47,22 @@
             android:textStyle="bold" />
     </LinearLayout>
 
+    <!-- Room Type is the primary heading (what the guest identifies first);
+         Category + party size are secondary context below it, mirroring how
+         a receptionist scans a booking. See DashboardHomeController#bindBookingCard. -->
     <TextView
-        android:id="@+id/cardItemName"
+        android:id="@+id/cardPrimaryTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
         android:maxLines="1"
         android:ellipsize="end"
         android:textColor="?attr/textPrimary"
-        android:textSize="15sp"
+        android:textSize="16sp"
         android:textStyle="bold" />
 
     <TextView
-        android:id="@+id/cardSchedule"
+        android:id="@+id/cardSecondaryInfo"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
@@ -68,15 +72,36 @@
         android:textSize="12sp" />
 
     <TextView
+        android:id="@+id/cardSchedule"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="?attr/textMuted"
+        android:textSize="12sp" />
+
+    <TextView
         android:id="@+id/cardStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="12dp"
         android:textSize="13sp"
         android:textStyle="bold" />
 
-    <!-- Compact 4-dot progress row: Pending Approval / Confirmed / Waiting / Ongoing.
-         Hidden and replaced by a single "Cancelled" badge when cancelled. -->
+    <TextView
+        android:id="@+id/cardDescription"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:maxLines="3"
+        android:ellipsize="end"
+        android:lineSpacingExtra="1dp"
+        android:textColor="?attr/textMuted"
+        android:textSize="12sp" />
+
+    <!-- Compact 4-dot progress row: Pending Booking / Confirmed / Ongoing / Checked Out.
+         Stays visible (frozen at the point of cancellation, remaining dots grayed) when cancelled. -->
     <LinearLayout
         android:id="@+id/cardProgressRow"
         android:layout_width="match_parent"
@@ -105,9 +130,19 @@
         android:paddingTop="4dp"
         android:paddingBottom="4dp"
         android:text="@string/status_cancelled"
-        android:textColor="?attr/textMuted"
+        android:textColor="?attr/errorText"
         android:textSize="11sp"
         android:textStyle="bold"
+        android:visibility="gone" />
+
+    <include
+        android:id="@+id/cardCancelledOnRow"
+        layout="@layout/view_hotel_label_value_row"
+        android:visibility="gone" />
+
+    <include
+        android:id="@+id/cardCancelledReasonRow"
+        layout="@layout/view_hotel_label_value_row"
         android:visibility="gone" />
 
     <View

@@ -42,6 +42,9 @@
         <item name="textOnScreen">@color/light_on_screen</item>
         <item name="textOnScreenMuted">@color/light_on_screen_muted</item>
         <item name="errorText">@color/light_error</item>
+        <item name="successText">@color/light_success</item>
+        <item name="warningText">@color/light_warning</item>
+        <item name="infoText">@color/light_info</item>
         <item name="dividerColor">@color/light_divider</item>
         <item name="glassSurface">#CCFCF8EF</item>
         <item name="glassBorder">#4D382F22</item>
@@ -82,6 +85,9 @@
         <item name="textOnScreen">@color/dark_on_screen</item>
         <item name="textOnScreenMuted">@color/dark_on_screen_muted</item>
         <item name="errorText">@color/dark_error</item>
+        <item name="successText">@color/dark_success</item>
+        <item name="warningText">@color/dark_warning</item>
+        <item name="infoText">@color/dark_info</item>
         <item name="dividerColor">@color/dark_divider</item>
         <item name="glassSurface">#B3182640</item>
         <item name="glassBorder">#4DFFFFFF</item>

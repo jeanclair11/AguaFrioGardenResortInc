@@ -18,6 +18,8 @@ public final class ApiClient {
 
     private static AuthApi authApi;
     private static BookingApi bookingApi;
+    private static ChatApi chatApi;
+    private static FeedbackApi feedbackApi;
 
     private ApiClient() {
     }
@@ -57,11 +59,32 @@ public final class ApiClient {
         return bookingApi;
     }
 
+    public static synchronized ChatApi chatApi() {
+        if (chatApi == null) {
+            chatApi = retrofit().create(ChatApi.class);
+        }
+        return chatApi;
+    }
+
+    public static synchronized FeedbackApi feedbackApi() {
+        if (feedbackApi == null) {
+            feedbackApi = retrofit().create(FeedbackApi.class);
+        }
+        return feedbackApi;
+    }
+
     private static Retrofit retrofit() {
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
         logging.setLevel(HttpLoggingInterceptor.Level.BASIC);
 
+        // Without this, Laravel treats requests as regular browser form
+        // submissions and responds with a 302 redirect to the homepage
+        // instead of JSON, which OkHttp follows and Gson then fails to
+        // parse -- surfacing as a generic network/timeout error in the app.
         OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor(chain -> chain.proceed(chain.request().newBuilder()
+                        .header("Accept", "application/json")
+                        .build()))
                 .addInterceptor(logging)
                 .build();
 

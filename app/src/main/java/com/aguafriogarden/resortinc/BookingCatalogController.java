@@ -103,7 +103,14 @@ final class BookingCatalogController {
 
     // ---- Hotel Rooms booking flow: stay dates -> ... -> success ---------
 
-    private void showHotelFlow() {
+    /**
+     * Enters the Hotel Rooms flow at its own Select Your Stay screen. Called
+     * both when tapping the Hotel Rooms catalog card here and — via
+     * DashboardHomeController.BookingHandoff — when the guest taps "Book Now"
+     * on the Home screen's Room Details, so that screen never needs its own
+     * dates/party picker.
+     */
+    void showHotelFlow() {
         currentScreen = SCREEN_HOTEL_FLOW;
         if (hotelBookingFlow == null) {
             hotelBookingFlow = new HotelBookingFlowController(activity, this::showCatalog, onBackToHome);

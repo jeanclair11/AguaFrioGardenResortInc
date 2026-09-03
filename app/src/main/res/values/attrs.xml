@@ -43,6 +43,9 @@
     <attr name="textOnScreenMuted" format="color|reference" />
 
     <attr name="errorText" format="color|reference" />
+    <attr name="successText" format="color|reference" />
+    <attr name="warningText" format="color|reference" />
+    <attr name="infoText" format="color|reference" />
     <attr name="dividerColor" format="color|reference" />
 
     <!-- Glassmorphism attributes -->

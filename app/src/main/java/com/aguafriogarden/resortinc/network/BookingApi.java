@@ -1,10 +1,17 @@
 package com.aguafriogarden.resortinc.network;
 
+import java.util.Map;
+
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.http.Field;
 import retrofit2.http.FormUrlEncoded;
 import retrofit2.http.GET;
 import retrofit2.http.Header;
+import retrofit2.http.Multipart;
+import retrofit2.http.Part;
+import retrofit2.http.PartMap;
 import retrofit2.http.POST;
 
 /**
@@ -13,6 +20,9 @@ import retrofit2.http.POST;
  * the exact same booking records the website uses.
  */
 public interface BookingApi {
+
+    @GET("booking/rooms")
+    Call<RoomListResponse> getRooms(@Header("Authorization") String bearerToken);
 
     @FormUrlEncoded
     @POST("booking/availability")
@@ -31,4 +41,26 @@ public interface BookingApi {
 
     @GET("booking/my-bookings")
     Call<MyBookingsResponse> getMyBookings(@Header("Authorization") String bearerToken);
+
+    /**
+     * Creates a real reservation in one call — the mobile client has no server-side
+     * session to spread this across multiple requests the way the website's wizard
+     * does, so it sends everything accumulated across its own screens at once.
+     * {@code quantities} holds bracket-notation form keys the backend already expects
+     * from the website (e.g. "room_quantities[1]", "amenity_quantities[27]",
+     * "menu_quantities[2]"), one entry per selected item with qty &gt; 0.
+     */
+    @Multipart
+    @POST("booking/reserve")
+    Call<ReserveResponse> reserve(
+            @Header("Authorization") String bearerToken,
+            @Part("check_in") RequestBody checkIn,
+            @Part("check_out") RequestBody checkOut,
+            @Part("adults") RequestBody adults,
+            @Part("children") RequestBody children,
+            @Part("special_request") RequestBody specialRequest,
+            @Part("payment_option") RequestBody paymentOption,
+            @Part("reference_number") RequestBody referenceNumber,
+            @Part MultipartBody.Part proofImage,
+            @PartMap Map<String, RequestBody> quantities);
 }

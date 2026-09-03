@@ -21,12 +21,16 @@ import com.aguafriogarden.resortinc.network.AmenityAvailability;
 import com.aguafriogarden.resortinc.network.AmenityListResponse;
 import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.AvailabilityResponse;
+import com.aguafriogarden.resortinc.network.ErrorResponse;
 import com.aguafriogarden.resortinc.network.FoodListResponse;
 import com.aguafriogarden.resortinc.network.MenuItemAvailability;
+import com.aguafriogarden.resortinc.network.ReserveResponse;
 import com.aguafriogarden.resortinc.network.RoomTypeAvailability;
 import com.bumptech.glide.Glide;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -37,6 +41,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -865,10 +872,113 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
                 return;
             }
-            String today = new SimpleDateFormat("yyyyMMdd", Locale.US).format(new Date());
-            bookingReference = activity.getString(R.string.format_booking_reference, today);
-            showScreen(SCREEN_SUCCESS);
+            submitReservation(v);
         });
+    }
+
+    /**
+     * Creates the real reservation on the shared backend (same tables/models the
+     * website's own booking wizard writes to), so it shows up in the receptionist's
+     * Booking List immediately — no separate sync step, just one database.
+     */
+    private void submitReservation(View paymentView) {
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        RequestBody proofBody;
+        try {
+            proofBody = readImagePart(screenshotUri);
+        } catch (IOException e) {
+            Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (proofBody == null) {
+            Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        Button completeButton = paymentView.findViewById(R.id.hotelPaymentCompleteButton);
+        completeButton.setEnabled(false);
+
+        MultipartBody.Part proofPart = MultipartBody.Part.createFormData("proof_image", "payment_proof.jpg", proofBody);
+        String checkInStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(checkInMillis));
+        String checkOutStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(checkOutMillis));
+        String paymentOptionValue = paymentOption == PAYMENT_PARTIAL ? "partial" : "full";
+
+        Map<String, RequestBody> quantities = new LinkedHashMap<>();
+        putQuantityParts(quantities, "room_quantities", roomQuantities);
+        putQuantityParts(quantities, "amenity_quantities", amenityQuantities);
+        putQuantityParts(quantities, "menu_quantities", foodQuantities);
+
+        ApiClient.bookingApi().reserve(
+                "Bearer " + token,
+                textPart(checkInStr),
+                textPart(checkOutStr),
+                textPart(String.valueOf(adults)),
+                textPart(String.valueOf(children)),
+                textPart(specialRequest),
+                textPart(paymentOptionValue),
+                textPart(referenceNumberText),
+                proofPart,
+                quantities
+        ).enqueue(new Callback<ReserveResponse>() {
+            @Override
+            public void onResponse(Call<ReserveResponse> call, Response<ReserveResponse> response) {
+                completeButton.setEnabled(true);
+                if (response.isSuccessful() && response.body() != null) {
+                    bookingReference = response.body().booking_reference;
+                    showScreen(SCREEN_SUCCESS);
+                } else if (response.code() == 401) {
+                    Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+                } else {
+                    ErrorResponse error = ApiClient.parseError(response.errorBody());
+                    String message = error.firstMessage() != null
+                            ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                    Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ReserveResponse> call, Throwable t) {
+                completeButton.setEnabled(true);
+                Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private static void putQuantityParts(Map<String, RequestBody> target, String fieldName, Map<Integer, Integer> quantities) {
+        for (Map.Entry<Integer, Integer> entry : quantities.entrySet()) {
+            if (entry.getValue() != null && entry.getValue() > 0) {
+                target.put(fieldName + "[" + entry.getKey() + "]", textPart(String.valueOf(entry.getValue())));
+            }
+        }
+    }
+
+    private static RequestBody textPart(String value) {
+        return RequestBody.create(value != null ? value : "", MediaType.parse("text/plain"));
+    }
+
+    /** Reads the picked gallery screenshot into an upload-ready request body. */
+    private RequestBody readImagePart(Uri uri) throws IOException {
+        if (uri == null) {
+            return null;
+        }
+        try (InputStream in = activity.getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                return null;
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            String mime = activity.getContentResolver().getType(uri);
+            return RequestBody.create(out.toByteArray(), MediaType.parse(mime != null ? mime : "image/jpeg"));
+        }
     }
 
     private void showScreenshotPreview(View screenView) {

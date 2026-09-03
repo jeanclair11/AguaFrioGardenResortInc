@@ -235,6 +235,60 @@
             </HorizontalScrollView>
         </LinearLayout>
 
+        <!-- Hotel Rooms section: a capped preview (see
+             DashboardHomeController.HOME_ROOM_PREVIEW_LIMIT) of active/available
+             rooms from the Room Management Module, rendered as compact cards
+             (see view_home_room_card.xml) so the Home screen doesn't turn into
+             a long scroll. "See More Rooms" opens the All Rooms screen with the
+             full list. DashboardHomeController fills hotelRoomsContainer and
+             toggles the empty-state text / See More button. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/hotel_rooms_section_title"
+                android:textColor="?attr/textOnScreen"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="@string/hotel_rooms_section_subtitle"
+                android:textColor="?attr/textOnScreenMuted"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/hotelRoomsEmptyState"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:gravity="center"
+                android:text="@string/hotel_rooms_empty_state"
+                android:textColor="?attr/textOnScreenMuted"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/hotelRoomsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <Button
+                android:id="@+id/hotelRoomsSeeMoreButton"
+                style="@style/SecondaryButton"
+                android:layout_marginTop="14dp"
+                android:text="@string/button_see_more_rooms"
+                android:visibility="gone" />
+        </LinearLayout>
+
         <!-- Recent transaction card -->
         <LinearLayout
             android:layout_width="match_parent"

@@ -79,6 +79,7 @@
     </LinearLayout>
 
     <!-- Active module screen -->
+
     <FrameLayout
         android:id="@+id/moduleContainer"
         android:layout_width="match_parent"

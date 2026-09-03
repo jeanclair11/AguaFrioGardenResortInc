@@ -8,12 +8,16 @@ public class ReservationSummary {
     public String booking_reference;
     public String service_type;
     public String item_name;
+    public String room_type_name;
     public String check_in;
     public String check_out;
     public int adults;
     public int children;
     public int current_step;
     public boolean cancelled;
+    public int cancelled_from_step;
+    public String cancel_reason;
+    public String cancelled_at;
     public String guest_name;
     public String guest_email;
     public String guest_mobile;

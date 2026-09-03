@@ -71,20 +71,20 @@
                     android:text="@string/section_scan_to_pay" />
 
                 <FrameLayout
-                    android:layout_width="160dp"
-                    android:layout_height="160dp"
+                    android:layout_width="260dp"
+                    android:layout_height="260dp"
                     android:layout_marginTop="14dp"
                     android:layout_gravity="center_horizontal"
-                    android:background="@drawable/bg_upload_dropzone">
+                    android:background="@drawable/bg_qr_container"
+                    android:padding="10dp">
 
                     <ImageView
-                        android:layout_width="56dp"
-                        android:layout_height="56dp"
-                        android:layout_gravity="center"
-                        android:alpha="0.6"
-                        android:src="@drawable/ic_camera"
-                        android:tint="?attr/iconMuted"
-                        android:importantForAccessibility="no" />
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:adjustViewBounds="true"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/gcash_qr_personal"
+                        android:contentDescription="@string/section_scan_to_pay" />
                 </FrameLayout>
 
                 <TextView
@@ -92,7 +92,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="14dp"
                     android:gravity="center"
-                    android:text="@string/gcash_placeholder_name"
+                    android:text="@string/gcash_account_name"
                     android:textColor="?attr/textPrimary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
@@ -102,7 +102,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
                     android:gravity="center"
-                    android:text="@string/gcash_placeholder_number"
+                    android:text="@string/gcash_account_number"
                     android:textColor="?attr/textMuted"
                     android:textSize="13sp" />
 

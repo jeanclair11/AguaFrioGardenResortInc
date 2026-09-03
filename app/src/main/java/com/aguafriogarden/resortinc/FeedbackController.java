@@ -3,8 +3,6 @@ package com.aguafriogarden.resortinc;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.graphics.Bitmap;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
@@ -13,25 +11,32 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import java.text.SimpleDateFormat;
+import com.aguafriogarden.resortinc.network.ApiClient;
+import com.aguafriogarden.resortinc.network.FeedbackEntryDto;
+import com.aguafriogarden.resortinc.network.FeedbackListResponse;
+import com.aguafriogarden.resortinc.network.FeedbackSubmitResponse;
+
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 /**
  * Drives the Feedback tab: a history of the guest's own submitted feedback
  * (or an empty state) plus a Write Feedback sub-screen, reached and left via
- * its own header back arrow. Submission is simulated with a short delay
- * (see DELAY_MS) since there's no backend yet; FeedbackStore already shapes
- * the data (adminResponse/respondedAtMillis) for a real reply to show up
- * once one exists.
+ * its own header back arrow. Reads/writes the same feedback rows the
+ * website's guest feedback form and Admin Feedback Module use, so a mobile
+ * submission shows up for the admin and an admin's response shows up here.
  */
 final class FeedbackController {
 
     private static final int SCREEN_MAIN = 0;
     private static final int SCREEN_WRITE = 1;
 
-    private static final long DELAY_MS = 1200L;
     private static final int MAX_MESSAGE_LENGTH = 500;
 
     private final Activity activity;
@@ -40,15 +45,22 @@ final class FeedbackController {
     private View currentScreenView;
     private int currentScreen = -1;
     private int selectedRating;
+    private List<FeedbackEntryDto> entries = new ArrayList<>();
 
     FeedbackController(Activity activity) {
         this.activity = activity;
         root = new FrameLayout(activity);
         showScreen(SCREEN_MAIN);
+        refresh();
     }
 
     View getRootView() {
         return root;
+    }
+
+    /** Refetches the guest's feedback history; call when the tab becomes visible. */
+    void onShown() {
+        refresh();
     }
 
     /** Steps out of Write Feedback; returns false once already on the main screen. */
@@ -75,12 +87,40 @@ final class FeedbackController {
         currentScreenView = v;
     }
 
+    private String bearerToken() {
+        String token = ProfileStore.getAuthToken(activity);
+        return token.isEmpty() ? null : "Bearer " + token;
+    }
+
+    private void refresh() {
+        String token = bearerToken();
+        if (token == null) {
+            return;
+        }
+        ApiClient.feedbackApi().getFeedback(token).enqueue(new Callback<FeedbackListResponse>() {
+            @Override
+            public void onResponse(Call<FeedbackListResponse> call, Response<FeedbackListResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().feedback != null) {
+                    entries = response.body().feedback;
+                    if (currentScreen == SCREEN_MAIN && currentScreenView != null) {
+                        bindMain(currentScreenView);
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<FeedbackListResponse> call, Throwable t) {
+                // Silent: a background refresh failing (e.g. no connection) shouldn't
+                // interrupt the guest or clear what's already on screen.
+            }
+        });
+    }
+
     // ---- Main feedback screen ----------------------------------------
 
     private void bindMain(View v) {
         v.findViewById(R.id.writeFeedbackButton).setOnClickListener(view -> showScreen(SCREEN_WRITE));
 
-        List<FeedbackStore.Entry> entries = FeedbackStore.getAll(activity);
         LinearLayout container = v.findViewById(R.id.feedbackListContainer);
         container.removeAllViews();
 
@@ -89,13 +129,11 @@ final class FeedbackController {
         container.setVisibility(empty ? View.GONE : View.VISIBLE);
 
         LayoutInflater inflater = LayoutInflater.from(activity);
-        SimpleDateFormat dateFormat = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
-        for (FeedbackStore.Entry entry : entries) {
+        for (FeedbackEntryDto entry : entries) {
             View card = inflater.inflate(R.layout.view_feedback_card, container, false);
             bindAvatar(card.findViewById(R.id.feedbackCardAvatar));
             ((TextView) card.findViewById(R.id.feedbackCardName)).setText(ProfileStore.getFullName(activity));
-            ((TextView) card.findViewById(R.id.feedbackCardDate))
-                    .setText(dateFormat.format(entry.submittedAtMillis));
+            ((TextView) card.findViewById(R.id.feedbackCardDate)).setText(entry.date);
 
             TextView badge = card.findViewById(R.id.feedbackCardStatusBadge);
             if (entry.isResponded()) {
@@ -126,10 +164,9 @@ final class FeedbackController {
             if (entry.isResponded()) {
                 responseBox.setVisibility(View.VISIBLE);
                 ((TextView) card.findViewById(R.id.feedbackCardResponseDate)).setText(
-                        activity.getString(R.string.feedback_response_date_format,
-                                dateFormat.format(entry.respondedAtMillis)));
+                        activity.getString(R.string.feedback_response_date_format, entry.responded_at));
                 ((TextView) card.findViewById(R.id.feedbackCardResponseMessage))
-                        .setText(entry.adminResponse);
+                        .setText(entry.response);
             } else {
                 responseBox.setVisibility(View.GONE);
             }
@@ -209,13 +246,34 @@ final class FeedbackController {
             return;
         }
 
+        String token = bearerToken();
+        if (token == null) {
+            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            return;
+        }
+
         setSubmitting(v, true);
-        int rating = selectedRating;
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            FeedbackStore.addFeedback(activity, rating, message);
-            setSubmitting(v, false);
-            showSuccessDialog();
-        }, DELAY_MS);
+        ApiClient.feedbackApi().submit(token, selectedRating, message)
+                .enqueue(new Callback<FeedbackSubmitResponse>() {
+                    @Override
+                    public void onResponse(Call<FeedbackSubmitResponse> call, Response<FeedbackSubmitResponse> response) {
+                        setSubmitting(v, false);
+                        if (response.isSuccessful()) {
+                            refresh();
+                            showSuccessDialog();
+                        } else if (response.code() == 401) {
+                            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+                        } else {
+                            Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<FeedbackSubmitResponse> call, Throwable t) {
+                        setSubmitting(v, false);
+                        Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+                    }
+                });
     }
 
     private void setSubmitting(View v, boolean submitting) {

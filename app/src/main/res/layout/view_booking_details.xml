@@ -54,6 +54,15 @@
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
+                <TextView
+                    android:id="@+id/detailsDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:lineSpacingExtra="2dp"
+                    android:textColor="?attr/textMuted"
+                    android:textSize="13sp" />
+
                 <LinearLayout
                     android:id="@+id/detailsProgressList"
                     android:layout_width="match_parent"
@@ -61,6 +70,51 @@
                     android:layout_marginTop="16dp"
                     android:orientation="vertical" />
 
+                <include
+                    android:id="@+id/detailsRowCancelledOn"
+                    layout="@layout/view_hotel_label_value_row"
+                    android:visibility="gone" />
+
+                <include
+                    android:id="@+id/detailsRowCancelledReason"
+                    layout="@layout/view_hotel_label_value_row"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <!-- Accommodation -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp">
+
+                <TextView
+                    style="@style/BillingSectionLabel"
+                    android:text="@string/section_accommodation" />
+
+                <include android:id="@+id/detailsRowAccommodationType" layout="@layout/view_hotel_label_value_row" />
+
+                <!-- Room Type is the primary heading; Category is secondary
+                     context below it. See DashboardHomeController#showDetails. -->
+                <TextView
+                    android:id="@+id/detailsPrimaryTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:textColor="?attr/textPrimary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/detailsSecondaryInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="?attr/textMuted"
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <!-- Booking reference -->
