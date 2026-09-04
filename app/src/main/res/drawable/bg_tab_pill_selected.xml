@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Category tab pill (Book search screen), selected state. Dedicated to
+     that screen so it can use a fuller pill radius without affecting the
+     shared bg_selectable_card* drawables used by the Billing payment cards. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="?attr/fieldBackground" />
+    <stroke android:width="1.5dp" android:color="?attr/accentPrimary" />
+    <corners android:radius="23dp" />
+</shape>

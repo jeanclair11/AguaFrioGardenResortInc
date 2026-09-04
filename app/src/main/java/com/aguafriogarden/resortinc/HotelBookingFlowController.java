@@ -1,19 +1,27 @@
 package com.aguafriogarden.resortinc;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.Uri;
 import android.provider.MediaStore;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -25,6 +33,8 @@ import com.aguafriogarden.resortinc.network.ErrorResponse;
 import com.aguafriogarden.resortinc.network.FoodListResponse;
 import com.aguafriogarden.resortinc.network.MenuItemAvailability;
 import com.aguafriogarden.resortinc.network.ReserveResponse;
+import com.aguafriogarden.resortinc.network.RoomListResponse;
+import com.aguafriogarden.resortinc.network.RoomSummary;
 import com.aguafriogarden.resortinc.network.RoomTypeAvailability;
 import com.bumptech.glide.Glide;
 
@@ -34,6 +44,7 @@ import java.io.InputStream;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -61,7 +72,6 @@ import retrofit2.Response;
 final class HotelBookingFlowController {
 
     private static final int SCREEN_DATES = 0;
-    private static final int SCREEN_ROOMS = 1;
     private static final int SCREEN_REVIEW = 2;
     private static final int SCREEN_AMENITY = 3;
     private static final int SCREEN_FOOD = 4;
@@ -77,20 +87,36 @@ final class HotelBookingFlowController {
     private static final double PARTIAL_PAYMENT_RATE = 0.30;
     private static final int REQUEST_PAYMENT_SCREENSHOT = 4101;
 
+    private static final int CATEGORY_HOTEL_ROOMS = 0;
+    private static final int CATEGORY_COTTAGES_KTV = 1;
+
+    private static final int PANEL_ANIMATION_MS = 220;
+    private static final float PANEL_TAP_SLOP_PX = 16f;
 
     private final Activity activity;
-    private final Runnable onExitToCatalog;
+    private final Runnable onBookNowOtherCategory;
     private final Runnable onBackToHome;
     private final FrameLayout root;
 
     private int currentScreen = -1;
     private View currentScreenView;
 
+    // ---- Search panel drag/collapse state (UI-only, reset each time the Dates screen binds) --
+    private int panelCollapseDistance = 0;
+    private float panelFraction = 0f; // 0 = fully expanded, 1 = fully collapsed
+    private ValueAnimator panelAnimator;
+
     // ---- Persisted answers (survive navigating away and back) -----------
     private long checkInMillis = -1;
     private long checkOutMillis = -1;
-    private int adults = 1;
+    private int adults = 0;
     private int children = 0;
+    private int selectedCategory = CATEGORY_HOTEL_ROOMS;
+    private boolean hasSearchedHotelRooms = false;
+    private boolean availabilityErrored = false;
+    private List<RoomSummary> defaultRooms = new ArrayList<>();
+    private boolean isLoadingDefaultRooms = false;
+    private boolean defaultRoomsLoaded = false;
     private List<RoomTypeAvailability> availableRoomTypes = new ArrayList<>();
     private final Map<Integer, Integer> roomQuantities = new LinkedHashMap<>();
     private boolean isLoadingAvailability = false;
@@ -109,9 +135,9 @@ final class HotelBookingFlowController {
     private Uri screenshotUri;
     private String bookingReference = "";
 
-    HotelBookingFlowController(Activity activity, Runnable onExitToCatalog, Runnable onBackToHome) {
+    HotelBookingFlowController(Activity activity, Runnable onBookNowOtherCategory, Runnable onBackToHome) {
         this.activity = activity;
-        this.onExitToCatalog = onExitToCatalog;
+        this.onBookNowOtherCategory = onBookNowOtherCategory;
         this.onBackToHome = onBackToHome;
         root = new FrameLayout(activity);
         showScreen(SCREEN_DATES);
@@ -121,17 +147,15 @@ final class HotelBookingFlowController {
         return root;
     }
 
-    /** Steps back one screen at a time; Success and Dates both exit the flow. */
+    /** Steps back one screen at a time; Dates is the Book tab's root screen
+     *  (nothing to step back to), so it's left unhandled like every other
+     *  tab root; Success exits the flow back to Home. */
     boolean handleBackPressed() {
         switch (currentScreen) {
             case SCREEN_DATES:
-                onExitToCatalog.run();
-                return true;
-            case SCREEN_ROOMS:
-                showScreen(SCREEN_DATES);
-                return true;
+                return false;
             case SCREEN_REVIEW:
-                showScreen(SCREEN_ROOMS);
+                showScreen(SCREEN_DATES);
                 return true;
             case SCREEN_AMENITY:
                 showScreen(SCREEN_REVIEW);
@@ -176,8 +200,6 @@ final class HotelBookingFlowController {
 
     private int layoutFor(int screen) {
         switch (screen) {
-            case SCREEN_ROOMS:
-                return R.layout.view_hotel_rooms;
             case SCREEN_REVIEW:
                 return R.layout.view_hotel_review;
             case SCREEN_AMENITY:
@@ -197,9 +219,6 @@ final class HotelBookingFlowController {
 
     private void bindScreen(int screen, View v) {
         switch (screen) {
-            case SCREEN_ROOMS:
-                bindRooms(v);
-                break;
             case SCREEN_REVIEW:
                 bindReview(v);
                 break;
@@ -224,35 +243,41 @@ final class HotelBookingFlowController {
         }
     }
 
-    // ---- Screen 1: Choose Your Stay Dates --------------------------------
+    // ---- Screen 1: Book Your Experience (search + browse) -----------------
 
     private void bindDates(View v) {
-        bindHeader(v, R.id.hotelDatesHeaderBar, R.string.hotel_dates_title, onExitToCatalog);
-
-        EditText checkIn = v.findViewById(R.id.hotelCheckInField);
-        EditText checkOut = v.findViewById(R.id.hotelCheckOutField);
+        View checkIn = v.findViewById(R.id.hotelCheckInField);
+        View checkOut = v.findViewById(R.id.hotelCheckOutField);
+        TextView checkInDateText = v.findViewById(R.id.hotelCheckInDateText);
+        TextView checkInDayText = v.findViewById(R.id.hotelCheckInDayText);
+        TextView checkOutDateText = v.findViewById(R.id.hotelCheckOutDateText);
+        TextView checkOutDayText = v.findViewById(R.id.hotelCheckOutDayText);
         TextView checkInError = v.findViewById(R.id.hotelCheckInError);
         TextView checkOutError = v.findViewById(R.id.hotelCheckOutError);
-        TextView adultsValue = v.findViewById(R.id.hotelAdultsValue);
-        TextView childrenValue = v.findViewById(R.id.hotelChildrenValue);
+        EditText adultsValue = v.findViewById(R.id.hotelAdultsValue);
+        EditText childrenValue = v.findViewById(R.id.hotelChildrenValue);
+        View tabRooms = v.findViewById(R.id.hotelTabRooms);
+        View tabCottagesKtv = v.findViewById(R.id.hotelTabCottagesKtv);
 
-        checkIn.setText(checkInMillis >= 0 ? formatDate(checkInMillis) : "");
-        checkOut.setText(checkOutMillis >= 0 ? formatDate(checkOutMillis) : "");
+        updateDateField(checkInDateText, checkInDayText, checkInMillis);
+        updateDateField(checkOutDateText, checkOutDayText, checkOutMillis);
         adultsValue.setText(String.valueOf(adults));
         childrenValue.setText(String.valueOf(children));
+        updateCategoryTabs(tabRooms, tabCottagesKtv);
 
-        checkIn.setOnClickListener(view -> GlassDatePicker.showRangePicker(activity, checkInMillis, checkOutMillis, System.currentTimeMillis() - 1000L, (start, end) -> {
+        View.OnClickListener openDatePicker = view -> GlassDatePicker.showRangePicker(activity, checkInMillis, checkOutMillis, System.currentTimeMillis() - 1000L, (start, end) -> {
             checkInMillis = start;
             checkOutMillis = end;
-            checkIn.setText(formatDate(start));
-            checkOut.setText(formatDate(end));
+            updateDateField(checkInDateText, checkInDayText, checkInMillis);
+            updateDateField(checkOutDateText, checkOutDayText, checkOutMillis);
             checkInError.setVisibility(View.GONE);
             checkOutError.setVisibility(View.GONE);
-        }));
-        checkOut.setOnClickListener(view -> checkIn.performClick());
+        });
+        checkIn.setOnClickListener(openDatePicker);
+        checkOut.setOnClickListener(openDatePicker);
 
         v.findViewById(R.id.hotelAdultsMinus).setOnClickListener(view -> {
-            if (adults > 1) {
+            if (adults > 0) {
                 adults--;
                 adultsValue.setText(String.valueOf(adults));
             }
@@ -272,6 +297,40 @@ final class HotelBookingFlowController {
             childrenValue.setText(String.valueOf(children));
         });
 
+        AuthUiUtils.afterTextChanged(adultsValue, () -> {
+            adults = parseGuestCount(adultsValue.getText().toString());
+            renderAvailabilityResults(v);
+        });
+        adultsValue.setOnFocusChangeListener((view, hasFocus) -> {
+            if (!hasFocus) {
+                adultsValue.setText(String.valueOf(adults));
+            }
+        });
+        AuthUiUtils.afterTextChanged(childrenValue, () -> {
+            children = parseGuestCount(childrenValue.getText().toString());
+            renderAvailabilityResults(v);
+        });
+        childrenValue.setOnFocusChangeListener((view, hasFocus) -> {
+            if (!hasFocus) {
+                childrenValue.setText(String.valueOf(children));
+            }
+        });
+
+        tabRooms.setOnClickListener(view -> {
+            if (selectedCategory != CATEGORY_HOTEL_ROOMS) {
+                selectedCategory = CATEGORY_HOTEL_ROOMS;
+                updateCategoryTabs(tabRooms, tabCottagesKtv);
+                renderAvailabilityResults(v);
+            }
+        });
+        tabCottagesKtv.setOnClickListener(view -> {
+            if (selectedCategory != CATEGORY_COTTAGES_KTV) {
+                selectedCategory = CATEGORY_COTTAGES_KTV;
+                updateCategoryTabs(tabRooms, tabCottagesKtv);
+                renderAvailabilityResults(v);
+            }
+        });
+
         v.findViewById(R.id.hotelDatesNextButton).setOnClickListener(view -> {
             boolean valid = true;
             if (checkInMillis < 0) {
@@ -289,13 +348,186 @@ final class HotelBookingFlowController {
             } else {
                 checkOutError.setVisibility(View.GONE);
             }
+            if (adults + children < 1) {
+                Toast.makeText(activity, R.string.toast_guests_required, Toast.LENGTH_LONG).show();
+                valid = false;
+            }
             if (valid) {
-                fetchAvailability(v);
+                runAvailabilitySearch(v);
+            }
+        });
+
+        v.findViewById(R.id.hotelResultsChangeDatesButton).setOnClickListener(view -> expandPanel(v));
+        v.findViewById(R.id.hotelResultsTryAgainButton).setOnClickListener(view -> runAvailabilitySearch(v));
+
+        setUpDragPanel(v);
+
+        renderAvailabilityResults(v);
+        fetchDefaultRooms(v);
+    }
+
+    // ---- Search panel collapse/drag mechanics ------------------------------
+
+    /**
+     * Wires the collapsible search panel: measures its height once laid out, auto-collapses it
+     * the first time the guest scrolls the results, and lets them drag (or tap) the handle to
+     * bring it back. UI-only — doesn't touch any booking data or validation.
+     */
+    private void setUpDragPanel(View v) {
+        View panelContent = v.findViewById(R.id.hotelSearchPanelContent);
+        View dragHandle = v.findViewById(R.id.hotelDragHandle);
+        ScrollView resultsScrollView = v.findViewById(R.id.hotelResultsScrollView);
+
+        panelFraction = 0f;
+        panelContent.post(() -> {
+            panelCollapseDistance = panelContent.getHeight();
+            setPanelFraction(v, panelFraction);
+        });
+
+        resultsScrollView.setOnScrollChangeListener((View.OnScrollChangeListener) (view, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+            if (scrollY > 24 && panelFraction < 1f && panelCollapseDistance > 0) {
+                animatePanelTo(v, 1f);
+            }
+        });
+
+        dragHandle.setOnTouchListener(new View.OnTouchListener() {
+            float startRawY;
+            float startFraction;
+            float totalMovement;
+
+            @Override
+            public boolean onTouch(View handleView, MotionEvent event) {
+                if (panelCollapseDistance <= 0) {
+                    return true;
+                }
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        cancelPanelAnimator();
+                        startRawY = event.getRawY();
+                        startFraction = panelFraction;
+                        totalMovement = 0f;
+                        return true;
+                    case MotionEvent.ACTION_MOVE: {
+                        float deltaY = event.getRawY() - startRawY;
+                        totalMovement = Math.max(totalMovement, Math.abs(deltaY));
+                        float newFraction = startFraction - deltaY / panelCollapseDistance;
+                        setPanelFraction(v, Math.max(0f, Math.min(1f, newFraction)));
+                        return true;
+                    }
+                    case MotionEvent.ACTION_UP:
+                        if (totalMovement < PANEL_TAP_SLOP_PX) {
+                            handleView.performClick();
+                            animatePanelTo(v, startFraction < 0.5f ? 1f : 0f);
+                        } else {
+                            animatePanelTo(v, panelFraction < 0.5f ? 0f : 1f);
+                        }
+                        return true;
+                    case MotionEvent.ACTION_CANCEL:
+                        animatePanelTo(v, panelFraction < 0.5f ? 0f : 1f);
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        });
+        dragHandle.setOnClickListener(view -> { });
+    }
+
+    /** Applies the panel's translation and the results list's top padding for the given
+     *  0 (expanded) .. 1 (collapsed) fraction, immediately (no animation). */
+    private void setPanelFraction(View v, float fraction) {
+        panelFraction = fraction;
+        View dragSheet = v.findViewById(R.id.hotelDragSheet);
+        View dragHandle = v.findViewById(R.id.hotelDragHandle);
+        ScrollView resultsScrollView = v.findViewById(R.id.hotelResultsScrollView);
+
+        dragSheet.setTranslationY(-fraction * panelCollapseDistance);
+        resultsScrollView.setPadding(
+                resultsScrollView.getPaddingLeft(),
+                dragHandle.getHeight() + Math.round((1f - fraction) * panelCollapseDistance),
+                resultsScrollView.getPaddingRight(),
+                resultsScrollView.getPaddingBottom());
+    }
+
+    /** Animates the panel to the given fraction, cancelling any drag/animation already in flight. */
+    private void animatePanelTo(View v, float target) {
+        cancelPanelAnimator();
+        if (panelCollapseDistance <= 0) {
+            setPanelFraction(v, target);
+            return;
+        }
+        panelAnimator = ValueAnimator.ofFloat(panelFraction, target);
+        panelAnimator.setDuration(PANEL_ANIMATION_MS);
+        panelAnimator.setInterpolator(new DecelerateInterpolator());
+        panelAnimator.addUpdateListener(animation -> setPanelFraction(v, (float) animation.getAnimatedValue()));
+        panelAnimator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                panelAnimator = null;
+            }
+        });
+        panelAnimator.start();
+    }
+
+    private void cancelPanelAnimator() {
+        if (panelAnimator != null) {
+            panelAnimator.cancel();
+            panelAnimator = null;
+        }
+    }
+
+    /** Expands the search panel (e.g. so the guest can see/edit dates again after it auto-collapsed). */
+    private void expandPanel(View v) {
+        animatePanelTo(v, 0f);
+    }
+
+    /** Runs the search for whichever category tab is active. */
+    private void runAvailabilitySearch(View v) {
+        if (selectedCategory == CATEGORY_HOTEL_ROOMS) {
+            fetchAvailability(v);
+        } else {
+            // Cottages & KTV has no backend yet; it's already showing its static preview.
+            renderAvailabilityResults(v);
+        }
+    }
+
+    /**
+     * Loads the general (date-less) Hotel Rooms catalog so accommodations are visible the
+     * moment the guest opens the Book tab, before they've picked dates. Runs once per flow
+     * instance; a real, dated {@link #fetchAvailability} search takes over once it succeeds.
+     */
+    private void fetchDefaultRooms(View v) {
+        if (isLoadingDefaultRooms || defaultRoomsLoaded || hasSearchedHotelRooms) {
+            return;
+        }
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            return;
+        }
+        isLoadingDefaultRooms = true;
+        renderAvailabilityResults(v);
+
+        ApiClient.bookingApi().getRooms("Bearer " + token).enqueue(new Callback<RoomListResponse>() {
+            @Override
+            public void onResponse(Call<RoomListResponse> call, Response<RoomListResponse> response) {
+                isLoadingDefaultRooms = false;
+                defaultRoomsLoaded = true;
+                defaultRooms = response.isSuccessful() && response.body() != null && response.body().rooms != null
+                        ? response.body().rooms : new ArrayList<>();
+                renderAvailabilityResults(v);
+            }
+
+            @Override
+            public void onFailure(Call<RoomListResponse> call, Throwable t) {
+                isLoadingDefaultRooms = false;
+                defaultRoomsLoaded = true;
+                defaultRooms = new ArrayList<>();
+                renderAvailabilityResults(v);
             }
         });
     }
 
-    /** Checks real room availability on the shared backend, then advances to Hotel Rooms. */
+    /** Checks real room availability on the shared backend, then refreshes the results below. */
     private void fetchAvailability(View datesView) {
         if (isLoadingAvailability) {
             return;
@@ -306,10 +538,12 @@ final class HotelBookingFlowController {
             return;
         }
 
-        Button nextButton = datesView.findViewById(R.id.hotelDatesNextButton);
+        View searchButton = datesView.findViewById(R.id.hotelDatesNextButton);
+        TextView searchButtonText = datesView.findViewById(R.id.hotelDatesNextButtonText);
         isLoadingAvailability = true;
-        nextButton.setEnabled(false);
-        nextButton.setText(R.string.button_checking_availability);
+        searchButton.setEnabled(false);
+        searchButtonText.setText(R.string.button_checking_availability);
+        renderAvailabilityResults(datesView);
 
         String checkInStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(checkInMillis));
         String checkOutStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(checkOutMillis));
@@ -319,8 +553,8 @@ final class HotelBookingFlowController {
                     @Override
                     public void onResponse(Call<AvailabilityResponse> call, Response<AvailabilityResponse> response) {
                         isLoadingAvailability = false;
-                        nextButton.setEnabled(true);
-                        nextButton.setText(R.string.button_next);
+                        searchButton.setEnabled(true);
+                        searchButtonText.setText(R.string.button_search);
 
                         if (response.isSuccessful() && response.body() != null) {
                             availableRoomTypes = response.body().room_types != null
@@ -329,108 +563,356 @@ final class HotelBookingFlowController {
                             for (RoomTypeAvailability type : availableRoomTypes) {
                                 roomQuantities.put(type.group_id, 0);
                             }
-                            showScreen(SCREEN_ROOMS);
+                            hasSearchedHotelRooms = true;
+                            availabilityErrored = false;
                         } else if (response.code() == 401) {
                             Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
                         } else {
+                            availabilityErrored = true;
                             Toast.makeText(activity, R.string.toast_availability_check_failed, Toast.LENGTH_LONG).show();
                         }
+                        renderAvailabilityResults(datesView);
                     }
 
                     @Override
                     public void onFailure(Call<AvailabilityResponse> call, Throwable t) {
                         isLoadingAvailability = false;
-                        nextButton.setEnabled(true);
-                        nextButton.setText(R.string.button_next);
+                        searchButton.setEnabled(true);
+                        searchButtonText.setText(R.string.button_search);
+                        availabilityErrored = true;
                         Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+                        renderAvailabilityResults(datesView);
                     }
                 });
     }
 
-    // ---- Screen 2: Hotel Rooms --------------------------------------------
-
-    private void bindRooms(View v) {
-        bindHeader(v, R.id.hotelRoomsHeaderBar, R.string.hotel_rooms_title, () -> showScreen(SCREEN_DATES));
-
-        LinearLayout container = v.findViewById(R.id.hotelRoomsContainer);
+    /** Shows the loading/error/empty/results state for the active category tab below the search controls. */
+    private void renderAvailabilityResults(View v) {
+        View loading = v.findViewById(R.id.hotelResultsLoading);
+        View emptyState = v.findViewById(R.id.hotelResultsEmptyState);
+        View errorState = v.findViewById(R.id.hotelResultsErrorState);
+        View sectionHeader = v.findViewById(R.id.hotelResultsSectionHeader);
+        TextView sectionLabel = v.findViewById(R.id.hotelResultsSectionLabel);
+        ImageView sectionIcon = v.findViewById(R.id.hotelResultsSectionIcon);
+        LinearLayout container = v.findViewById(R.id.hotelResultsContainer);
         container.removeAllViews();
-        View emptyState = v.findViewById(R.id.hotelRoomsEmptyState);
-        emptyState.setVisibility(availableRoomTypes.isEmpty() ? View.VISIBLE : View.GONE);
-        container.setVisibility(availableRoomTypes.isEmpty() ? View.GONE : View.VISIBLE);
+
+        TextView resultsSubtitle = v.findViewById(R.id.hotelResultsSubtitle);
+        boolean showingLiveSearch = selectedCategory != CATEGORY_HOTEL_ROOMS || hasSearchedHotelRooms;
+        resultsSubtitle.setText(showingLiveSearch
+                ? R.string.label_available_accommodations_subtitle
+                : R.string.label_available_accommodations_subtitle_browse);
+
+        if (isLoadingAvailability || (selectedCategory == CATEGORY_HOTEL_ROOMS && !hasSearchedHotelRooms && isLoadingDefaultRooms)) {
+            loading.setVisibility(View.VISIBLE);
+            emptyState.setVisibility(View.GONE);
+            errorState.setVisibility(View.GONE);
+            sectionHeader.setVisibility(View.GONE);
+            container.setVisibility(View.GONE);
+            return;
+        }
+        loading.setVisibility(View.GONE);
+
+        if (selectedCategory == CATEGORY_HOTEL_ROOMS && hasSearchedHotelRooms && availabilityErrored) {
+            errorState.setVisibility(View.VISIBLE);
+            emptyState.setVisibility(View.GONE);
+            sectionHeader.setVisibility(View.GONE);
+            container.setVisibility(View.GONE);
+            return;
+        }
+        errorState.setVisibility(View.GONE);
 
         LayoutInflater inflater = LayoutInflater.from(activity);
-        String lastCategory = null;
-        for (RoomTypeAvailability room : availableRoomTypes) {
-            if (!room.category_name.equals(lastCategory)) {
-                TextView header = (TextView) inflater.inflate(
-                        R.layout.view_hotel_food_category_header, container, false);
-                header.setText(room.category_name);
-                container.addView(header);
-                lastCategory = room.category_name;
-            }
-
-            View card = inflater.inflate(R.layout.view_hotel_stepper_item, container, false);
-            loadImage(card.findViewById(R.id.stepperItemImage), room.image_path, R.drawable.ic_bed);
-            ((TextView) card.findViewById(R.id.stepperItemName)).setText(room.variant_name);
-            TextView description = card.findViewById(R.id.stepperItemDescription);
-            if (room.description != null && !room.description.trim().isEmpty()) {
-                description.setText(room.description);
-                description.setVisibility(View.VISIBLE);
-            } else {
-                description.setVisibility(View.GONE);
-            }
-            TextView meta = card.findViewById(R.id.stepperItemMeta);
-            meta.setText(activity.getString(R.string.format_capacity, room.capacity));
-            meta.setVisibility(View.VISIBLE);
-            int pricePerNight = (int) Math.round(room.price_per_night);
-            ((TextView) card.findViewById(R.id.stepperItemPrice))
-                    .setText(activity.getString(R.string.format_price_per_night, formatMoney(pricePerNight)));
-
-            TextView qtyValue = card.findViewById(R.id.stepperItemQtyValue);
-            ImageView minus = card.findViewById(R.id.stepperItemMinus);
-            ImageView plus = card.findViewById(R.id.stepperItemPlus);
-            qtyValue.setText(String.valueOf(roomQuantities.get(room.group_id)));
-            setStepperEnabled(plus, roomQuantities.get(room.group_id) < room.available_quantity);
-
-            minus.setOnClickListener(view -> {
-                int qty = roomQuantities.get(room.group_id);
-                if (qty > 0) {
-                    roomQuantities.put(room.group_id, qty - 1);
-                    qtyValue.setText(String.valueOf(qty - 1));
-                    setStepperEnabled(plus, qty - 1 < room.available_quantity);
+        if (selectedCategory == CATEGORY_HOTEL_ROOMS && hasSearchedHotelRooms) {
+            // A real, dated search has been run: show live availability for those exact dates.
+            int totalGuests = adults + children;
+            List<RoomTypeAvailability> rooms = new ArrayList<>();
+            for (RoomTypeAvailability room : availableRoomTypes) {
+                if (meetsCapacity(room.capacity, totalGuests)) {
+                    rooms.add(room);
                 }
-            });
-            plus.setOnClickListener(view -> {
-                int qty = roomQuantities.get(room.group_id);
-                if (qty < room.available_quantity) {
-                    roomQuantities.put(room.group_id, qty + 1);
-                    qtyValue.setText(String.valueOf(qty + 1));
-                    setStepperEnabled(plus, qty + 1 < room.available_quantity);
-                }
-            });
-
-            container.addView(card);
-        }
-
-        v.findViewById(R.id.hotelRoomsNextButton).setOnClickListener(view -> {
-            if (totalRoomsSelected() == 0) {
-                AlertDialog dialog = new AlertDialog.Builder(activity)
-                        .setTitle(R.string.dialog_no_room_title)
-                        .setMessage(R.string.dialog_no_room_message)
-                        .setPositiveButton(R.string.button_ok, null)
-                        .create();
-                ThemeManager.applyGlassEffect(dialog.getWindow());
-                dialog.show();
+            }
+            if (rooms.isEmpty()) {
+                emptyState.setVisibility(View.VISIBLE);
+                sectionHeader.setVisibility(View.GONE);
+                container.setVisibility(View.GONE);
                 return;
             }
-            showScreen(SCREEN_REVIEW);
-        });
+            emptyState.setVisibility(View.GONE);
+            sectionIcon.setImageResource(R.drawable.ic_bed);
+            sectionLabel.setText(R.string.label_section_rooms);
+            sectionHeader.setVisibility(View.VISIBLE);
+            container.setVisibility(View.VISIBLE);
+            for (RoomTypeAvailability room : rooms) {
+                container.addView(buildRoomCard(inflater, container, room));
+            }
+        } else if (selectedCategory == CATEGORY_HOTEL_ROOMS) {
+            // No dated search yet: show the general room catalog so the guest has something to
+            // browse the moment they open the Book tab.
+            int totalGuests = adults + children;
+            List<RoomSummary> rooms = new ArrayList<>();
+            for (RoomSummary room : defaultRooms) {
+                if (meetsCapacity(room.capacity, totalGuests)) {
+                    rooms.add(room);
+                }
+            }
+            if (rooms.isEmpty()) {
+                emptyState.setVisibility(View.VISIBLE);
+                sectionHeader.setVisibility(View.GONE);
+                container.setVisibility(View.GONE);
+                return;
+            }
+            emptyState.setVisibility(View.GONE);
+            sectionIcon.setImageResource(R.drawable.ic_bed);
+            sectionLabel.setText(R.string.label_section_rooms);
+            sectionHeader.setVisibility(View.VISIBLE);
+            container.setVisibility(View.VISIBLE);
+            for (RoomSummary room : rooms) {
+                container.addView(buildDefaultRoomCard(inflater, container, room, v));
+            }
+        } else {
+            List<BookingCatalogStore.ServiceItem> items = new ArrayList<>();
+            items.addAll(Arrays.asList(BookingCatalogStore.getItems(BookingCatalogStore.CATEGORY_KTV)));
+            items.addAll(Arrays.asList(BookingCatalogStore.getItems(BookingCatalogStore.CATEGORY_POOL)));
+            if (items.isEmpty()) {
+                emptyState.setVisibility(View.VISIBLE);
+                sectionHeader.setVisibility(View.GONE);
+                container.setVisibility(View.GONE);
+                return;
+            }
+            emptyState.setVisibility(View.GONE);
+            sectionIcon.setImageResource(R.drawable.ic_pool);
+            sectionLabel.setText(R.string.tab_cottages_ktv);
+            sectionHeader.setVisibility(View.VISIBLE);
+            container.setVisibility(View.VISIBLE);
+            for (BookingCatalogStore.ServiceItem item : items) {
+                container.addView(buildCatalogCard(inflater, container, item));
+            }
+        }
     }
 
-    // ---- Screen 3: Review Your Selection -----------------------------------
+    private View buildRoomCard(LayoutInflater inflater, ViewGroup parent, RoomTypeAvailability room) {
+        View card = inflater.inflate(R.layout.view_accommodation_card, parent, false);
+        loadImage(card.findViewById(R.id.accommodationImage), room.image_path, R.drawable.ic_bed);
+
+        boolean available = room.available_quantity > 0;
+        TextView badge = card.findViewById(R.id.accommodationAvailabilityBadge);
+        badge.setText(available ? R.string.booking_status_available : R.string.booking_status_no_rooms_available);
+        badge.setBackgroundResource(available ? R.drawable.bg_badge_available_solid : R.drawable.bg_badge_full_solid);
+
+        ((TextView) card.findViewById(R.id.accommodationName))
+                .setText(formatShowcaseName(room.variant_name, room.category_name));
+        ((TextView) card.findViewById(R.id.accommodationCapacity))
+                .setText(activity.getString(R.string.format_capacity, room.capacity));
+
+        TextView bedInfo = card.findViewById(R.id.accommodationBedInfo);
+        if (room.description != null && !room.description.trim().isEmpty()) {
+            bedInfo.setText(room.description);
+            bedInfo.setVisibility(View.VISIBLE);
+        } else {
+            bedInfo.setVisibility(View.GONE);
+        }
+
+        int pricePerNight = (int) Math.round(room.price_per_night);
+        ((TextView) card.findViewById(R.id.accommodationPrice))
+                .setText(activity.getString(R.string.format_price_per_night, formatMoney(pricePerNight)));
+
+        Button bookNow = card.findViewById(R.id.accommodationBookNowButton);
+        bookNow.setEnabled(available);
+        bookNow.setOnClickListener(view -> bookHotelRoomNow(room));
+
+        // Fully-booked rooms stay visible (not hidden) but dimmed, matching the general-catalog
+        // cards' treatment, so guests can see what exists without being able to book it.
+        card.setAlpha(available ? 1f : 0.45f);
+        return card;
+    }
+
+    /** Renders one card from the general (date-less) room catalog shown before the guest has
+     *  run a real, dated search. BOOK NOW here can't jump to Review yet — there's no validated
+     *  availability record for this room on any specific dates — so it prompts the guest to
+     *  search first instead. */
+    private View buildDefaultRoomCard(LayoutInflater inflater, ViewGroup parent, RoomSummary room, View screenView) {
+        View card = inflater.inflate(R.layout.view_accommodation_card, parent, false);
+        loadImage(card.findViewById(R.id.accommodationImage), room.image_path, R.drawable.ic_bed);
+
+        TextView badge = card.findViewById(R.id.accommodationAvailabilityBadge);
+        badge.setText(room.available ? R.string.booking_status_available : R.string.booking_status_no_rooms_available);
+        badge.setBackgroundResource(room.available ? R.drawable.bg_badge_available_solid : R.drawable.bg_badge_full_solid);
+
+        ((TextView) card.findViewById(R.id.accommodationName))
+                .setText(formatShowcaseName(room.name, resolveRoomCategoryLabel(room)));
+        ((TextView) card.findViewById(R.id.accommodationCapacity))
+                .setText(activity.getString(R.string.format_capacity, room.capacity));
+
+        TextView bedInfo = card.findViewById(R.id.accommodationBedInfo);
+        if (room.description != null && !room.description.trim().isEmpty()) {
+            bedInfo.setText(room.description);
+            bedInfo.setVisibility(View.VISIBLE);
+        } else {
+            bedInfo.setVisibility(View.GONE);
+        }
+
+        int pricePerNight = (int) Math.round(room.price_per_night);
+        ((TextView) card.findViewById(R.id.accommodationPrice))
+                .setText(activity.getString(R.string.format_price_per_night, formatMoney(pricePerNight)));
+
+        Button bookNow = card.findViewById(R.id.accommodationBookNowButton);
+        bookNow.setEnabled(room.available);
+        bookNow.setOnClickListener(view -> promptSearchBeforeBooking(screenView));
+
+        // Fully-booked rooms are still shown (not hidden) but visibly dimmed so guests can tell
+        // them apart from ones they can actually book right now.
+        card.setAlpha(room.available ? 1f : 0.45f);
+        return card;
+    }
+
+    /**
+     * The room's category/building label (e.g. "Villa", "Claricon"), trying every field name
+     * this backend uses for that concept since the real one on this endpoint isn't confirmed —
+     * mirrors {@link DashboardHomeController#resolveRoomCategoryLabel}.
+     */
+    private String resolveRoomCategoryLabel(RoomSummary room) {
+        String[] candidates = {room.category_name, room.category, room.item_name};
+        for (String candidate : candidates) {
+            if (candidate != null && !candidate.trim().isEmpty()) {
+                return candidate;
+            }
+        }
+        return activity.getString(R.string.hotel_rooms_title);
+    }
+
+    /** A room passes the guest-count filter if its listed capacity covers the party, OR if its
+     *  capacity is missing/zero — treating that as unknown data rather than "sleeps nobody" so a
+     *  backend data gap can't silently hide an entire room type from the catalog. */
+    private boolean meetsCapacity(int roomCapacity, int totalGuests) {
+        return roomCapacity <= 0 || roomCapacity >= totalGuests;
+    }
+
+    /** Showcase card title format: "TYPE (CATEGORY)", e.g. "Standard (Claricon)" — rendered in
+     *  caps by the TextView itself. Falls back to just the type if no category is known. */
+    private String formatShowcaseName(String type, String category) {
+        if (category == null || category.trim().isEmpty()) {
+            return type;
+        }
+        return type + " (" + category + ")";
+    }
+
+    /** BOOK NOW on a general-catalog card (no dated search run yet): nudges the guest toward
+     *  entering dates and tapping Search, since only that produces a real, bookable record. */
+    private void promptSearchBeforeBooking(View v) {
+        boolean missingDates = false;
+        if (checkInMillis < 0) {
+            showError(v.findViewById(R.id.hotelCheckInError), R.string.error_check_in_required);
+            missingDates = true;
+        }
+        if (checkOutMillis < 0) {
+            showError(v.findViewById(R.id.hotelCheckOutError), R.string.error_check_out_required);
+            missingDates = true;
+        }
+        expandPanel(v);
+        Toast.makeText(activity, missingDates
+                ? R.string.toast_select_dates_to_book
+                : R.string.toast_tap_search_to_book, Toast.LENGTH_LONG).show();
+    }
+
+    private View buildCatalogCard(LayoutInflater inflater, ViewGroup parent, BookingCatalogStore.ServiceItem item) {
+        View card = inflater.inflate(R.layout.view_accommodation_card, parent, false);
+        BookingCatalogStore.Category category = BookingCatalogStore.findCategory(item.categoryId);
+
+        ImageView image = card.findViewById(R.id.accommodationImage);
+        image.setBackgroundResource(category.tileBackgroundRes);
+        image.setImageResource(category.iconRes);
+        image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        image.setColorFilter(Color.WHITE);
+        int pad = (int) (32 * activity.getResources().getDisplayMetrics().density);
+        image.setPadding(pad, pad, pad, pad);
+
+        TextView badge = card.findViewById(R.id.accommodationAvailabilityBadge);
+        badge.setText(BookingCatalogStore.availabilityLabelRes(item.availability));
+        badge.setBackgroundResource(catalogAvailabilityBadgeRes(item.availability));
+
+        ((TextView) card.findViewById(R.id.accommodationName))
+                .setText(formatShowcaseName(item.name, item.filterTag));
+        TextView capacity = card.findViewById(R.id.accommodationCapacity);
+        if (item.capacityLabel != null) {
+            capacity.setText(item.capacityLabel);
+            capacity.setVisibility(View.VISIBLE);
+        } else {
+            capacity.setVisibility(View.GONE);
+        }
+        card.findViewById(R.id.accommodationBedInfo).setVisibility(View.GONE);
+
+        ((TextView) card.findViewById(R.id.accommodationPrice)).setText(item.startingPriceLabel != null
+                ? item.startingPriceLabel : activity.getString(R.string.booking_price_unavailable));
+
+        card.findViewById(R.id.accommodationBookNowButton).setOnClickListener(view -> onBookNowOtherCategory.run());
+        return card;
+    }
+
+    private int catalogAvailabilityBadgeRes(int availability) {
+        if (availability == BookingCatalogStore.AVAILABILITY_LIMITED) {
+            return R.drawable.bg_badge_limited_solid;
+        } else if (availability == BookingCatalogStore.AVAILABILITY_FULL) {
+            return R.drawable.bg_badge_full_solid;
+        }
+        return R.drawable.bg_badge_available_solid;
+    }
+
+    /** BOOK NOW on a Hotel Rooms card: select that room at quantity 1 (clearing any other
+     *  selection) and jump straight into the existing Review screen. */
+    private void bookHotelRoomNow(RoomTypeAvailability room) {
+        for (Integer groupId : roomQuantities.keySet()) {
+            roomQuantities.put(groupId, 0);
+        }
+        roomQuantities.put(room.group_id, 1);
+        showScreen(SCREEN_REVIEW);
+    }
+
+    /** Parses a manually-typed guest count, treating anything empty/invalid as 0 rather than
+     *  crashing or leaving the previous value silently in place. */
+    private int parseGuestCount(String text) {
+        try {
+            return Math.max(0, Integer.parseInt(text.trim()));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private void updateDateField(TextView dateText, TextView dayText, long millis) {
+        if (millis < 0) {
+            dateText.setText(R.string.hint_select_date);
+            dateText.setAlpha(0.5f);
+            dayText.setVisibility(View.GONE);
+        } else {
+            dateText.setText(formatDate(millis));
+            dateText.setAlpha(1f);
+            dayText.setText(formatWeekday(millis));
+            dayText.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void updateCategoryTabs(View tabRooms, View tabCottagesKtv) {
+        boolean hotelSelected = selectedCategory == CATEGORY_HOTEL_ROOMS;
+        int accentColor = ThemeManager.color(activity, R.attr.accentPrimary);
+        int mutedColor = ThemeManager.color(activity, R.attr.textOnScreenMuted);
+
+        tabRooms.setBackgroundResource(hotelSelected ? R.drawable.bg_tab_pill_selected : R.drawable.bg_tab_pill_unselected);
+        ((TextView) tabRooms.findViewById(R.id.hotelTabRoomsText)).setTextColor(hotelSelected ? accentColor : mutedColor);
+        ((ImageView) tabRooms.findViewById(R.id.hotelTabRoomsIcon)).setColorFilter(hotelSelected ? accentColor : mutedColor);
+
+        tabCottagesKtv.setBackgroundResource(hotelSelected ? R.drawable.bg_tab_pill_unselected : R.drawable.bg_tab_pill_selected);
+        ((TextView) tabCottagesKtv.findViewById(R.id.hotelTabCottagesKtvText)).setTextColor(hotelSelected ? mutedColor : accentColor);
+        ((ImageView) tabCottagesKtv.findViewById(R.id.hotelTabCottagesKtvIcon)).setColorFilter(hotelSelected ? mutedColor : accentColor);
+    }
+
+    private String formatWeekday(long millis) {
+        return new SimpleDateFormat("EEEE", Locale.US).format(new Date(millis));
+    }
+
+    // ---- Screen 2: Review Your Selection -----------------------------------
 
     private void bindReview(View v) {
-        bindHeader(v, R.id.hotelReviewHeaderBar, R.string.hotel_review_title, () -> showScreen(SCREEN_ROOMS));
+        bindHeader(v, R.id.hotelReviewHeaderBar, R.string.hotel_review_title, () -> showScreen(SCREEN_DATES));
 
         bindRow(v.findViewById(R.id.reviewRowCheckIn), R.string.label_stay_check_in, formatDate(checkInMillis));
         bindRow(v.findViewById(R.id.reviewRowCheckOut), R.string.label_stay_check_out, formatDate(checkOutMillis));
@@ -1009,8 +1491,14 @@ final class HotelBookingFlowController {
     private void resetFlow() {
         checkInMillis = -1;
         checkOutMillis = -1;
-        adults = 1;
+        adults = 0;
         children = 0;
+        selectedCategory = CATEGORY_HOTEL_ROOMS;
+        hasSearchedHotelRooms = false;
+        availabilityErrored = false;
+        defaultRooms = new ArrayList<>();
+        isLoadingDefaultRooms = false;
+        defaultRoomsLoaded = false;
         availableRoomTypes = new ArrayList<>();
         roomQuantities.clear();
         specialRequest = "";
@@ -1054,10 +1542,6 @@ final class HotelBookingFlowController {
     private void setStepperEnabled(ImageView button, boolean enabled) {
         button.setEnabled(enabled);
         button.setAlpha(enabled ? 1f : 0.35f);
-    }
-
-    private int totalRoomsSelected() {
-        return totalFromMap(roomQuantities);
     }
 
     private int totalFromMap(Map<?, Integer> map) {

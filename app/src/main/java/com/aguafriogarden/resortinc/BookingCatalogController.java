@@ -46,7 +46,7 @@ final class BookingCatalogController {
         this.onBookNow = onBookNow;
         this.onBackToHome = onBackToHome;
         root = new FrameLayout(activity);
-        showCatalog();
+        showHotelFlow();
     }
 
     View getRootView() {
@@ -113,7 +113,7 @@ final class BookingCatalogController {
     void showHotelFlow() {
         currentScreen = SCREEN_HOTEL_FLOW;
         if (hotelBookingFlow == null) {
-            hotelBookingFlow = new HotelBookingFlowController(activity, this::showCatalog, onBackToHome);
+            hotelBookingFlow = new HotelBookingFlowController(activity, onBookNow, onBackToHome);
         }
         root.removeAllViews();
         root.addView(hotelBookingFlow.getRootView());

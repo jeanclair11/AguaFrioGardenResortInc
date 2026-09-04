@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Translucent dark circular backdrop for an icon sitting on top of a
+     photo (e.g. the favorite heart on an accommodation card). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="#59000000" />
+</shape>

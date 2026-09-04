@@ -405,6 +405,7 @@
     <string name="booking_status_available">Available</string>
     <string name="booking_status_limited">Limited Slots</string>
     <string name="booking_status_full">Fully Booked</string>
+    <string name="booking_status_no_rooms_available">No Rooms Available</string>
     <string name="booking_price_unavailable">Contact us for rates</string>
 
     <string name="label_description">Description</string>
@@ -475,22 +476,40 @@
     <string name="error_id_number_required">Please enter the ID number.</string>
 
     <!-- Hotel Room booking flow (Book tab -> Hotel Rooms) -->
-    <string name="hotel_dates_title">Choose Your Stay Dates</string>
-    <string name="hotel_dates_subtitle">To help us find the best available accommodation for your preferred schedule, please select your check-in and check-out dates before exploring our rooms.</string>
+    <string name="hotel_dates_title">Book Your Experience</string>
+    <string name="hotel_dates_subtitle">Select your dates and number of guests to see available options.</string>
     <string name="button_next">Next</string>
     <string name="button_skip">Skip</string>
 
     <string name="hotel_rooms_title">Hotel Rooms</string>
-    <string name="hotel_rooms_subtitle">Available rooms for your selected stay</string>
+    <string name="tab_cottages_ktv">Cottages &amp; KTV</string>
+    <string name="label_section_rooms">Rooms</string>
     <string name="label_quantity">Quantity</string>
     <string name="dialog_no_room_title">No Room Selected</string>
     <string name="dialog_no_room_message">Please select at least one room before continuing.</string>
     <string name="no_rooms_available_message">No rooms are available for your selected dates and number of guests. Please try different dates.</string>
     <string name="format_capacity">Up to %1$d Guests</string>
-    <string name="button_checking_availability">Checking Availability…</string>
+    <string name="button_checking_availability">Searching…</string>
     <string name="toast_session_expired">Your session has expired. Please log in again.</string>
+    <string name="toast_guests_required">Please select at least 1 guest.</string>
     <string name="toast_availability_check_failed">We couldn\'t check room availability right now. Please try again.</string>
     <string name="toast_network_error">Couldn\'t reach the server. Check your internet connection and try again.</string>
+
+    <string name="button_search">Search</string>
+    <string name="label_available_accommodations">Available Accommodations</string>
+    <string name="label_available_accommodations_subtitle">Showing available options for your selected dates.</string>
+    <string name="label_available_accommodations_subtitle_browse">Showing all rooms. Select your dates and tap Search to check real-time availability.</string>
+    <string name="label_loading_accommodations">Loading available accommodations…</string>
+    <string name="empty_accommodations_title">No accommodations available</string>
+    <string name="empty_accommodations_message">Try changing your dates or number of guests.</string>
+    <string name="button_change_dates">Change Dates</string>
+    <string name="error_availability_title">Unable to check availability.</string>
+    <string name="error_availability_message">Please check your connection and try again.</string>
+    <string name="button_try_again">Try Again</string>
+    <string name="label_view_all">View all ›</string>
+    <string name="toast_select_dates_to_book">Please select your check-in and check-out dates first.</string>
+    <string name="toast_tap_search_to_book">Tap Search to check availability for your selected dates, then Book Now.</string>
+    <string name="content_description_drag_handle">Drag to show or hide the search panel</string>
 
     <string name="hotel_review_title">Review Your Selection</string>
     <string name="hotel_review_subtitle">Here\'s what you\'ve picked for your stay.</string>
