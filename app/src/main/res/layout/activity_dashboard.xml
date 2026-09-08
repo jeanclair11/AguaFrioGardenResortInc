@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -57,15 +58,39 @@
                 android:maxLines="1" />
         </LinearLayout>
 
-        <ImageView
-            android:id="@+id/bellButton"
+        <FrameLayout
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:layout_marginEnd="8dp"
-            android:padding="9dp"
-            android:src="@drawable/ic_bell"
-            android:tint="?attr/onTopBar"
-            android:contentDescription="@string/open_notifications" />
+            android:layout_marginEnd="8dp">
+
+            <ImageView
+                android:id="@+id/bellButton"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="9dp"
+                android:src="@drawable/ic_bell"
+                android:tint="?attr/onTopBar"
+                android:contentDescription="@string/open_notifications" />
+
+            <TextView
+                android:id="@+id/bellBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="16dp"
+                android:layout_gravity="top|end"
+                android:minWidth="16dp"
+                android:background="@drawable/bg_badge_count"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:paddingStart="3dp"
+                android:paddingEnd="3dp"
+                android:textColor="@color/white"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                android:importantForAccessibility="no"
+                tools:text="9" />
+
+        </FrameLayout>
 
         <ImageView
             android:id="@+id/profileButton"

@@ -2,6 +2,7 @@ package com.aguafriogarden.resortinc;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.view.LayoutInflater;
@@ -10,7 +11,14 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
 
 /**
  * Drives the Book tab: a catalog of the four service categories, a
@@ -21,7 +29,12 @@ import android.widget.TextView;
  * onBookNow callback) rather than duplicating that flow here. Hotel Rooms is
  * the exception: tapping that category card skips straight into the
  * {@link HotelBookingFlowController} wizard (stay dates -> ... -> success)
- * instead of the browse/detail screens.
+ * instead of the browse/detail screens. The KTV/Pool & Cottage detail screen
+ * also shows a decorative "Reservation Details" section (rate type,
+ * date/time, guests) visually matching the Reserve tab's Cottage/KTV field
+ * groups in {@link ReservationFlowController} — it's local UI state only,
+ * reset per item, and isn't submitted anywhere; Book Now still just hands off
+ * to the Reserve tab as before.
  */
 final class BookingCatalogController {
 
@@ -29,6 +42,11 @@ final class BookingCatalogController {
     private static final int SCREEN_BROWSE = 1;
     private static final int SCREEN_DETAIL = 2;
     private static final int SCREEN_HOTEL_FLOW = 3;
+
+    // Client-side placeholder durations for the KTV rate types, matching the Reserve tab's
+    // ReservationFlowController — no backend field for this exists yet (see that class's notes).
+    private static final int KTV_REGULAR_HOURS = 5;
+    private static final int KTV_CONSUMABLE_HOURS = 3;
 
     private final Activity activity;
     private final Runnable onBookNow;
@@ -40,6 +58,17 @@ final class BookingCatalogController {
     private String browseSearchQuery = "";
     private String browseFilterTag; // null means "All"
     private HotelBookingFlowController hotelBookingFlow;
+
+    // ---- Detail screen's decorative "Reservation Details" fields (KTV / Pool & Cottage only).
+    // Purely local UI state, reset every time a new item's detail screen is entered — Book Now
+    // still just hands off to the Reserve tab (see onBookNow), nothing here is submitted. -----
+    private String detailRateType = "";
+    private long detailDateMillis = -1;
+    private int detailTimeHour = -1;
+    private int detailTimeMinute = -1;
+    private int detailAdults = 1;
+    private int detailChildren = 0;
+    private int detailGuestCount = 1;
 
     BookingCatalogController(Activity activity, Runnable onBookNow, Runnable onBackToHome) {
         this.activity = activity;
@@ -247,10 +276,189 @@ final class BookingCatalogController {
             amenities.addView(row);
         }
 
+        bindReservationDetailsSection(v, item.categoryId);
+
         v.findViewById(R.id.detailBookNowButton).setOnClickListener(view -> onBookNow.run());
 
         root.removeAllViews();
         root.addView(v);
+    }
+
+    /** Binds the decorative "Reservation Details" section (rate type, date/time, guests) shown
+     *  only for KTV and Pool & Cottage items — a visual match for the Reserve tab's Cottage/KTV
+     *  field groups. Resets to defaults every time a new item's detail screen is entered. */
+    private void bindReservationDetailsSection(View v, int categoryId) {
+        View section = v.findViewById(R.id.detailReservationSection);
+        boolean ktv = categoryId == BookingCatalogStore.CATEGORY_KTV;
+        boolean cottage = categoryId == BookingCatalogStore.CATEGORY_POOL;
+        if (!ktv && !cottage) {
+            section.setVisibility(View.GONE);
+            return;
+        }
+        section.setVisibility(View.VISIBLE);
+
+        detailRateType = "";
+        detailDateMillis = -1;
+        detailTimeHour = -1;
+        detailTimeMinute = -1;
+        detailAdults = 1;
+        detailChildren = 0;
+        detailGuestCount = 1;
+
+        RadioGroup rateGroup = v.findViewById(R.id.detailRateTypeGroup);
+        RadioButton optionA = v.findViewById(R.id.detailRateOptionA);
+        RadioButton optionB = v.findViewById(R.id.detailRateOptionB);
+        optionA.setText(ktv ? R.string.ktv_rate_type_regular : R.string.rate_type_day);
+        optionB.setText(ktv ? R.string.ktv_rate_type_consumable : R.string.rate_type_night);
+        rateGroup.clearCheck();
+
+        View dateField = v.findViewById(R.id.detailDateField);
+        TextView dateText = v.findViewById(R.id.detailDateText);
+        View timeField = v.findViewById(R.id.detailTimeField);
+        TextView timeText = v.findViewById(R.id.detailTimeText);
+        ((TextView) v.findViewById(R.id.detailTimeLabel)).setText(ktv ? R.string.label_start_time : R.string.label_time);
+        updateDetailDateField(dateText);
+        updateDetailTimeField(timeText);
+
+        View ktvEndDurationRow = v.findViewById(R.id.detailKtvEndDurationRow);
+        View cottageGuestsSection = v.findViewById(R.id.detailCottageGuestsSection);
+        View ktvGuestSection = v.findViewById(R.id.detailKtvGuestSection);
+        ktvEndDurationRow.setVisibility(ktv ? View.VISIBLE : View.GONE);
+        cottageGuestsSection.setVisibility(cottage ? View.VISIBLE : View.GONE);
+        ktvGuestSection.setVisibility(ktv ? View.VISIBLE : View.GONE);
+        if (ktv) {
+            updateDetailKtvEndTimeAndDuration(v);
+        }
+
+        rateGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            String selected = checkedId == R.id.detailRateOptionA
+                    ? (ktv ? ReservationCatalog.RATE_TYPE_REGULAR : ReservationCatalog.RATE_TYPE_DAY)
+                    : (ktv ? ReservationCatalog.RATE_TYPE_CONSUMABLE : ReservationCatalog.RATE_TYPE_NIGHT);
+            detailRateType = selected;
+            if (ktv) {
+                updateDetailKtvEndTimeAndDuration(v);
+            }
+        });
+
+        dateField.setOnClickListener(view -> GlassDatePicker.showCalendarPicker(
+                activity, detailDateMillis, System.currentTimeMillis() - 1000L, millis -> {
+                    detailDateMillis = millis;
+                    updateDetailDateField(dateText);
+                }));
+
+        timeField.setOnClickListener(view -> {
+            Calendar now = Calendar.getInstance();
+            int initialHour = detailTimeHour >= 0 ? detailTimeHour : now.get(Calendar.HOUR_OF_DAY);
+            int initialMinute = detailTimeMinute >= 0 ? detailTimeMinute : now.get(Calendar.MINUTE);
+            TimePickerDialog dialog = new TimePickerDialog(activity, (picker, hour, minute) -> {
+                detailTimeHour = hour;
+                detailTimeMinute = minute;
+                updateDetailTimeField(timeText);
+                if (ktv) {
+                    updateDetailKtvEndTimeAndDuration(v);
+                }
+            }, initialHour, initialMinute, false);
+            ThemeManager.applyGlassEffect(dialog.getWindow());
+            dialog.show();
+        });
+
+        if (cottage) {
+            TextView adultsValue = v.findViewById(R.id.detailCottageAdultsValue);
+            TextView childrenValue = v.findViewById(R.id.detailCottageChildrenValue);
+            TextView totalGuestValue = v.findViewById(R.id.detailCottageTotalGuestValue);
+            adultsValue.setText(String.valueOf(detailAdults));
+            childrenValue.setText(String.valueOf(detailChildren));
+            totalGuestValue.setText(String.valueOf(detailAdults + detailChildren));
+
+            v.findViewById(R.id.detailCottageAdultsMinus).setOnClickListener(view -> {
+                if (detailAdults > 1) {
+                    detailAdults--;
+                    adultsValue.setText(String.valueOf(detailAdults));
+                    totalGuestValue.setText(String.valueOf(detailAdults + detailChildren));
+                }
+            });
+            v.findViewById(R.id.detailCottageAdultsPlus).setOnClickListener(view -> {
+                detailAdults++;
+                adultsValue.setText(String.valueOf(detailAdults));
+                totalGuestValue.setText(String.valueOf(detailAdults + detailChildren));
+            });
+            v.findViewById(R.id.detailCottageChildrenMinus).setOnClickListener(view -> {
+                if (detailChildren > 0) {
+                    detailChildren--;
+                    childrenValue.setText(String.valueOf(detailChildren));
+                    totalGuestValue.setText(String.valueOf(detailAdults + detailChildren));
+                }
+            });
+            v.findViewById(R.id.detailCottageChildrenPlus).setOnClickListener(view -> {
+                detailChildren++;
+                childrenValue.setText(String.valueOf(detailChildren));
+                totalGuestValue.setText(String.valueOf(detailAdults + detailChildren));
+            });
+        } else {
+            TextView guestCountValue = v.findViewById(R.id.detailKtvGuestCountValue);
+            guestCountValue.setText(String.valueOf(detailGuestCount));
+            v.findViewById(R.id.detailKtvGuestCountMinus).setOnClickListener(view -> {
+                if (detailGuestCount > 1) {
+                    detailGuestCount--;
+                    guestCountValue.setText(String.valueOf(detailGuestCount));
+                }
+            });
+            v.findViewById(R.id.detailKtvGuestCountPlus).setOnClickListener(view -> {
+                detailGuestCount++;
+                guestCountValue.setText(String.valueOf(detailGuestCount));
+            });
+        }
+    }
+
+    private void updateDetailDateField(TextView dateText) {
+        if (detailDateMillis < 0) {
+            dateText.setText(R.string.hint_select_date);
+            dateText.setAlpha(0.5f);
+        } else {
+            dateText.setText(new SimpleDateFormat("MMM d, yyyy", Locale.US).format(new Date(detailDateMillis)));
+            dateText.setAlpha(1f);
+        }
+    }
+
+    private void updateDetailTimeField(TextView timeText) {
+        if (detailTimeHour < 0) {
+            timeText.setText(R.string.hint_select_time);
+            timeText.setAlpha(0.5f);
+        } else {
+            timeText.setText(formatDetailHourMinute(detailTimeHour, detailTimeMinute));
+            timeText.setAlpha(1f);
+        }
+    }
+
+    /** Recomputes the read-only End Time/Duration fields from Start Time + the selected rate
+     *  type's fixed hours, mirroring ReservationFlowController's KTV tab. */
+    private void updateDetailKtvEndTimeAndDuration(View v) {
+        TextView endTimeText = v.findViewById(R.id.detailKtvEndTimeText);
+        TextView durationValue = v.findViewById(R.id.detailKtvDurationValue);
+        int hours = ReservationCatalog.RATE_TYPE_REGULAR.equals(detailRateType) ? KTV_REGULAR_HOURS
+                : ReservationCatalog.RATE_TYPE_CONSUMABLE.equals(detailRateType) ? KTV_CONSUMABLE_HOURS : 0;
+
+        durationValue.setText(hours <= 0 ? activity.getString(R.string.placeholder_em_dash)
+                : activity.getString(R.string.format_duration_hours, hours));
+
+        if (hours <= 0 || detailTimeHour < 0) {
+            endTimeText.setText(R.string.placeholder_em_dash);
+            endTimeText.setAlpha(0.5f);
+            return;
+        }
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, detailTimeHour);
+        calendar.set(Calendar.MINUTE, detailTimeMinute);
+        calendar.add(Calendar.HOUR_OF_DAY, hours);
+        endTimeText.setText(formatDetailHourMinute(calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE)));
+        endTimeText.setAlpha(1f);
+    }
+
+    private String formatDetailHourMinute(int hour, int minute) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, hour);
+        calendar.set(Calendar.MINUTE, minute);
+        return new SimpleDateFormat("h:mm a", Locale.US).format(calendar.getTime());
     }
 
     // ---- Shared bindings --------------------------------------------------

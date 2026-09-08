@@ -11,20 +11,34 @@ import java.util.List;
  */
 final class NotificationStore {
 
+    /** Distinguishes reservation-lifecycle alerts from chat alerts so the bell's
+     *  action button can route to the right module. */
+    enum Type {
+        RESERVATION, CHAT
+    }
+
     static final class Notification {
         final String title;
         final String message;
         final String buttonLabel;
         final String targetReference;
         final long timestampMillis;
+        final Type type;
+        boolean isRead;
 
         Notification(String title, String message, String buttonLabel, String targetReference,
                 long timestampMillis) {
+            this(title, message, buttonLabel, targetReference, timestampMillis, Type.RESERVATION);
+        }
+
+        Notification(String title, String message, String buttonLabel, String targetReference,
+                long timestampMillis, Type type) {
             this.title = title;
             this.message = message;
             this.buttonLabel = buttonLabel;
             this.targetReference = targetReference;
             this.timestampMillis = timestampMillis;
+            this.type = type;
         }
     }
 
@@ -37,6 +51,22 @@ final class NotificationStore {
 
     static List<Notification> all() {
         return ALL;
+    }
+
+    static int unreadCount() {
+        int count = 0;
+        for (Notification n : ALL) {
+            if (!n.isRead) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    static void markAllRead() {
+        for (Notification n : ALL) {
+            n.isRead = true;
+        }
     }
 
     private NotificationStore() {

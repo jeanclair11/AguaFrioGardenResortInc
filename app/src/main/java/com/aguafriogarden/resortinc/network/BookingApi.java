@@ -24,6 +24,9 @@ public interface BookingApi {
     @GET("booking/rooms")
     Call<RoomListResponse> getRooms(@Header("Authorization") String bearerToken);
 
+    @GET("booking/cottages-ktv")
+    Call<CottageKtvListResponse> getCottagesKtv(@Header("Authorization") String bearerToken);
+
     @FormUrlEncoded
     @POST("booking/availability")
     Call<AvailabilityResponse> checkAvailability(

@@ -132,6 +132,14 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Already logged in from a previous session (see ProfileStore#saveAuthToken /
+        // DashboardActivity#logout): skip straight past the auth screens instead of
+        // forcing the guest to log in again on every cold start.
+        if (savedInstanceState == null && !ProfileStore.getAuthToken(this).isEmpty()) {
+            startActivity(new Intent(this, DashboardActivity.class));
+            finish();
+            return;
+        }
         ThemeManager.apply(this);
         setContentView(R.layout.activity_main);
 

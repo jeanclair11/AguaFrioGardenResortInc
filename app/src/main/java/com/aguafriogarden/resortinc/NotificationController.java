@@ -19,16 +19,17 @@ import java.util.function.Consumer;
 final class NotificationController {
 
     private final Activity activity;
-    private final Consumer<String> onOpenReservation;
+    private final Consumer<NotificationStore.Notification> onAction;
     private final View root;
 
-    NotificationController(Activity activity, Consumer<String> onOpenReservation) {
+    NotificationController(Activity activity, Consumer<NotificationStore.Notification> onAction) {
         this.activity = activity;
-        this.onOpenReservation = onOpenReservation;
+        this.onAction = onAction;
         root = LayoutInflater.from(activity).inflate(R.layout.view_notification_list, null, false);
     }
 
     View getRootView() {
+        NotificationStore.markAllRead();
         render();
         return root;
     }
@@ -50,10 +51,10 @@ final class NotificationController {
                             DateUtils.MINUTE_IN_MILLIS));
 
             Button actionButton = card.findViewById(R.id.notificationActionButton);
-            if (n.buttonLabel != null && n.targetReference != null) {
+            if (n.buttonLabel != null) {
                 actionButton.setText(n.buttonLabel);
                 actionButton.setVisibility(View.VISIBLE);
-                actionButton.setOnClickListener(v -> onOpenReservation.accept(n.targetReference));
+                actionButton.setOnClickListener(v -> onAction.accept(n));
             } else {
                 actionButton.setVisibility(View.GONE);
             }

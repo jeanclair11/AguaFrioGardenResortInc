@@ -5,9 +5,11 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.TimePickerDialog;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
-import android.graphics.Color;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.provider.MediaStore;
 import android.view.LayoutInflater;
@@ -21,6 +23,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -29,6 +32,8 @@ import com.aguafriogarden.resortinc.network.AmenityAvailability;
 import com.aguafriogarden.resortinc.network.AmenityListResponse;
 import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.AvailabilityResponse;
+import com.aguafriogarden.resortinc.network.CottageKtvListResponse;
+import com.aguafriogarden.resortinc.network.CottageKtvOption;
 import com.aguafriogarden.resortinc.network.ErrorResponse;
 import com.aguafriogarden.resortinc.network.FoodListResponse;
 import com.aguafriogarden.resortinc.network.MenuItemAvailability;
@@ -44,7 +49,6 @@ import java.io.InputStream;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -78,6 +82,8 @@ final class HotelBookingFlowController {
     private static final int SCREEN_BILLING = 5;
     private static final int SCREEN_PAYMENT = 6;
     private static final int SCREEN_SUCCESS = 7;
+    private static final int SCREEN_MY_BOOKINGS = 8;
+    private static final int SCREEN_BOOKING_DETAILS = 9;
 
     private static final int PAYMENT_NONE = 0;
     private static final int PAYMENT_FULL = 1;
@@ -87,8 +93,16 @@ final class HotelBookingFlowController {
     private static final double PARTIAL_PAYMENT_RATE = 0.30;
     private static final int REQUEST_PAYMENT_SCREENSHOT = 4101;
 
-    private static final int CATEGORY_HOTEL_ROOMS = 0;
-    private static final int CATEGORY_COTTAGES_KTV = 1;
+    // Tabs: Hotel Rooms / Cottage / KTV each get their own field group and card style below
+    // (see #updateCategoryTabs / #renderAvailabilityResults).
+    private static final int TAB_HOTEL_ROOMS = 0;
+    private static final int TAB_COTTAGE = 1;
+    private static final int TAB_KTV = 2;
+
+    // Client-side placeholder durations for the KTV rate types, matching the Reserve tab's
+    // ReservationFlowController — no backend field for this exists yet.
+    private static final int KTV_REGULAR_HOURS = 5;
+    private static final int KTV_CONSUMABLE_HOURS = 3;
 
     private static final int PANEL_ANIMATION_MS = 220;
     private static final float PANEL_TAP_SLOP_PX = 16f;
@@ -111,12 +125,32 @@ final class HotelBookingFlowController {
     private long checkOutMillis = -1;
     private int adults = 0;
     private int children = 0;
-    private int selectedCategory = CATEGORY_HOTEL_ROOMS;
+    private int selectedTab = TAB_HOTEL_ROOMS;
+
+    // ---- Rate type / date / time / guests (Cottage tab) ------------------
+    private String cottageRateType = "";
+    private long cottageDateMillis = -1;
+    private int cottageTimeHour = -1;
+    private int cottageTimeMinute = -1;
+    private int cottageAdults = 1;
+    private int cottageChildren = 0;
+
+    // ---- Rate type / date / time / guests (KTV tab) -----------------------
+    private String ktvRateType = "";
+    private long ktvDateMillis = -1;
+    private int ktvStartHour = -1;
+    private int ktvStartMinute = -1;
+    private int ktvGuestCount = 1;
+
     private boolean hasSearchedHotelRooms = false;
     private boolean availabilityErrored = false;
     private List<RoomSummary> defaultRooms = new ArrayList<>();
     private boolean isLoadingDefaultRooms = false;
     private boolean defaultRoomsLoaded = false;
+    private List<CottageKtvOption> cottageItems = new ArrayList<>();
+    private List<CottageKtvOption> ktvItems = new ArrayList<>();
+    private boolean isLoadingCottageKtv = false;
+    private boolean cottageKtvLoaded = false;
     private List<RoomTypeAvailability> availableRoomTypes = new ArrayList<>();
     private final Map<Integer, Integer> roomQuantities = new LinkedHashMap<>();
     private boolean isLoadingAvailability = false;
@@ -134,6 +168,10 @@ final class HotelBookingFlowController {
     private String referenceNumberText = "";
     private Uri screenshotUri;
     private String bookingReference = "";
+
+    // ---- View My Bookings (mock, see BookingStore) -------------------------
+    private int myBookingsTab = BookingStore.TAB_CURRENT;
+    private String myBookingDetailsReference = "";
 
     HotelBookingFlowController(Activity activity, Runnable onBookNowOtherCategory, Runnable onBackToHome) {
         this.activity = activity;
@@ -172,6 +210,12 @@ final class HotelBookingFlowController {
             case SCREEN_SUCCESS:
                 resetFlow();
                 onBackToHome.run();
+                return true;
+            case SCREEN_MY_BOOKINGS:
+                showScreen(SCREEN_DATES);
+                return true;
+            case SCREEN_BOOKING_DETAILS:
+                showScreen(SCREEN_MY_BOOKINGS);
                 return true;
             default:
                 return true;
@@ -212,6 +256,10 @@ final class HotelBookingFlowController {
                 return R.layout.view_hotel_payment;
             case SCREEN_SUCCESS:
                 return R.layout.view_hotel_success;
+            case SCREEN_MY_BOOKINGS:
+                return R.layout.view_my_bookings_list;
+            case SCREEN_BOOKING_DETAILS:
+                return R.layout.view_my_booking_details;
             default:
                 return R.layout.view_hotel_dates;
         }
@@ -237,6 +285,12 @@ final class HotelBookingFlowController {
             case SCREEN_SUCCESS:
                 bindSuccess(v);
                 break;
+            case SCREEN_MY_BOOKINGS:
+                bindMyBookingsList(v);
+                break;
+            case SCREEN_BOOKING_DETAILS:
+                bindBookingDetails(v);
+                break;
             default:
                 bindDates(v);
                 break;
@@ -257,13 +311,13 @@ final class HotelBookingFlowController {
         EditText adultsValue = v.findViewById(R.id.hotelAdultsValue);
         EditText childrenValue = v.findViewById(R.id.hotelChildrenValue);
         View tabRooms = v.findViewById(R.id.hotelTabRooms);
-        View tabCottagesKtv = v.findViewById(R.id.hotelTabCottagesKtv);
+        View tabCottage = v.findViewById(R.id.hotelTabCottage);
+        View tabKtv = v.findViewById(R.id.hotelTabKtv);
 
         updateDateField(checkInDateText, checkInDayText, checkInMillis);
         updateDateField(checkOutDateText, checkOutDayText, checkOutMillis);
         adultsValue.setText(String.valueOf(adults));
         childrenValue.setText(String.valueOf(children));
-        updateCategoryTabs(tabRooms, tabCottagesKtv);
 
         View.OnClickListener openDatePicker = view -> GlassDatePicker.showRangePicker(activity, checkInMillis, checkOutMillis, System.currentTimeMillis() - 1000L, (start, end) -> {
             checkInMillis = start;
@@ -316,54 +370,240 @@ final class HotelBookingFlowController {
             }
         });
 
+        v.findViewById(R.id.hotelMyBookingsLink).setOnClickListener(view -> showScreen(SCREEN_MY_BOOKINGS));
+
+        bindCottageFields(v);
+        bindKtvFields(v);
+
+        updateCategoryTabs(v, tabRooms, tabCottage, tabKtv);
+
         tabRooms.setOnClickListener(view -> {
-            if (selectedCategory != CATEGORY_HOTEL_ROOMS) {
-                selectedCategory = CATEGORY_HOTEL_ROOMS;
-                updateCategoryTabs(tabRooms, tabCottagesKtv);
+            if (selectedTab != TAB_HOTEL_ROOMS) {
+                selectedTab = TAB_HOTEL_ROOMS;
+                updateCategoryTabs(v, tabRooms, tabCottage, tabKtv);
                 renderAvailabilityResults(v);
             }
         });
-        tabCottagesKtv.setOnClickListener(view -> {
-            if (selectedCategory != CATEGORY_COTTAGES_KTV) {
-                selectedCategory = CATEGORY_COTTAGES_KTV;
-                updateCategoryTabs(tabRooms, tabCottagesKtv);
+        tabCottage.setOnClickListener(view -> {
+            if (selectedTab != TAB_COTTAGE) {
+                selectedTab = TAB_COTTAGE;
+                updateCategoryTabs(v, tabRooms, tabCottage, tabKtv);
+                renderAvailabilityResults(v);
+            }
+        });
+        tabKtv.setOnClickListener(view -> {
+            if (selectedTab != TAB_KTV) {
+                selectedTab = TAB_KTV;
+                updateCategoryTabs(v, tabRooms, tabCottage, tabKtv);
                 renderAvailabilityResults(v);
             }
         });
 
         v.findViewById(R.id.hotelDatesNextButton).setOnClickListener(view -> {
-            boolean valid = true;
-            if (checkInMillis < 0) {
-                showError(checkInError, R.string.error_check_in_required);
-                valid = false;
+            if (selectedTab == TAB_HOTEL_ROOMS) {
+                boolean valid = true;
+                if (checkInMillis < 0) {
+                    showError(checkInError, R.string.error_check_in_required);
+                    valid = false;
+                } else {
+                    checkInError.setVisibility(View.GONE);
+                }
+                if (checkOutMillis < 0) {
+                    showError(checkOutError, R.string.error_check_out_required);
+                    valid = false;
+                } else if (checkInMillis >= 0 && checkOutMillis <= checkInMillis) {
+                    showError(checkOutError, R.string.error_check_out_before_checkin);
+                    valid = false;
+                } else {
+                    checkOutError.setVisibility(View.GONE);
+                }
+                if (adults + children < 1) {
+                    Toast.makeText(activity, R.string.toast_guests_required, Toast.LENGTH_LONG).show();
+                    valid = false;
+                }
+                if (valid) {
+                    runAvailabilitySearch(v);
+                }
+            } else if (selectedTab == TAB_COTTAGE) {
+                if (validateCottageFields(v)) {
+                    animatePanelTo(v, 1f);
+                }
             } else {
-                checkInError.setVisibility(View.GONE);
-            }
-            if (checkOutMillis < 0) {
-                showError(checkOutError, R.string.error_check_out_required);
-                valid = false;
-            } else if (checkInMillis >= 0 && checkOutMillis <= checkInMillis) {
-                showError(checkOutError, R.string.error_check_out_before_checkin);
-                valid = false;
-            } else {
-                checkOutError.setVisibility(View.GONE);
-            }
-            if (adults + children < 1) {
-                Toast.makeText(activity, R.string.toast_guests_required, Toast.LENGTH_LONG).show();
-                valid = false;
-            }
-            if (valid) {
-                runAvailabilitySearch(v);
+                if (validateKtvFields(v)) {
+                    animatePanelTo(v, 1f);
+                }
             }
         });
 
         v.findViewById(R.id.hotelResultsChangeDatesButton).setOnClickListener(view -> expandPanel(v));
         v.findViewById(R.id.hotelResultsTryAgainButton).setOnClickListener(view -> runAvailabilitySearch(v));
 
+        v.findViewById(R.id.hotelKtvProceedButton).setOnClickListener(view -> {
+            if (!validateKtvFields(v)) {
+                expandPanel(v);
+                return;
+            }
+            if (selectedKtvItem() == null) {
+                Toast.makeText(activity, R.string.toast_select_ktv_room_required, Toast.LENGTH_LONG).show();
+                expandPanel(v);
+                return;
+            }
+            onBookNowOtherCategory.run();
+        });
+
         setUpDragPanel(v);
 
         renderAvailabilityResults(v);
         fetchDefaultRooms(v);
+        fetchCottagesKtv(v);
+    }
+
+    /** Binds the Cottage tab's own rate type / date / time / adults-children-total guest
+     *  fields, independent from both the Hotel Rooms and KTV field groups. */
+    private void bindCottageFields(View v) {
+        View cottageDateField = v.findViewById(R.id.hotelCottageDateField);
+        TextView cottageDateText = v.findViewById(R.id.hotelCottageDateText);
+        TextView cottageDateError = v.findViewById(R.id.hotelCottageDateError);
+        View cottageTimeField = v.findViewById(R.id.hotelCottageTimeField);
+        TextView cottageTimeText = v.findViewById(R.id.hotelCottageTimeText);
+        TextView cottageTimeError = v.findViewById(R.id.hotelCottageTimeError);
+        RadioGroup rateGroup = v.findViewById(R.id.hotelCottageRateTypeGroup);
+        TextView rateError = v.findViewById(R.id.hotelCottageRateTypeError);
+        TextView adultsValue = v.findViewById(R.id.hotelCottageAdultsValue);
+        TextView childrenValue = v.findViewById(R.id.hotelCottageChildrenValue);
+        TextView totalGuestValue = v.findViewById(R.id.hotelCottageTotalGuestValue);
+
+        updateCottageDateField(cottageDateText);
+        updateCottageTimeField(cottageTimeText);
+        adultsValue.setText(String.valueOf(cottageAdults));
+        childrenValue.setText(String.valueOf(cottageChildren));
+        totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
+        if (ReservationCatalog.RATE_TYPE_DAY.equals(cottageRateType)) {
+            rateGroup.check(R.id.hotelCottageRateDay);
+        } else if (ReservationCatalog.RATE_TYPE_NIGHT.equals(cottageRateType)) {
+            rateGroup.check(R.id.hotelCottageRateNight);
+        } else {
+            rateGroup.clearCheck();
+        }
+
+        rateGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            cottageRateType = checkedId == R.id.hotelCottageRateDay
+                    ? ReservationCatalog.RATE_TYPE_DAY : ReservationCatalog.RATE_TYPE_NIGHT;
+            rateError.setVisibility(View.GONE);
+        });
+
+        cottageDateField.setOnClickListener(view -> GlassDatePicker.showCalendarPicker(
+                activity, cottageDateMillis, System.currentTimeMillis() - 1000L, millis -> {
+                    cottageDateMillis = millis;
+                    updateCottageDateField(cottageDateText);
+                    cottageDateError.setVisibility(View.GONE);
+                }));
+
+        cottageTimeField.setOnClickListener(view -> {
+            Calendar now = Calendar.getInstance();
+            int initialHour = cottageTimeHour >= 0 ? cottageTimeHour : now.get(Calendar.HOUR_OF_DAY);
+            int initialMinute = cottageTimeMinute >= 0 ? cottageTimeMinute : now.get(Calendar.MINUTE);
+            TimePickerDialog dialog = new TimePickerDialog(activity, (picker, hour, minute) -> {
+                cottageTimeHour = hour;
+                cottageTimeMinute = minute;
+                updateCottageTimeField(cottageTimeText);
+                cottageTimeError.setVisibility(View.GONE);
+            }, initialHour, initialMinute, false);
+            ThemeManager.applyGlassEffect(dialog.getWindow());
+            dialog.show();
+        });
+
+        v.findViewById(R.id.hotelCottageAdultsMinus).setOnClickListener(view -> {
+            if (cottageAdults > 1) {
+                cottageAdults--;
+                adultsValue.setText(String.valueOf(cottageAdults));
+                totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
+            }
+        });
+        v.findViewById(R.id.hotelCottageAdultsPlus).setOnClickListener(view -> {
+            cottageAdults++;
+            adultsValue.setText(String.valueOf(cottageAdults));
+            totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
+        });
+        v.findViewById(R.id.hotelCottageChildrenMinus).setOnClickListener(view -> {
+            if (cottageChildren > 0) {
+                cottageChildren--;
+                childrenValue.setText(String.valueOf(cottageChildren));
+                totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
+            }
+        });
+        v.findViewById(R.id.hotelCottageChildrenPlus).setOnClickListener(view -> {
+            cottageChildren++;
+            childrenValue.setText(String.valueOf(cottageChildren));
+            totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
+        });
+    }
+
+    /** Binds the KTV tab's own rate type / date / start-end time / duration / guest count
+     *  fields. End Time and Duration are read-only, recomputed whenever the rate type or
+     *  start time changes (see {@link #updateKtvEndTimeAndDuration}). */
+    private void bindKtvFields(View v) {
+        View ktvDateField = v.findViewById(R.id.hotelKtvDateField);
+        TextView ktvDateText = v.findViewById(R.id.hotelKtvDateText);
+        TextView ktvDateError = v.findViewById(R.id.hotelKtvDateError);
+        View ktvStartTimeField = v.findViewById(R.id.hotelKtvStartTimeField);
+        TextView ktvStartTimeText = v.findViewById(R.id.hotelKtvStartTimeText);
+        TextView ktvStartTimeError = v.findViewById(R.id.hotelKtvStartTimeError);
+        RadioGroup rateGroup = v.findViewById(R.id.hotelKtvRateTypeGroup);
+        TextView rateError = v.findViewById(R.id.hotelKtvRateTypeError);
+        TextView guestCountValue = v.findViewById(R.id.hotelKtvGuestCountValue);
+
+        updateKtvDateField(ktvDateText);
+        updateKtvStartTimeField(ktvStartTimeText);
+        updateKtvEndTimeAndDuration(v);
+        guestCountValue.setText(String.valueOf(ktvGuestCount));
+        if (ReservationCatalog.RATE_TYPE_REGULAR.equals(ktvRateType)) {
+            rateGroup.check(R.id.hotelKtvRateRegular);
+        } else if (ReservationCatalog.RATE_TYPE_CONSUMABLE.equals(ktvRateType)) {
+            rateGroup.check(R.id.hotelKtvRateConsumable);
+        } else {
+            rateGroup.clearCheck();
+        }
+
+        rateGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            ktvRateType = checkedId == R.id.hotelKtvRateRegular
+                    ? ReservationCatalog.RATE_TYPE_REGULAR : ReservationCatalog.RATE_TYPE_CONSUMABLE;
+            rateError.setVisibility(View.GONE);
+            updateKtvEndTimeAndDuration(v);
+        });
+
+        ktvDateField.setOnClickListener(view -> GlassDatePicker.showCalendarPicker(
+                activity, ktvDateMillis, System.currentTimeMillis() - 1000L, millis -> {
+                    ktvDateMillis = millis;
+                    updateKtvDateField(ktvDateText);
+                    ktvDateError.setVisibility(View.GONE);
+                }));
+
+        ktvStartTimeField.setOnClickListener(view -> {
+            Calendar now = Calendar.getInstance();
+            int initialHour = ktvStartHour >= 0 ? ktvStartHour : now.get(Calendar.HOUR_OF_DAY);
+            int initialMinute = ktvStartMinute >= 0 ? ktvStartMinute : now.get(Calendar.MINUTE);
+            TimePickerDialog dialog = new TimePickerDialog(activity, (picker, hour, minute) -> {
+                ktvStartHour = hour;
+                ktvStartMinute = minute;
+                updateKtvStartTimeField(ktvStartTimeText);
+                updateKtvEndTimeAndDuration(v);
+                ktvStartTimeError.setVisibility(View.GONE);
+            }, initialHour, initialMinute, false);
+            ThemeManager.applyGlassEffect(dialog.getWindow());
+            dialog.show();
+        });
+
+        v.findViewById(R.id.hotelKtvGuestCountMinus).setOnClickListener(view -> {
+            if (ktvGuestCount > 1) {
+                ktvGuestCount--;
+                guestCountValue.setText(String.valueOf(ktvGuestCount));
+            }
+        });
+        v.findViewById(R.id.hotelKtvGuestCountPlus).setOnClickListener(view -> {
+            ktvGuestCount++;
+            guestCountValue.setText(String.valueOf(ktvGuestCount));
+        });
     }
 
     // ---- Search panel collapse/drag mechanics ------------------------------
@@ -483,10 +723,10 @@ final class HotelBookingFlowController {
 
     /** Runs the search for whichever category tab is active. */
     private void runAvailabilitySearch(View v) {
-        if (selectedCategory == CATEGORY_HOTEL_ROOMS) {
+        if (selectedTab == TAB_HOTEL_ROOMS) {
             fetchAvailability(v);
         } else {
-            // Cottages & KTV has no backend yet; it's already showing its static preview.
+            // Cottage/KTV have no dated-availability search yet; already showing the live catalog.
             renderAvailabilityResults(v);
         }
     }
@@ -522,6 +762,59 @@ final class HotelBookingFlowController {
                 isLoadingDefaultRooms = false;
                 defaultRoomsLoaded = true;
                 defaultRooms = new ArrayList<>();
+                renderAvailabilityResults(v);
+            }
+        });
+    }
+
+    /** Loads the Cottages & KTV Type/Category catalog from the Admin Web's Cottage Management /
+     *  KTV Management data (see {@link CottageKtvOption}) — no mobile-side hardcoded Type or
+     *  Category values. Runs once per flow instance, same as {@link #fetchDefaultRooms}. */
+    private void fetchCottagesKtv(View v) {
+        if (isLoadingCottageKtv || cottageKtvLoaded) {
+            return;
+        }
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            return;
+        }
+        isLoadingCottageKtv = true;
+        renderAvailabilityResults(v);
+
+        ApiClient.bookingApi().getCottagesKtv("Bearer " + token).enqueue(new Callback<CottageKtvListResponse>() {
+            @Override
+            public void onResponse(Call<CottageKtvListResponse> call, Response<CottageKtvListResponse> response) {
+                isLoadingCottageKtv = false;
+                cottageKtvLoaded = true;
+                cottageItems = new ArrayList<>();
+                ktvItems = new ArrayList<>();
+                if (response.isSuccessful() && response.body() != null) {
+                    if (response.body().cottages != null) {
+                        cottageItems.addAll(response.body().cottages);
+                    }
+                    if (response.body().ktv_rooms != null) {
+                        ktvItems.addAll(response.body().ktv_rooms);
+                    }
+                }
+                for (CottageKtvOption item : cottageItems) {
+                    if (!roomQuantities.containsKey(item.group_id)) {
+                        roomQuantities.put(item.group_id, 0);
+                    }
+                }
+                for (CottageKtvOption item : ktvItems) {
+                    if (!roomQuantities.containsKey(item.group_id)) {
+                        roomQuantities.put(item.group_id, 0);
+                    }
+                }
+                renderAvailabilityResults(v);
+            }
+
+            @Override
+            public void onFailure(Call<CottageKtvListResponse> call, Throwable t) {
+                isLoadingCottageKtv = false;
+                cottageKtvLoaded = true;
+                cottageItems = new ArrayList<>();
+                ktvItems = new ArrayList<>();
                 renderAvailabilityResults(v);
             }
         });
@@ -595,15 +888,30 @@ final class HotelBookingFlowController {
         TextView sectionLabel = v.findViewById(R.id.hotelResultsSectionLabel);
         ImageView sectionIcon = v.findViewById(R.id.hotelResultsSectionIcon);
         LinearLayout container = v.findViewById(R.id.hotelResultsContainer);
+        View cottageTotalRow = v.findViewById(R.id.hotelCottageTotalUnitsRow);
+        TextView cottageTotalValue = v.findViewById(R.id.hotelCottageTotalUnitsValue);
+        View ktvFooter = v.findViewById(R.id.hotelKtvFooter);
+        TextView ktvTotalValue = v.findViewById(R.id.hotelKtvTotalSelectedValue);
+        Button ktvProceedButton = v.findViewById(R.id.hotelKtvProceedButton);
         container.removeAllViews();
 
+        boolean hotelRooms = selectedTab == TAB_HOTEL_ROOMS;
+        boolean cottage = selectedTab == TAB_COTTAGE;
+        boolean ktv = selectedTab == TAB_KTV;
+
+        cottageTotalRow.setVisibility(cottage ? View.VISIBLE : View.GONE);
+        ktvFooter.setVisibility(ktv ? View.VISIBLE : View.GONE);
+        updateCottageTotalUnits(cottageTotalValue);
+        updateKtvFooter(ktvTotalValue, ktvProceedButton);
+
         TextView resultsSubtitle = v.findViewById(R.id.hotelResultsSubtitle);
-        boolean showingLiveSearch = selectedCategory != CATEGORY_HOTEL_ROOMS || hasSearchedHotelRooms;
+        boolean showingLiveSearch = !hotelRooms || hasSearchedHotelRooms;
         resultsSubtitle.setText(showingLiveSearch
                 ? R.string.label_available_accommodations_subtitle
                 : R.string.label_available_accommodations_subtitle_browse);
 
-        if (isLoadingAvailability || (selectedCategory == CATEGORY_HOTEL_ROOMS && !hasSearchedHotelRooms && isLoadingDefaultRooms)) {
+        if (isLoadingAvailability || (hotelRooms && !hasSearchedHotelRooms && isLoadingDefaultRooms)
+                || (!hotelRooms && isLoadingCottageKtv)) {
             loading.setVisibility(View.VISIBLE);
             emptyState.setVisibility(View.GONE);
             errorState.setVisibility(View.GONE);
@@ -613,7 +921,7 @@ final class HotelBookingFlowController {
         }
         loading.setVisibility(View.GONE);
 
-        if (selectedCategory == CATEGORY_HOTEL_ROOMS && hasSearchedHotelRooms && availabilityErrored) {
+        if (hotelRooms && hasSearchedHotelRooms && availabilityErrored) {
             errorState.setVisibility(View.VISIBLE);
             emptyState.setVisibility(View.GONE);
             sectionHeader.setVisibility(View.GONE);
@@ -623,7 +931,7 @@ final class HotelBookingFlowController {
         errorState.setVisibility(View.GONE);
 
         LayoutInflater inflater = LayoutInflater.from(activity);
-        if (selectedCategory == CATEGORY_HOTEL_ROOMS && hasSearchedHotelRooms) {
+        if (hotelRooms && hasSearchedHotelRooms) {
             // A real, dated search has been run: show live availability for those exact dates.
             int totalGuests = adults + children;
             List<RoomTypeAvailability> rooms = new ArrayList<>();
@@ -646,7 +954,7 @@ final class HotelBookingFlowController {
             for (RoomTypeAvailability room : rooms) {
                 container.addView(buildRoomCard(inflater, container, room));
             }
-        } else if (selectedCategory == CATEGORY_HOTEL_ROOMS) {
+        } else if (hotelRooms) {
             // No dated search yet: show the general room catalog so the guest has something to
             // browse the moment they open the Book tab.
             int totalGuests = adults + children;
@@ -671,9 +979,16 @@ final class HotelBookingFlowController {
                 container.addView(buildDefaultRoomCard(inflater, container, room, v));
             }
         } else {
-            List<BookingCatalogStore.ServiceItem> items = new ArrayList<>();
-            items.addAll(Arrays.asList(BookingCatalogStore.getItems(BookingCatalogStore.CATEGORY_KTV)));
-            items.addAll(Arrays.asList(BookingCatalogStore.getItems(BookingCatalogStore.CATEGORY_POOL)));
+            // Cottage/KTV: Type/Category data comes from the Admin Web's Cottage Management /
+            // KTV Management modules via fetchCottagesKtv(), not any mobile-side hardcoded list.
+            int totalGuests = cottage ? cottageAdults + cottageChildren : ktvGuestCount;
+            List<CottageKtvOption> source = cottage ? cottageItems : ktvItems;
+            List<CottageKtvOption> items = new ArrayList<>();
+            for (CottageKtvOption item : source) {
+                if (meetsCapacity(item.capacity, totalGuests)) {
+                    items.add(item);
+                }
+            }
             if (items.isEmpty()) {
                 emptyState.setVisibility(View.VISIBLE);
                 sectionHeader.setVisibility(View.GONE);
@@ -681,14 +996,52 @@ final class HotelBookingFlowController {
                 return;
             }
             emptyState.setVisibility(View.GONE);
-            sectionIcon.setImageResource(R.drawable.ic_pool);
-            sectionLabel.setText(R.string.tab_cottages_ktv);
+            sectionIcon.setImageResource(cottage ? R.drawable.ic_pool : R.drawable.ic_mic);
+            sectionLabel.setText(cottage ? R.string.label_select_desired_cottage_type : R.string.label_select_ktv_room);
             sectionHeader.setVisibility(View.VISIBLE);
             container.setVisibility(View.VISIBLE);
-            for (BookingCatalogStore.ServiceItem item : items) {
-                container.addView(buildCatalogCard(inflater, container, item));
+            for (CottageKtvOption item : items) {
+                container.addView(buildCottageKtvCard(inflater, container, item, cottage, v));
             }
         }
+    }
+
+    private void updateCottageTotalUnits(TextView cottageTotalValue) {
+        int total = 0;
+        for (CottageKtvOption item : cottageItems) {
+            Integer qty = roomQuantities.get(item.group_id);
+            if (qty != null) {
+                total += qty;
+            }
+        }
+        cottageTotalValue.setText(String.valueOf(total));
+    }
+
+    private void updateKtvFooter(TextView ktvTotalValue, Button ktvProceedButton) {
+        boolean selected = selectedKtvItem() != null;
+        ktvTotalValue.setText(selected ? "1" : "0");
+        ktvProceedButton.setEnabled(selected);
+        ktvProceedButton.setAlpha(selected ? 1f : 0.4f);
+    }
+
+    /** The KTV room currently selected via its card's Select toggle, or null if none. */
+    private CottageKtvOption selectedKtvItem() {
+        for (CottageKtvOption item : ktvItems) {
+            Integer qty = roomQuantities.get(item.group_id);
+            if (qty != null && qty > 0) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    private boolean isCottageItemId(int id) {
+        for (CottageKtvOption item : cottageItems) {
+            if (item.group_id == id) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private View buildRoomCard(LayoutInflater inflater, ViewGroup parent, RoomTypeAvailability room) {
@@ -815,47 +1168,124 @@ final class HotelBookingFlowController {
                 : R.string.toast_tap_search_to_book, Toast.LENGTH_LONG).show();
     }
 
-    private View buildCatalogCard(LayoutInflater inflater, ViewGroup parent, BookingCatalogStore.ServiceItem item) {
+    /** One Cottage or KTV card: Type/Category ("Standard (Claricon)"-style, via
+     *  {@link #formatShowcaseName}), capacity, price and photo all come from
+     *  {@link CottageKtvOption} (Admin Web data via {@link #fetchCottagesKtv}), not any
+     *  mobile-side hardcoded catalog. Cottage keeps a quantity stepper + Reserve button; KTV
+     *  gets a single Select/Selected toggle (see the KTV footer's Proceed button). Reserve/
+     *  Proceed keep the existing behavior — this category has no dated-availability booking
+     *  flow yet, so both just route to the Reserve tab like Book Now always has. */
+    private View buildCottageKtvCard(LayoutInflater inflater, ViewGroup parent, CottageKtvOption item,
+            boolean cottage, View v) {
         View card = inflater.inflate(R.layout.view_accommodation_card, parent, false);
-        BookingCatalogStore.Category category = BookingCatalogStore.findCategory(item.categoryId);
+        loadImage(card.findViewById(R.id.accommodationImage), item.image_path, cottage ? R.drawable.ic_pool : R.drawable.ic_mic);
 
-        ImageView image = card.findViewById(R.id.accommodationImage);
-        image.setBackgroundResource(category.tileBackgroundRes);
-        image.setImageResource(category.iconRes);
-        image.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        image.setColorFilter(Color.WHITE);
-        int pad = (int) (32 * activity.getResources().getDisplayMetrics().density);
-        image.setPadding(pad, pad, pad, pad);
-
+        boolean available = item.available_quantity > 0;
         TextView badge = card.findViewById(R.id.accommodationAvailabilityBadge);
-        badge.setText(BookingCatalogStore.availabilityLabelRes(item.availability));
-        badge.setBackgroundResource(catalogAvailabilityBadgeRes(item.availability));
+        badge.setText(available ? R.string.booking_status_available : R.string.booking_status_no_rooms_available);
+        badge.setBackgroundResource(available ? R.drawable.bg_badge_available_solid : R.drawable.bg_badge_full_solid);
 
         ((TextView) card.findViewById(R.id.accommodationName))
-                .setText(formatShowcaseName(item.name, item.filterTag));
-        TextView capacity = card.findViewById(R.id.accommodationCapacity);
-        if (item.capacityLabel != null) {
-            capacity.setText(item.capacityLabel);
-            capacity.setVisibility(View.VISIBLE);
+                .setText(formatShowcaseName(item.variant_name, item.category_name));
+        ((TextView) card.findViewById(R.id.accommodationCapacity))
+                .setText(activity.getString(R.string.format_capacity, item.capacity));
+
+        TextView bedInfo = card.findViewById(R.id.accommodationBedInfo);
+        if (item.description != null && !item.description.trim().isEmpty()) {
+            bedInfo.setText(item.description);
+            bedInfo.setVisibility(View.VISIBLE);
         } else {
-            capacity.setVisibility(View.GONE);
+            bedInfo.setVisibility(View.GONE);
         }
-        card.findViewById(R.id.accommodationBedInfo).setVisibility(View.GONE);
 
-        ((TextView) card.findViewById(R.id.accommodationPrice)).setText(item.startingPriceLabel != null
-                ? item.startingPriceLabel : activity.getString(R.string.booking_price_unavailable));
+        TextView availableUnits = card.findViewById(R.id.accommodationAvailableUnits);
+        availableUnits.setText(activity.getString(R.string.format_available_units, item.available_quantity));
+        availableUnits.setVisibility(View.VISIBLE);
 
-        card.findViewById(R.id.accommodationBookNowButton).setOnClickListener(view -> onBookNowOtherCategory.run());
+        ((TextView) card.findViewById(R.id.accommodationPrice)).setText(activity.getString(
+                R.string.format_price_per_unit, formatMoney((int) Math.round(item.price)), item.price_unit));
+        card.findViewById(R.id.accommodationBookNowButton).setVisibility(View.GONE);
+
+        View quantityRow = card.findViewById(R.id.accommodationQuantityRow);
+        Button reserveButton = card.findViewById(R.id.accommodationReserveButton);
+        Button selectButton = card.findViewById(R.id.accommodationSelectButton);
+        int qty = roomQuantities.containsKey(item.group_id) ? roomQuantities.get(item.group_id) : 0;
+
+        if (!cottage) {
+            // KTV rooms are a single mutually-exclusive pick, not a quantity.
+            quantityRow.setVisibility(View.GONE);
+            reserveButton.setVisibility(View.GONE);
+            selectButton.setVisibility(View.VISIBLE);
+            boolean selected = qty > 0;
+            bindKtvSelectButton(selectButton, selected);
+            selectButton.setOnClickListener(view -> {
+                for (Integer key : roomQuantities.keySet()) {
+                    roomQuantities.put(key, key.equals(item.group_id) && !selected ? 1 : 0);
+                }
+                renderAvailabilityResults(v);
+            });
+            card.setAlpha(available ? 1f : 0.45f);
+            return card;
+        }
+
+        quantityRow.setVisibility(View.VISIBLE);
+        selectButton.setVisibility(View.GONE);
+        reserveButton.setVisibility(View.VISIBLE);
+
+        TextView qtyValue = card.findViewById(R.id.accommodationQuantityValue);
+        ImageView minus = card.findViewById(R.id.accommodationQuantityMinus);
+        ImageView plus = card.findViewById(R.id.accommodationQuantityPlus);
+        qtyValue.setText(String.valueOf(qty));
+        setStepperEnabled(plus, qty < item.available_quantity);
+
+        minus.setOnClickListener(view -> {
+            int current = roomQuantities.get(item.group_id);
+            if (current > 0) {
+                roomQuantities.put(item.group_id, current - 1);
+                renderAvailabilityResults(v);
+            }
+        });
+        plus.setOnClickListener(view -> {
+            int current = roomQuantities.get(item.group_id);
+            if (current < item.available_quantity) {
+                // Several cottage types may carry a quantity at once while browsing (see the
+                // class-level selection model note) — but a reservation is still one category
+                // at a time, so clear anything picked on the Hotel Rooms/KTV tabs.
+                for (Integer key : roomQuantities.keySet()) {
+                    if (!key.equals(item.group_id) && !isCottageItemId(key)) {
+                        roomQuantities.put(key, 0);
+                    }
+                }
+                roomQuantities.put(item.group_id, current + 1);
+                renderAvailabilityResults(v);
+            }
+        });
+
+        reserveButton.setEnabled(qty > 0);
+        reserveButton.setAlpha(qty > 0 ? 1f : 0.4f);
+        reserveButton.setOnClickListener(view -> {
+            if (!validateCottageFields(v)) {
+                expandPanel(v);
+                return;
+            }
+            for (Integer key : roomQuantities.keySet()) {
+                if (!key.equals(item.group_id)) {
+                    roomQuantities.put(key, 0);
+                }
+            }
+            onBookNowOtherCategory.run();
+        });
+
+        card.setAlpha(available ? 1f : 0.45f);
         return card;
     }
 
-    private int catalogAvailabilityBadgeRes(int availability) {
-        if (availability == BookingCatalogStore.AVAILABILITY_LIMITED) {
-            return R.drawable.bg_badge_limited_solid;
-        } else if (availability == BookingCatalogStore.AVAILABILITY_FULL) {
-            return R.drawable.bg_badge_full_solid;
-        }
-        return R.drawable.bg_badge_available_solid;
+    /** Styles the KTV card's toggle button for its current selected/unselected state. */
+    private void bindKtvSelectButton(Button button, boolean selected) {
+        button.setText(selected ? R.string.button_selected : R.string.button_select);
+        button.setBackgroundResource(selected ? R.drawable.bg_button_primary : R.drawable.bg_button_secondary);
+        button.setTextColor(selected ? activity.getColor(R.color.button_primary_text)
+                : ThemeManager.color(activity, R.attr.textPrimary));
     }
 
     /** BOOK NOW on a Hotel Rooms card: select that room at quantity 1 (clearing any other
@@ -891,18 +1321,166 @@ final class HotelBookingFlowController {
         }
     }
 
-    private void updateCategoryTabs(View tabRooms, View tabCottagesKtv) {
-        boolean hotelSelected = selectedCategory == CATEGORY_HOTEL_ROOMS;
+    private void updateCategoryTabs(View v, View tabRooms, View tabCottage, View tabKtv) {
         int accentColor = ThemeManager.color(activity, R.attr.accentPrimary);
         int mutedColor = ThemeManager.color(activity, R.attr.textOnScreenMuted);
 
-        tabRooms.setBackgroundResource(hotelSelected ? R.drawable.bg_tab_pill_selected : R.drawable.bg_tab_pill_unselected);
-        ((TextView) tabRooms.findViewById(R.id.hotelTabRoomsText)).setTextColor(hotelSelected ? accentColor : mutedColor);
-        ((ImageView) tabRooms.findViewById(R.id.hotelTabRoomsIcon)).setColorFilter(hotelSelected ? accentColor : mutedColor);
+        styleTab(tabRooms, R.id.hotelTabRoomsText, R.id.hotelTabRoomsIcon,
+                selectedTab == TAB_HOTEL_ROOMS, accentColor, mutedColor);
+        styleTab(tabCottage, R.id.hotelTabCottageText, R.id.hotelTabCottageIcon,
+                selectedTab == TAB_COTTAGE, accentColor, mutedColor);
+        styleTab(tabKtv, R.id.hotelTabKtvText, R.id.hotelTabKtvIcon,
+                selectedTab == TAB_KTV, accentColor, mutedColor);
 
-        tabCottagesKtv.setBackgroundResource(hotelSelected ? R.drawable.bg_tab_pill_unselected : R.drawable.bg_tab_pill_selected);
-        ((TextView) tabCottagesKtv.findViewById(R.id.hotelTabCottagesKtvText)).setTextColor(hotelSelected ? mutedColor : accentColor);
-        ((ImageView) tabCottagesKtv.findViewById(R.id.hotelTabCottagesKtvIcon)).setColorFilter(hotelSelected ? mutedColor : accentColor);
+        v.findViewById(R.id.hotelRoomsDatesRow).setVisibility(selectedTab == TAB_HOTEL_ROOMS ? View.VISIBLE : View.GONE);
+        v.findViewById(R.id.hotelHotelGuestsSection).setVisibility(selectedTab == TAB_HOTEL_ROOMS ? View.VISIBLE : View.GONE);
+        v.findViewById(R.id.hotelCottageFieldsGroup).setVisibility(selectedTab == TAB_COTTAGE ? View.VISIBLE : View.GONE);
+        v.findViewById(R.id.hotelKtvFieldsGroup).setVisibility(selectedTab == TAB_KTV ? View.VISIBLE : View.GONE);
+
+        // Switching tabs changes the search panel's content height, so re-measure it for
+        // the drag/collapse mechanics (see setUpDragPanel) instead of leaving a stale distance.
+        View panelContent = v.findViewById(R.id.hotelSearchPanelContent);
+        panelContent.post(() -> {
+            panelCollapseDistance = panelContent.getHeight();
+            setPanelFraction(v, panelFraction);
+        });
+    }
+
+    private void styleTab(View tab, int textId, int iconId, boolean selected, int accentColor, int mutedColor) {
+        tab.setBackgroundResource(selected ? R.drawable.bg_tab_pill_selected : R.drawable.bg_tab_pill_unselected);
+        ((TextView) tab.findViewById(textId)).setTextColor(selected ? accentColor : mutedColor);
+        ((ImageView) tab.findViewById(iconId)).setColorFilter(selected ? accentColor : mutedColor);
+    }
+
+    private void updateCottageDateField(TextView cottageDateText) {
+        if (cottageDateMillis < 0) {
+            cottageDateText.setText(R.string.hint_select_date);
+            cottageDateText.setAlpha(0.5f);
+        } else {
+            cottageDateText.setText(formatDate(cottageDateMillis));
+            cottageDateText.setAlpha(1f);
+        }
+    }
+
+    private void updateCottageTimeField(TextView cottageTimeText) {
+        if (cottageTimeHour < 0) {
+            cottageTimeText.setText(R.string.hint_select_time);
+            cottageTimeText.setAlpha(0.5f);
+        } else {
+            cottageTimeText.setText(formatHourMinute(cottageTimeHour, cottageTimeMinute));
+            cottageTimeText.setAlpha(1f);
+        }
+    }
+
+    private void updateKtvDateField(TextView ktvDateText) {
+        if (ktvDateMillis < 0) {
+            ktvDateText.setText(R.string.hint_select_date);
+            ktvDateText.setAlpha(0.5f);
+        } else {
+            ktvDateText.setText(formatDate(ktvDateMillis));
+            ktvDateText.setAlpha(1f);
+        }
+    }
+
+    private void updateKtvStartTimeField(TextView ktvStartTimeText) {
+        if (ktvStartHour < 0) {
+            ktvStartTimeText.setText(R.string.hint_select_time);
+            ktvStartTimeText.setAlpha(0.5f);
+        } else {
+            ktvStartTimeText.setText(formatHourMinute(ktvStartHour, ktvStartMinute));
+            ktvStartTimeText.setAlpha(1f);
+        }
+    }
+
+    /** Recomputes the read-only End Time/Duration fields from Start Time + the selected rate
+     *  type's fixed duration; called whenever either changes. */
+    private void updateKtvEndTimeAndDuration(View v) {
+        TextView endTimeText = v.findViewById(R.id.hotelKtvEndTimeText);
+        TextView durationValue = v.findViewById(R.id.hotelKtvDurationValue);
+        int hours = ReservationCatalog.RATE_TYPE_REGULAR.equals(ktvRateType) ? KTV_REGULAR_HOURS
+                : ReservationCatalog.RATE_TYPE_CONSUMABLE.equals(ktvRateType) ? KTV_CONSUMABLE_HOURS : 0;
+
+        durationValue.setText(hours <= 0 ? activity.getString(R.string.placeholder_em_dash)
+                : activity.getString(R.string.format_duration_hours, hours));
+
+        if (hours <= 0 || ktvStartHour < 0) {
+            endTimeText.setText(R.string.placeholder_em_dash);
+            endTimeText.setAlpha(0.5f);
+            return;
+        }
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, ktvStartHour);
+        calendar.set(Calendar.MINUTE, ktvStartMinute);
+        calendar.add(Calendar.HOUR_OF_DAY, hours);
+        endTimeText.setText(formatHourMinute(calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE)));
+        endTimeText.setAlpha(1f);
+    }
+
+    private String formatHourMinute(int hour, int minute) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, hour);
+        calendar.set(Calendar.MINUTE, minute);
+        return new SimpleDateFormat("h:mm a", Locale.US).format(calendar.getTime());
+    }
+
+    /** Validates the Cottage tab's rate type/date/time fields, showing inline field errors. */
+    private boolean validateCottageFields(View v) {
+        TextView rateError = v.findViewById(R.id.hotelCottageRateTypeError);
+        TextView dateError = v.findViewById(R.id.hotelCottageDateError);
+        TextView timeError = v.findViewById(R.id.hotelCottageTimeError);
+        boolean valid = true;
+        if (cottageRateType.isEmpty()) {
+            showError(rateError, R.string.error_rate_type_required);
+            valid = false;
+        } else {
+            rateError.setVisibility(View.GONE);
+        }
+        if (cottageDateMillis < 0) {
+            showError(dateError, R.string.error_date_required);
+            valid = false;
+        } else if (cottageDateMillis < System.currentTimeMillis() - ONE_DAY_MS) {
+            showError(dateError, R.string.error_date_past);
+            valid = false;
+        } else {
+            dateError.setVisibility(View.GONE);
+        }
+        if (cottageTimeHour < 0) {
+            showError(timeError, R.string.error_time_required);
+            valid = false;
+        } else {
+            timeError.setVisibility(View.GONE);
+        }
+        return valid;
+    }
+
+    /** Validates the KTV tab's rate type/date/start-time fields, showing inline field errors. */
+    private boolean validateKtvFields(View v) {
+        TextView rateError = v.findViewById(R.id.hotelKtvRateTypeError);
+        TextView dateError = v.findViewById(R.id.hotelKtvDateError);
+        TextView timeError = v.findViewById(R.id.hotelKtvStartTimeError);
+        boolean valid = true;
+        if (ktvRateType.isEmpty()) {
+            showError(rateError, R.string.error_rate_type_required);
+            valid = false;
+        } else {
+            rateError.setVisibility(View.GONE);
+        }
+        if (ktvDateMillis < 0) {
+            showError(dateError, R.string.error_date_required);
+            valid = false;
+        } else if (ktvDateMillis < System.currentTimeMillis() - ONE_DAY_MS) {
+            showError(dateError, R.string.error_date_past);
+            valid = false;
+        } else {
+            dateError.setVisibility(View.GONE);
+        }
+        if (ktvStartHour < 0) {
+            showError(timeError, R.string.error_time_required);
+            valid = false;
+        } else {
+            timeError.setVisibility(View.GONE);
+        }
+        return valid;
     }
 
     private String formatWeekday(long millis) {
@@ -1488,17 +2066,272 @@ final class HotelBookingFlowController {
         });
     }
 
+    // ---- View My Bookings (booking-flavored twin of ReservationFlowController's
+    // My Reservations / Reservation Details — see BookingStore) ---------------------
+
+    private void bindMyBookingsList(View v) {
+        bindHeader(v, R.id.myBookingsHeaderBar, R.string.booking_my_list_title, () -> showScreen(SCREEN_DATES));
+
+        TextView tabCurrent = v.findViewById(R.id.tabCurrentBookings);
+        TextView tabPast = v.findViewById(R.id.tabPastBookings);
+        tabCurrent.setOnClickListener(view -> {
+            myBookingsTab = BookingStore.TAB_CURRENT;
+            bindMyBookingsList(v);
+        });
+        tabPast.setOnClickListener(view -> {
+            myBookingsTab = BookingStore.TAB_PAST;
+            bindMyBookingsList(v);
+        });
+        updateBookingTabStyle(tabCurrent, myBookingsTab == BookingStore.TAB_CURRENT);
+        updateBookingTabStyle(tabPast, myBookingsTab == BookingStore.TAB_PAST);
+
+        List<BookingStore.Booking> list = BookingStore.byTab(myBookingsTab);
+        LinearLayout container = v.findViewById(R.id.myBookingsListContainer);
+        container.removeAllViews();
+        v.findViewById(R.id.myBookingsListEmpty).setVisibility(list.isEmpty() ? View.VISIBLE : View.GONE);
+
+        LayoutInflater inflater = LayoutInflater.from(activity);
+        for (BookingStore.Booking b : list) {
+            View card = inflater.inflate(R.layout.view_my_booking_card, container, false);
+            ((TextView) card.findViewById(R.id.bookingCardReferenceNo)).setText(b.bookingReference);
+            ((TextView) card.findViewById(R.id.bookingCardType)).setText(
+                    isCottageKtvBooking(b) ? R.string.booking_type_cottage_ktv : R.string.booking_type_hotel);
+            ((TextView) card.findViewById(R.id.bookingCardAccommodation))
+                    .setText(b.roomOption.categoryName + " · " + b.roomOption.variantName);
+            ((TextView) card.findViewById(R.id.bookingCardDateRange)).setText(formatBookingDateRange(b.checkInMillis, b.checkOutMillis));
+            ((TextView) card.findViewById(R.id.bookingCardGuests)).setText(formatBookingGuests(b.adults, b.children));
+
+            StatusPresentation status = resolveBookingStatus(b);
+            card.findViewById(R.id.bookingCardStatusDot).setBackgroundTintList(
+                    ColorStateList.valueOf(ThemeManager.color(activity, status.colorAttr)));
+            TextView statusLabel = card.findViewById(R.id.bookingCardStatusLabel);
+            statusLabel.setText(status.labelRes);
+            statusLabel.setTextColor(ThemeManager.color(activity, status.colorAttr));
+
+            card.findViewById(R.id.bookingCardViewDetailsButton).setOnClickListener(view -> {
+                myBookingDetailsReference = b.bookingReference;
+                showScreen(SCREEN_BOOKING_DETAILS);
+            });
+            container.addView(card);
+        }
+    }
+
+    private void updateBookingTabStyle(TextView tab, boolean active) {
+        tab.setTextColor(ThemeManager.color(activity, active ? R.attr.accentPrimary : R.attr.textMuted));
+        tab.setAlpha(active ? 1f : 0.55f);
+    }
+
+    private void bindBookingDetails(View v) {
+        BookingStore.Booking b = BookingStore.byReference(myBookingDetailsReference);
+        if (b == null) {
+            showScreen(SCREEN_MY_BOOKINGS);
+            return;
+        }
+
+        bindHeader(v, R.id.bookingDetailsHeaderBar, R.string.booking_details_title, () -> showScreen(SCREEN_MY_BOOKINGS));
+
+        StatusPresentation status = resolveBookingStatus(b);
+        v.findViewById(R.id.bookingDetailsStatusDot).setBackgroundTintList(
+                ColorStateList.valueOf(ThemeManager.color(activity, status.colorAttr)));
+        TextView statusLabel = v.findViewById(R.id.bookingDetailsStatusLabel);
+        statusLabel.setText(status.labelRes);
+        statusLabel.setTextColor(ThemeManager.color(activity, status.colorAttr));
+        ((TextView) v.findViewById(R.id.bookingDetailsStatusDesc)).setText(status.descRes);
+
+        bindRow(v.findViewById(R.id.bookingDetailsRowReference), R.string.label_reference_no, b.bookingReference);
+        bindRow(v.findViewById(R.id.bookingDetailsRowAccommodation), R.string.label_accommodation,
+                b.roomOption.categoryName + " · " + b.roomOption.variantName);
+        bindRow(v.findViewById(R.id.bookingDetailsRowDate), R.string.label_date, formatBookingDateRange(b.checkInMillis, b.checkOutMillis));
+        bindRow(v.findViewById(R.id.bookingDetailsRowGuests), R.string.label_stay_guests, formatBookingGuests(b.adults, b.children));
+
+        View altContainer = v.findViewById(R.id.bookingDetailsAltScheduleContainer);
+        View additionalContainer = v.findViewById(R.id.bookingDetailsAdditionalConfirmationContainer);
+        View confirmedContainer = v.findViewById(R.id.bookingDetailsConfirmedContainer);
+        View rejectedContainer = v.findViewById(R.id.bookingDetailsRejectedContainer);
+        View cancelledReasonContainer = v.findViewById(R.id.bookingDetailsCancelledReasonContainer);
+        altContainer.setVisibility(View.GONE);
+        additionalContainer.setVisibility(View.GONE);
+        confirmedContainer.setVisibility(View.GONE);
+        rejectedContainer.setVisibility(View.GONE);
+        cancelledReasonContainer.setVisibility(View.GONE);
+
+        if (b.status == BookingStore.STATUS_PENDING && BookingStore.SUB_ALTERNATIVE_PROPOSED.equals(b.subStatus)) {
+            altContainer.setVisibility(View.VISIBLE);
+            bindRow(v.findViewById(R.id.bookingDetailsRowCurrentRequest), R.string.label_current_request,
+                    formatBookingDateRange(b.checkInMillis, b.checkOutMillis));
+            bindRow(v.findViewById(R.id.bookingDetailsRowProposedSchedule), R.string.label_proposed_schedule,
+                    formatBookingDateRange(b.proposedCheckInMillis, b.proposedCheckOutMillis));
+            v.findViewById(R.id.bookingDetailsAcceptButton).setOnClickListener(view -> {
+                BookingStore.acceptAlternativeSchedule(b.bookingReference);
+                showScreen(SCREEN_BOOKING_DETAILS);
+            });
+            v.findViewById(R.id.bookingDetailsDeclineButton).setOnClickListener(view -> {
+                BookingStore.declineAlternativeSchedule(b.bookingReference);
+                showScreen(SCREEN_BOOKING_DETAILS);
+            });
+        } else if (b.status == BookingStore.STATUS_PENDING
+                && BookingStore.SUB_ADDITIONAL_CONFIRMATION.equals(b.subStatus)) {
+            additionalContainer.setVisibility(View.VISIBLE);
+        } else if (b.status == BookingStore.STATUS_CONFIRMED) {
+            confirmedContainer.setVisibility(View.VISIBLE);
+        } else if (b.status == BookingStore.STATUS_CANCELLED && BookingStore.SUB_REJECTED.equals(b.subStatus)) {
+            rejectedContainer.setVisibility(View.VISIBLE);
+            ((TextView) v.findViewById(R.id.bookingDetailsRejectedReason)).setText(
+                    b.cancelReason != null && !b.cancelReason.isEmpty()
+                            ? b.cancelReason : activity.getString(R.string.reason_room_unavailable));
+            v.findViewById(R.id.bookingDetailsTryAnotherDateButton).setOnClickListener(view -> showScreen(SCREEN_DATES));
+            v.findViewById(R.id.bookingDetailsViewOtherRoomsButton).setOnClickListener(view -> showScreen(SCREEN_DATES));
+            v.findViewById(R.id.bookingDetailsBackToListButton).setOnClickListener(view -> showScreen(SCREEN_MY_BOOKINGS));
+        } else if (b.status == BookingStore.STATUS_CANCELLED
+                && b.cancelReason != null && !b.cancelReason.isEmpty()) {
+            cancelledReasonContainer.setVisibility(View.VISIBLE);
+            ((TextView) v.findViewById(R.id.bookingDetailsCancelledReason)).setText(b.cancelReason);
+        }
+
+        bindBookingTimeline(v, b);
+    }
+
+    private void bindBookingTimeline(View v, BookingStore.Booking b) {
+        LinearLayout container = v.findViewById(R.id.bookingDetailsTimelineContainer);
+        container.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(activity);
+        List<BookingStore.TimelineEntry> entries = b.timeline;
+
+        for (int i = 0; i < entries.size(); i++) {
+            BookingStore.TimelineEntry entry = entries.get(i);
+            boolean isLast = i == entries.size() - 1;
+            boolean filled = entry.state != BookingStore.TIMELINE_UPCOMING;
+
+            View row = inflater.inflate(R.layout.view_reservation_timeline_row, container, false);
+            TextView label = row.findViewById(R.id.timelineLabel);
+            label.setText(entry.label);
+            label.setTextColor(ThemeManager.color(activity, filled ? R.attr.textPrimary : R.attr.textMuted));
+            label.setTypeface(null, entry.state == BookingStore.TIMELINE_CURRENT ? Typeface.BOLD : Typeface.NORMAL);
+
+            TextView meta = row.findViewById(R.id.timelineMeta);
+            String metaText = entry.millis > 0 ? formatDateTime(entry.millis) : "";
+            if (entry.description != null && !entry.description.isEmpty()) {
+                metaText = metaText.isEmpty() ? entry.description : metaText + " · " + entry.description;
+            }
+            meta.setText(metaText);
+            meta.setVisibility(metaText.isEmpty() ? View.GONE : View.VISIBLE);
+
+            View dot = row.findViewById(R.id.timelineDot);
+            dot.setBackgroundResource(filled ? R.drawable.bg_progress_dot_filled : R.drawable.bg_progress_dot_hollow);
+            if (filled && isLast) {
+                if (b.status == BookingStore.STATUS_CONFIRMED) {
+                    dot.setBackgroundTintList(ColorStateList.valueOf(ThemeManager.color(activity, R.attr.successText)));
+                } else if (b.status == BookingStore.STATUS_CANCELLED) {
+                    dot.setBackgroundTintList(ColorStateList.valueOf(ThemeManager.color(activity, R.attr.errorText)));
+                }
+            }
+
+            View line = row.findViewById(R.id.timelineLine);
+            if (isLast) {
+                line.setVisibility(View.GONE);
+            } else {
+                line.setBackgroundColor(ThemeManager.color(activity, filled ? R.attr.accentPrimary : R.attr.dividerColor));
+            }
+
+            container.addView(row);
+        }
+    }
+
+    private boolean isCottageKtvBooking(BookingStore.Booking b) {
+        return b.roomOption != null && b.roomOption.category == ReservationCatalog.CATEGORY_COTTAGES_KTV;
+    }
+
+    private StatusPresentation resolveBookingStatus(BookingStore.Booking b) {
+        if (b.status == BookingStore.STATUS_CONFIRMED) {
+            return new StatusPresentation(R.attr.successText, R.string.res_status_confirmed, R.string.res_desc_confirmed_booking);
+        }
+        if (b.status == BookingStore.STATUS_CANCELLED) {
+            if (BookingStore.SUB_REJECTED.equals(b.subStatus)) {
+                return new StatusPresentation(R.attr.errorText, R.string.res_status_rejected, R.string.res_desc_rejected_booking);
+            }
+            return new StatusPresentation(R.attr.textMuted, R.string.res_status_cancelled, R.string.res_desc_cancelled_booking);
+        }
+        if (BookingStore.SUB_ADDITIONAL_CONFIRMATION.equals(b.subStatus)) {
+            return new StatusPresentation(R.attr.warningText, R.string.res_status_additional_confirmation,
+                    R.string.res_desc_additional_confirmation);
+        }
+        if (BookingStore.SUB_ALTERNATIVE_PROPOSED.equals(b.subStatus)) {
+            return new StatusPresentation(R.attr.infoText, R.string.res_status_action_required, R.string.res_desc_action_required);
+        }
+        return new StatusPresentation(R.attr.accentPrimary, R.string.res_status_pending, R.string.res_desc_pending);
+    }
+
+    private static final class StatusPresentation {
+        final int colorAttr;
+        final int labelRes;
+        final int descRes;
+
+        StatusPresentation(int colorAttr, int labelRes, int descRes) {
+            this.colorAttr = colorAttr;
+            this.labelRes = labelRes;
+            this.descRes = descRes;
+        }
+    }
+
+    private String formatBookingGuests(int guestAdults, int guestChildren) {
+        return guestAdults + (guestAdults == 1 ? " Adult" : " Adults") + " · "
+                + guestChildren + (guestChildren == 1 ? " Child" : " Children");
+    }
+
+    /** Same-month compaction (e.g. "Sep 5–7, 2026"), mirroring ReservationFlowController#formatDateRange. */
+    private String formatBookingDateRange(long inMillis, long outMillis) {
+        if (inMillis < 0 || outMillis < 0) {
+            return "";
+        }
+        if (inMillis == outMillis) {
+            return formatDateTime(inMillis);
+        }
+        Calendar a = Calendar.getInstance();
+        a.setTimeInMillis(inMillis);
+        Calendar bCal = Calendar.getInstance();
+        bCal.setTimeInMillis(outMillis);
+        if (a.get(Calendar.YEAR) == bCal.get(Calendar.YEAR) && a.get(Calendar.MONTH) == bCal.get(Calendar.MONTH)) {
+            String monthDay = new SimpleDateFormat("MMM d", Locale.US).format(new Date(inMillis));
+            String dayOnly = new SimpleDateFormat("d", Locale.US).format(new Date(outMillis));
+            String year = new SimpleDateFormat("yyyy", Locale.US).format(new Date(inMillis));
+            return monthDay + "–" + dayOnly + ", " + year;
+        }
+        return formatDate(inMillis) + " – " + formatDate(outMillis);
+    }
+
+    private String formatDateTime(long millis) {
+        if (millis < 0) {
+            return "";
+        }
+        return new SimpleDateFormat("MMM d, yyyy · h:mm a", Locale.US).format(new Date(millis));
+    }
+
     private void resetFlow() {
         checkInMillis = -1;
         checkOutMillis = -1;
         adults = 0;
         children = 0;
-        selectedCategory = CATEGORY_HOTEL_ROOMS;
+        selectedTab = TAB_HOTEL_ROOMS;
+        cottageRateType = "";
+        cottageDateMillis = -1;
+        cottageTimeHour = -1;
+        cottageTimeMinute = -1;
+        cottageAdults = 1;
+        cottageChildren = 0;
+        ktvRateType = "";
+        ktvDateMillis = -1;
+        ktvStartHour = -1;
+        ktvStartMinute = -1;
+        ktvGuestCount = 1;
         hasSearchedHotelRooms = false;
         availabilityErrored = false;
         defaultRooms = new ArrayList<>();
         isLoadingDefaultRooms = false;
         defaultRoomsLoaded = false;
+        cottageItems = new ArrayList<>();
+        ktvItems = new ArrayList<>();
+        isLoadingCottageKtv = false;
+        cottageKtvLoaded = false;
         availableRoomTypes = new ArrayList<>();
         roomQuantities.clear();
         specialRequest = "";

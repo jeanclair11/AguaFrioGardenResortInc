@@ -3,6 +3,7 @@
      the category browse list. Book Now hands off to the existing Reserve
      tab booking wizard (see BookingCatalogController). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
@@ -87,6 +88,450 @@
                 android:layout_marginTop="4dp"
                 android:textColor="?attr/textOnScreenMuted"
                 android:textSize="13sp" />
+
+            <!-- KTV / Pool & Cottage only: a visual match for the Reserve tab's Cottage/KTV
+                 field groups (rate type, date/time, guests). Local UI state only — Book Now
+                 still just hands off to the Reserve tab (see BookingCatalogController); nothing
+                 picked here is submitted anywhere yet. -->
+            <LinearLayout
+                android:id="@+id/detailReservationSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/label_reservation_details"
+                    android:textColor="?attr/textOnScreen"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    style="@style/FieldLabelOnScreen"
+                    android:text="@string/label_rate_type" />
+
+                <RadioGroup
+                    android:id="@+id/detailRateTypeGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="vertical">
+
+                    <RadioButton
+                        android:id="@+id/detailRateOptionA"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:buttonTint="?attr/accentPrimary"
+                        android:textColor="?attr/textOnScreen"
+                        android:textSize="13sp"
+                        tools:text="Day Rate" />
+
+                    <RadioButton
+                        android:id="@+id/detailRateOptionB"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:buttonTint="?attr/accentPrimary"
+                        android:textColor="?attr/textOnScreen"
+                        android:textSize="13sp"
+                        tools:text="Night Rate" />
+
+                </RadioGroup>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/FieldLabelOnScreen"
+                            android:layout_marginTop="0dp"
+                            android:text="@string/label_date" />
+
+                        <LinearLayout
+                            android:id="@+id/detailDateField"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_input_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:padding="12dp">
+
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_marginEnd="8dp"
+                                android:src="@drawable/ic_calendar"
+                                android:importantForAccessibility="no" />
+
+                            <TextView
+                                android:id="@+id/detailDateText"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:maxLines="1"
+                                android:ellipsize="end"
+                                android:text="@string/hint_select_date"
+                                android:textColor="?attr/textPrimary"
+                                android:alpha="0.5"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/detailTimeLabel"
+                            style="@style/FieldLabelOnScreen"
+                            android:layout_marginTop="0dp"
+                            android:text="@string/label_time" />
+
+                        <LinearLayout
+                            android:id="@+id/detailTimeField"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_input_selector"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:padding="12dp">
+
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_marginEnd="8dp"
+                                android:src="@drawable/ic_clock"
+                                android:importantForAccessibility="no" />
+
+                            <TextView
+                                android:id="@+id/detailTimeText"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:maxLines="1"
+                                android:ellipsize="end"
+                                android:text="@string/hint_select_time"
+                                android:textColor="?attr/textPrimary"
+                                android:alpha="0.5"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <!-- KTV only: read-only End Time/Duration, auto-computed from Start Time + the
+                     selected rate type's fixed hours, same as the Reserve tab's KTV tab. -->
+                <LinearLayout
+                    android:id="@+id/detailKtvEndDurationRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/FieldLabelOnScreen"
+                            android:layout_marginTop="0dp"
+                            android:text="@string/label_end_time" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_input_selector"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:padding="12dp">
+
+                            <TextView
+                                android:id="@+id/detailKtvEndTimeText"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:maxLines="1"
+                                android:ellipsize="end"
+                                android:text="@string/placeholder_em_dash"
+                                android:textColor="?attr/textPrimary"
+                                android:alpha="0.5"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:orientation="horizontal"
+                        android:gravity="bottom">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:paddingBottom="14dp"
+                            android:text="@string/label_duration"
+                            android:textColor="?attr/textOnScreen"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/detailKtvDurationValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:paddingBottom="14dp"
+                            android:text="@string/placeholder_em_dash"
+                            android:textColor="?attr/textOnScreenMuted"
+                            android:textSize="14sp" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <!-- Pool & Cottage only: adults/children steppers + computed Total Guest. -->
+                <LinearLayout
+                    android:id="@+id/detailCottageGuestsSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        style="@style/FieldLabelOnScreen"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/label_stay_guests" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/bg_input_selector"
+                        android:orientation="vertical"
+                        android:padding="14dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/label_adults"
+                                android:textColor="?attr/textPrimary"
+                                android:textSize="14sp" />
+
+                            <ImageView
+                                android:id="@+id/detailCottageAdultsMinus"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:padding="4dp"
+                                android:src="@drawable/ic_minus"
+                                android:background="@drawable/bg_stepper_button" />
+
+                            <TextView
+                                android:id="@+id/detailCottageAdultsValue"
+                                android:layout_width="44dp"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text="1"
+                                android:textColor="?attr/textPrimary"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <ImageView
+                                android:id="@+id/detailCottageAdultsPlus"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:padding="4dp"
+                                android:src="@drawable/ic_plus"
+                                android:background="@drawable/bg_stepper_button" />
+
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginTop="12dp"
+                            android:layout_marginBottom="12dp"
+                            android:background="?attr/dividerColor" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/label_children"
+                                android:textColor="?attr/textPrimary"
+                                android:textSize="14sp" />
+
+                            <ImageView
+                                android:id="@+id/detailCottageChildrenMinus"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:padding="4dp"
+                                android:src="@drawable/ic_minus"
+                                android:background="@drawable/bg_stepper_button" />
+
+                            <TextView
+                                android:id="@+id/detailCottageChildrenValue"
+                                android:layout_width="44dp"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text="0"
+                                android:textColor="?attr/textPrimary"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <ImageView
+                                android:id="@+id/detailCottageChildrenPlus"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:padding="4dp"
+                                android:src="@drawable/ic_plus"
+                                android:background="@drawable/bg_stepper_button" />
+
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginTop="12dp"
+                            android:layout_marginBottom="12dp"
+                            android:background="?attr/dividerColor" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/label_total_guest"
+                                android:textColor="?attr/textPrimary"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/detailCottageTotalGuestValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="1"
+                                android:textColor="?attr/accentPrimary"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <!-- KTV only: a single guest count instead of the adults/children split. -->
+                <LinearLayout
+                    android:id="@+id/detailKtvGuestSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        style="@style/FieldLabelOnScreen"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/label_guest_count" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/bg_input_selector"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="14dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/label_guest_count"
+                            android:textColor="?attr/textPrimary"
+                            android:textSize="14sp" />
+
+                        <ImageView
+                            android:id="@+id/detailKtvGuestCountMinus"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:padding="4dp"
+                            android:src="@drawable/ic_minus"
+                            android:background="@drawable/bg_stepper_button" />
+
+                        <TextView
+                            android:id="@+id/detailKtvGuestCountValue"
+                            android:layout_width="44dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:text="1"
+                            android:textColor="?attr/textPrimary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <ImageView
+                            android:id="@+id/detailKtvGuestCountPlus"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:padding="4dp"
+                            android:src="@drawable/ic_plus"
+                            android:background="@drawable/bg_stepper_button" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
 
             <View
                 android:layout_width="match_parent"

@@ -88,6 +88,16 @@
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
+            <!-- Cottage/KTV cards only: the live available_quantity from the Admin Web catalog. -->
+            <TextView
+                android:id="@+id/stepperItemAvailableUnits"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="?attr/textMuted"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
         </LinearLayout>
     </LinearLayout>
 
@@ -98,6 +108,7 @@
         android:background="?attr/dividerColor" />
 
     <LinearLayout
+        android:id="@+id/stepperItemQuantityRow"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
@@ -139,5 +150,33 @@
             android:background="@drawable/bg_stepper_button" />
 
     </LinearLayout>
+
+    <!-- Optional per-card proceed action. Gone by default (Amenity/Food screens rely on their
+         own bottom Next/Skip buttons instead); only the Reservation Module's results list shows
+         and wires this, enabled once this card's quantity is > 0. -->
+    <Button
+        android:id="@+id/stepperItemReserveButton"
+        style="@style/PrimaryButton"
+        android:layout_width="match_parent"
+        android:layout_height="42dp"
+        android:layout_marginTop="12dp"
+        android:minHeight="0dp"
+        android:text="@string/button_reserve"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
+    <!-- KTV cards only: a single select/selected toggle, replacing the quantity stepper and
+         Reserve button above (a KTV room is a single mutually-exclusive pick, not a quantity). -->
+    <Button
+        android:id="@+id/stepperItemSelectButton"
+        style="@style/SecondaryButton"
+        android:layout_width="match_parent"
+        android:layout_height="42dp"
+        android:layout_marginTop="12dp"
+        android:minHeight="0dp"
+        android:text="@string/button_select"
+        android:textColor="?attr/textPrimary"
+        android:textSize="13sp"
+        android:visibility="gone" />
 
 </LinearLayout>

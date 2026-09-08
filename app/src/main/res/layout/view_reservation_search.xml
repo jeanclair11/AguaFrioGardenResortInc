@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Book tab landing screen. hotelDragSheet (title/tabs/dates/guests/Search
-     + a drag handle) overlays hotelResultsScrollView and can collapse
-     upward, leaving only the handle, to give the results more room; drag
-     the handle back down (or tap it) to reveal it again. See
-     HotelBookingFlowController#bindDates / #renderAvailabilityResults for
-     content binding and the panel-fraction helpers for the drag/collapse
-     mechanics. -->
+<!-- Reservation Module root screen: reservation dates/party size (in a
+     collapsible drag sheet, mirroring the Book tab's search panel) overlaying
+     a scrollable list of available accommodations grouped by category. This
+     merges what used to be two separate screens (Choose Dates -> Available
+     Rooms) into one, matching view_hotel_dates.xml's structure. See
+     ReservationFlowController#bindDatesAndRooms / #setUpDragPanel. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
     <ScrollView
-        android:id="@+id/hotelResultsScrollView"
+        android:id="@+id/reservationResultsScrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
@@ -36,16 +35,16 @@
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/hotelResultsSubtitle"
+                android:id="@+id/reservationResultsSubtitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="@string/label_available_accommodations_subtitle"
+                android:text="@string/reservation_rooms_subtitle"
                 android:textColor="?attr/textOnScreenMuted"
                 android:textSize="13sp" />
 
             <LinearLayout
-                android:id="@+id/hotelResultsSectionHeader"
+                android:id="@+id/reservationResultsSectionHeader"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
@@ -53,7 +52,7 @@
                 android:gravity="center_vertical">
 
                 <ImageView
-                    android:id="@+id/hotelResultsSectionIcon"
+                    android:id="@+id/reservationResultsSectionIcon"
                     android:layout_width="18dp"
                     android:layout_height="18dp"
                     android:layout_marginEnd="8dp"
@@ -61,7 +60,7 @@
                     android:importantForAccessibility="no" />
 
                 <TextView
-                    android:id="@+id/hotelResultsSectionLabel"
+                    android:id="@+id/reservationResultsSectionLabel"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
@@ -81,16 +80,28 @@
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/hotelResultsContainer"
+                android:id="@+id/reservationRoomsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:orientation="vertical" />
 
+            <!-- Hotel Rooms tab only: a single Reserve action for whichever room type currently
+                 carries a quantity, replacing the old per-card Reserve button (see
+                 ReservationFlowController#renderRoomOptions). -->
+            <Button
+                android:id="@+id/reservationHotelReserveButton"
+                style="@style/PrimaryButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/button_reserve"
+                android:visibility="gone" />
+
             <!-- Cottage tab only: informational running total across every cottage card's
-                 independent quantity (see HotelBookingFlowController's Cottage selection notes). -->
+                 independent quantity (see ReservationFlowController's Cottage selection notes). -->
             <LinearLayout
-                android:id="@+id/hotelCottageTotalUnitsRow"
+                android:id="@+id/reservationCottageTotalUnitsRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
@@ -108,7 +119,7 @@
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/hotelCottageTotalUnitsValue"
+                    android:id="@+id/reservationCottageTotalUnitsValue"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0"
@@ -119,9 +130,9 @@
             </LinearLayout>
 
             <!-- KTV tab only: shows whether a room is picked, plus the single Proceed action
-                 (routes the same place Book Now already does — see onBookNowOtherCategory). -->
+                 that advances to Review once a room is selected and the fields validate. -->
             <LinearLayout
-                android:id="@+id/hotelKtvFooter"
+                android:id="@+id/reservationKtvFooter"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
@@ -144,7 +155,7 @@
                         android:textStyle="bold" />
 
                     <TextView
-                        android:id="@+id/hotelKtvTotalSelectedValue"
+                        android:id="@+id/reservationKtvTotalSelectedValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0"
@@ -155,7 +166,7 @@
                 </LinearLayout>
 
                 <Button
-                    android:id="@+id/hotelKtvProceedButton"
+                    android:id="@+id/reservationKtvProceedButton"
                     style="@style/PrimaryButton"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
@@ -165,7 +176,7 @@
             </LinearLayout>
 
             <TextView
-                android:id="@+id/hotelResultsLoading"
+                android:id="@+id/reservationResultsLoading"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
@@ -176,7 +187,7 @@
                 android:visibility="gone" />
 
             <LinearLayout
-                android:id="@+id/hotelResultsEmptyState"
+                android:id="@+id/reservationResultsEmptyState"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
@@ -205,7 +216,7 @@
                     android:textSize="13sp" />
 
                 <Button
-                    android:id="@+id/hotelResultsChangeDatesButton"
+                    android:id="@+id/reservationResultsChangeDatesButton"
                     style="@style/SecondaryButton"
                     android:layout_width="wrap_content"
                     android:layout_height="40dp"
@@ -217,8 +228,9 @@
 
             </LinearLayout>
 
+            <!-- Hotel Rooms tab only: shown when a real, dated availability search fails. -->
             <LinearLayout
-                android:id="@+id/hotelResultsErrorState"
+                android:id="@+id/reservationResultsErrorState"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
@@ -247,7 +259,7 @@
                     android:textSize="13sp" />
 
                 <Button
-                    android:id="@+id/hotelResultsTryAgainButton"
+                    android:id="@+id/reservationResultsTryAgainButton"
                     style="@style/SecondaryButton"
                     android:layout_width="wrap_content"
                     android:layout_height="40dp"
@@ -263,7 +275,7 @@
     </ScrollView>
 
     <LinearLayout
-        android:id="@+id/hotelDragSheet"
+        android:id="@+id/reservationDragSheet"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
@@ -272,7 +284,7 @@
         android:elevation="6dp">
 
         <LinearLayout
-            android:id="@+id/hotelSearchPanelContent"
+            android:id="@+id/reservationSearchPanelContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -284,7 +296,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/hotel_dates_title"
+                android:text="@string/reservation_dates_title"
                 android:textColor="?attr/textPrimary"
                 android:textSize="22sp"
                 android:textStyle="bold" />
@@ -294,18 +306,18 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:lineSpacingExtra="3dp"
-                android:text="@string/hotel_dates_subtitle"
+                android:text="@string/reservation_dates_subtitle"
                 android:textColor="?attr/textMuted"
                 android:textSize="13sp" />
 
             <TextView
-                android:id="@+id/hotelMyBookingsLink"
+                android:id="@+id/reservationMyListLink"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:padding="4dp"
-                android:text="@string/link_view_my_bookings"
+                android:text="@string/link_view_my_reservations"
                 android:textColor="?attr/accentPrimary"
                 android:textSize="13sp"
                 android:textStyle="bold" />
@@ -318,7 +330,7 @@
                 android:orientation="horizontal">
 
                 <LinearLayout
-                    android:id="@+id/hotelTabRooms"
+                    android:id="@+id/reservationTabRooms"
                     android:layout_width="0dp"
                     android:layout_height="46dp"
                     android:layout_weight="1"
@@ -330,7 +342,7 @@
                     android:focusable="true">
 
                     <ImageView
-                        android:id="@+id/hotelTabRoomsIcon"
+                        android:id="@+id/reservationTabRoomsIcon"
                         android:layout_width="16dp"
                         android:layout_height="16dp"
                         android:layout_marginEnd="6dp"
@@ -338,7 +350,7 @@
                         android:importantForAccessibility="no" />
 
                     <TextView
-                        android:id="@+id/hotelTabRoomsText"
+                        android:id="@+id/reservationTabRoomsText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/hotel_rooms_title"
@@ -349,7 +361,7 @@
                 </LinearLayout>
 
                 <LinearLayout
-                    android:id="@+id/hotelTabCottage"
+                    android:id="@+id/reservationTabCottage"
                     android:layout_width="0dp"
                     android:layout_height="46dp"
                     android:layout_weight="1"
@@ -362,7 +374,7 @@
                     android:focusable="true">
 
                     <ImageView
-                        android:id="@+id/hotelTabCottageIcon"
+                        android:id="@+id/reservationTabCottageIcon"
                         android:layout_width="16dp"
                         android:layout_height="16dp"
                         android:layout_marginEnd="6dp"
@@ -370,7 +382,7 @@
                         android:importantForAccessibility="no" />
 
                     <TextView
-                        android:id="@+id/hotelTabCottageText"
+                        android:id="@+id/reservationTabCottageText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/booking_type_cottage"
@@ -381,7 +393,7 @@
                 </LinearLayout>
 
                 <LinearLayout
-                    android:id="@+id/hotelTabKtv"
+                    android:id="@+id/reservationTabKtv"
                     android:layout_width="0dp"
                     android:layout_height="46dp"
                     android:layout_weight="1"
@@ -393,7 +405,7 @@
                     android:focusable="true">
 
                     <ImageView
-                        android:id="@+id/hotelTabKtvIcon"
+                        android:id="@+id/reservationTabKtvIcon"
                         android:layout_width="16dp"
                         android:layout_height="16dp"
                         android:layout_marginEnd="6dp"
@@ -401,7 +413,7 @@
                         android:importantForAccessibility="no" />
 
                     <TextView
-                        android:id="@+id/hotelTabKtvText"
+                        android:id="@+id/reservationTabKtvText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/booking_type_ktv"
@@ -415,7 +427,7 @@
 
             <!-- Dates (Hotel Rooms) -->
             <LinearLayout
-                android:id="@+id/hotelRoomsDatesRow"
+                android:id="@+id/reservationHotelRoomsDatesRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
@@ -434,7 +446,7 @@
                         android:text="@string/label_check_in" />
 
                     <LinearLayout
-                        android:id="@+id/hotelCheckInField"
+                        android:id="@+id/reservationCheckInField"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
@@ -459,7 +471,7 @@
                             android:orientation="vertical">
 
                             <TextView
-                                android:id="@+id/hotelCheckInDateText"
+                                android:id="@+id/reservationCheckInDateText"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:maxLines="1"
@@ -471,7 +483,7 @@
                                 android:textStyle="bold" />
 
                             <TextView
-                                android:id="@+id/hotelCheckInDayText"
+                                android:id="@+id/reservationCheckInDayText"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:textColor="?attr/textMuted"
@@ -488,7 +500,7 @@
                             android:importantForAccessibility="no" />
 
                     </LinearLayout>
-                    <TextView android:id="@+id/hotelCheckInError" style="@style/FieldError" />
+                    <TextView android:id="@+id/reservationCheckInError" style="@style/FieldError" />
 
                 </LinearLayout>
 
@@ -505,7 +517,7 @@
                         android:text="@string/label_check_out" />
 
                     <LinearLayout
-                        android:id="@+id/hotelCheckOutField"
+                        android:id="@+id/reservationCheckOutField"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
@@ -530,7 +542,7 @@
                             android:orientation="vertical">
 
                             <TextView
-                                android:id="@+id/hotelCheckOutDateText"
+                                android:id="@+id/reservationCheckOutDateText"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:maxLines="1"
@@ -542,7 +554,7 @@
                                 android:textStyle="bold" />
 
                             <TextView
-                                android:id="@+id/hotelCheckOutDayText"
+                                android:id="@+id/reservationCheckOutDayText"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:textColor="?attr/textMuted"
@@ -559,7 +571,7 @@
                             android:importantForAccessibility="no" />
 
                     </LinearLayout>
-                    <TextView android:id="@+id/hotelCheckOutError" style="@style/FieldError" />
+                    <TextView android:id="@+id/reservationCheckOutError" style="@style/FieldError" />
 
                 </LinearLayout>
 
@@ -569,7 +581,7 @@
                  total guest. Independent from the Hotel Rooms dates row and the KTV group
                  below; only one of the three is visible at a time (see #updateCategoryTabs). -->
             <LinearLayout
-                android:id="@+id/hotelCottageFieldsGroup"
+                android:id="@+id/reservationCottageFieldsGroup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -581,14 +593,14 @@
                     android:text="@string/label_rate_type" />
 
                 <RadioGroup
-                    android:id="@+id/hotelCottageRateTypeGroup"
+                    android:id="@+id/reservationCottageRateTypeGroup"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
                     android:orientation="vertical">
 
                     <RadioButton
-                        android:id="@+id/hotelCottageRateDay"
+                        android:id="@+id/reservationCottageRateDay"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:buttonTint="?attr/accentPrimary"
@@ -597,7 +609,7 @@
                         android:textSize="13sp" />
 
                     <RadioButton
-                        android:id="@+id/hotelCottageRateNight"
+                        android:id="@+id/reservationCottageRateNight"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:buttonTint="?attr/accentPrimary"
@@ -606,7 +618,7 @@
                         android:textSize="13sp" />
 
                 </RadioGroup>
-                <TextView android:id="@+id/hotelCottageRateTypeError" style="@style/FieldError" />
+                <TextView android:id="@+id/reservationCottageRateTypeError" style="@style/FieldError" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -627,7 +639,7 @@
                             android:text="@string/label_date" />
 
                         <LinearLayout
-                            android:id="@+id/hotelCottageDateField"
+                            android:id="@+id/reservationCottageDateField"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
@@ -646,7 +658,7 @@
                                 android:importantForAccessibility="no" />
 
                             <TextView
-                                android:id="@+id/hotelCottageDateText"
+                                android:id="@+id/reservationCottageDateText"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
@@ -666,7 +678,7 @@
                                 android:importantForAccessibility="no" />
 
                         </LinearLayout>
-                        <TextView android:id="@+id/hotelCottageDateError" style="@style/FieldError" />
+                        <TextView android:id="@+id/reservationCottageDateError" style="@style/FieldError" />
 
                     </LinearLayout>
 
@@ -683,7 +695,7 @@
                             android:text="@string/label_time" />
 
                         <LinearLayout
-                            android:id="@+id/hotelCottageTimeField"
+                            android:id="@+id/reservationCottageTimeField"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
@@ -702,7 +714,7 @@
                                 android:importantForAccessibility="no" />
 
                             <TextView
-                                android:id="@+id/hotelCottageTimeText"
+                                android:id="@+id/reservationCottageTimeText"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
@@ -722,7 +734,7 @@
                                 android:importantForAccessibility="no" />
 
                         </LinearLayout>
-                        <TextView android:id="@+id/hotelCottageTimeError" style="@style/FieldError" />
+                        <TextView android:id="@+id/reservationCottageTimeError" style="@style/FieldError" />
 
                     </LinearLayout>
 
@@ -756,7 +768,7 @@
                             android:textSize="14sp" />
 
                         <ImageView
-                            android:id="@+id/hotelCottageAdultsMinus"
+                            android:id="@+id/reservationCottageAdultsMinus"
                             android:layout_width="32dp"
                             android:layout_height="32dp"
                             android:padding="4dp"
@@ -764,7 +776,7 @@
                             android:background="@drawable/bg_stepper_button" />
 
                         <TextView
-                            android:id="@+id/hotelCottageAdultsValue"
+                            android:id="@+id/reservationCottageAdultsValue"
                             android:layout_width="44dp"
                             android:layout_height="wrap_content"
                             android:gravity="center"
@@ -774,7 +786,7 @@
                             android:textStyle="bold" />
 
                         <ImageView
-                            android:id="@+id/hotelCottageAdultsPlus"
+                            android:id="@+id/reservationCottageAdultsPlus"
                             android:layout_width="32dp"
                             android:layout_height="32dp"
                             android:padding="4dp"
@@ -805,7 +817,7 @@
                             android:textSize="14sp" />
 
                         <ImageView
-                            android:id="@+id/hotelCottageChildrenMinus"
+                            android:id="@+id/reservationCottageChildrenMinus"
                             android:layout_width="32dp"
                             android:layout_height="32dp"
                             android:padding="4dp"
@@ -813,7 +825,7 @@
                             android:background="@drawable/bg_stepper_button" />
 
                         <TextView
-                            android:id="@+id/hotelCottageChildrenValue"
+                            android:id="@+id/reservationCottageChildrenValue"
                             android:layout_width="44dp"
                             android:layout_height="wrap_content"
                             android:gravity="center"
@@ -823,7 +835,7 @@
                             android:textStyle="bold" />
 
                         <ImageView
-                            android:id="@+id/hotelCottageChildrenPlus"
+                            android:id="@+id/reservationCottageChildrenPlus"
                             android:layout_width="32dp"
                             android:layout_height="32dp"
                             android:padding="4dp"
@@ -855,7 +867,7 @@
                             android:textStyle="bold" />
 
                         <TextView
-                            android:id="@+id/hotelCottageTotalGuestValue"
+                            android:id="@+id/reservationCottageTotalGuestValue"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="1"
@@ -872,7 +884,7 @@
             <!-- KTV field group: rate type (drives the auto-computed duration/end time), date,
                  start time, read-only end time/duration, and a single guest count. -->
             <LinearLayout
-                android:id="@+id/hotelKtvFieldsGroup"
+                android:id="@+id/reservationKtvFieldsGroup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -884,14 +896,14 @@
                     android:text="@string/label_rate_type" />
 
                 <RadioGroup
-                    android:id="@+id/hotelKtvRateTypeGroup"
+                    android:id="@+id/reservationKtvRateTypeGroup"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
                     android:orientation="vertical">
 
                     <RadioButton
-                        android:id="@+id/hotelKtvRateRegular"
+                        android:id="@+id/reservationKtvRateRegular"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:buttonTint="?attr/accentPrimary"
@@ -900,7 +912,7 @@
                         android:textSize="13sp" />
 
                     <RadioButton
-                        android:id="@+id/hotelKtvRateConsumable"
+                        android:id="@+id/reservationKtvRateConsumable"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:buttonTint="?attr/accentPrimary"
@@ -909,7 +921,7 @@
                         android:textSize="13sp" />
 
                 </RadioGroup>
-                <TextView android:id="@+id/hotelKtvRateTypeError" style="@style/FieldError" />
+                <TextView android:id="@+id/reservationKtvRateTypeError" style="@style/FieldError" />
 
                 <TextView
                     style="@style/FieldLabel"
@@ -917,7 +929,7 @@
                     android:text="@string/label_date" />
 
                 <LinearLayout
-                    android:id="@+id/hotelKtvDateField"
+                    android:id="@+id/reservationKtvDateField"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
@@ -936,7 +948,7 @@
                         android:importantForAccessibility="no" />
 
                     <TextView
-                        android:id="@+id/hotelKtvDateText"
+                        android:id="@+id/reservationKtvDateText"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -956,7 +968,7 @@
                         android:importantForAccessibility="no" />
 
                 </LinearLayout>
-                <TextView android:id="@+id/hotelKtvDateError" style="@style/FieldError" />
+                <TextView android:id="@+id/reservationKtvDateError" style="@style/FieldError" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -977,7 +989,7 @@
                             android:text="@string/label_start_time" />
 
                         <LinearLayout
-                            android:id="@+id/hotelKtvStartTimeField"
+                            android:id="@+id/reservationKtvStartTimeField"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
@@ -996,7 +1008,7 @@
                                 android:importantForAccessibility="no" />
 
                             <TextView
-                                android:id="@+id/hotelKtvStartTimeText"
+                                android:id="@+id/reservationKtvStartTimeText"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
@@ -1016,7 +1028,7 @@
                                 android:importantForAccessibility="no" />
 
                         </LinearLayout>
-                        <TextView android:id="@+id/hotelKtvStartTimeError" style="@style/FieldError" />
+                        <TextView android:id="@+id/reservationKtvStartTimeError" style="@style/FieldError" />
 
                     </LinearLayout>
 
@@ -1032,6 +1044,8 @@
                             android:layout_marginTop="0dp"
                             android:text="@string/label_end_time" />
 
+                        <!-- Read-only: auto-computed from Start Time + the selected rate type's
+                             fixed duration (see #updateKtvEndTimeAndDuration). Not clickable. -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
@@ -1042,7 +1056,7 @@
                             android:padding="12dp">
 
                             <TextView
-                                android:id="@+id/hotelKtvEndTimeText"
+                                android:id="@+id/reservationKtvEndTimeText"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:maxLines="1"
@@ -1075,7 +1089,7 @@
                         android:textSize="14sp" />
 
                     <TextView
-                        android:id="@+id/hotelKtvDurationValue"
+                        android:id="@+id/reservationKtvDurationValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/placeholder_em_dash"
@@ -1107,7 +1121,7 @@
                         android:textSize="14sp" />
 
                     <ImageView
-                        android:id="@+id/hotelKtvGuestCountMinus"
+                        android:id="@+id/reservationKtvGuestCountMinus"
                         android:layout_width="32dp"
                         android:layout_height="32dp"
                         android:padding="4dp"
@@ -1115,7 +1129,7 @@
                         android:background="@drawable/bg_stepper_button" />
 
                     <TextView
-                        android:id="@+id/hotelKtvGuestCountValue"
+                        android:id="@+id/reservationKtvGuestCountValue"
                         android:layout_width="44dp"
                         android:layout_height="wrap_content"
                         android:gravity="center"
@@ -1125,7 +1139,7 @@
                         android:textStyle="bold" />
 
                     <ImageView
-                        android:id="@+id/hotelKtvGuestCountPlus"
+                        android:id="@+id/reservationKtvGuestCountPlus"
                         android:layout_width="32dp"
                         android:layout_height="32dp"
                         android:padding="4dp"
@@ -1138,7 +1152,7 @@
 
             <!-- Guests (Hotel Rooms only) -->
             <LinearLayout
-                android:id="@+id/hotelHotelGuestsSection"
+                android:id="@+id/reservationHotelGuestsSection"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
@@ -1171,33 +1185,25 @@
                             android:textSize="14sp" />
 
                         <ImageView
-                            android:id="@+id/hotelAdultsMinus"
+                            android:id="@+id/reservationAdultsMinus"
                             android:layout_width="32dp"
                             android:layout_height="32dp"
                             android:padding="4dp"
                             android:src="@drawable/ic_minus"
                             android:background="@drawable/bg_stepper_button" />
 
-                        <EditText
-                            android:id="@+id/hotelAdultsValue"
+                        <TextView
+                            android:id="@+id/reservationAdultsValue"
                             android:layout_width="44dp"
                             android:layout_height="wrap_content"
                             android:gravity="center"
-                            android:text="0"
+                            android:text="1"
                             android:textColor="?attr/textPrimary"
                             android:textSize="16sp"
-                            android:textStyle="bold"
-                            android:background="@null"
-                            android:padding="4dp"
-                            android:minHeight="0dp"
-                            android:inputType="number"
-                            android:maxLength="2"
-                            android:selectAllOnFocus="true"
-                            android:imeOptions="actionDone"
-                            android:singleLine="true" />
+                            android:textStyle="bold" />
 
                         <ImageView
-                            android:id="@+id/hotelAdultsPlus"
+                            android:id="@+id/reservationAdultsPlus"
                             android:layout_width="32dp"
                             android:layout_height="32dp"
                             android:padding="4dp"
@@ -1228,33 +1234,25 @@
                             android:textSize="14sp" />
 
                         <ImageView
-                            android:id="@+id/hotelChildrenMinus"
+                            android:id="@+id/reservationChildrenMinus"
                             android:layout_width="32dp"
                             android:layout_height="32dp"
                             android:padding="4dp"
                             android:src="@drawable/ic_minus"
                             android:background="@drawable/bg_stepper_button" />
 
-                        <EditText
-                            android:id="@+id/hotelChildrenValue"
+                        <TextView
+                            android:id="@+id/reservationChildrenValue"
                             android:layout_width="44dp"
                             android:layout_height="wrap_content"
                             android:gravity="center"
                             android:text="0"
                             android:textColor="?attr/textPrimary"
                             android:textSize="16sp"
-                            android:textStyle="bold"
-                            android:background="@null"
-                            android:padding="4dp"
-                            android:minHeight="0dp"
-                            android:inputType="number"
-                            android:maxLength="2"
-                            android:selectAllOnFocus="true"
-                            android:imeOptions="actionDone"
-                            android:singleLine="true" />
+                            android:textStyle="bold" />
 
                         <ImageView
-                            android:id="@+id/hotelChildrenPlus"
+                            android:id="@+id/reservationChildrenPlus"
                             android:layout_width="32dp"
                             android:layout_height="32dp"
                             android:padding="4dp"
@@ -1269,7 +1267,7 @@
 
             <!-- Search -->
             <LinearLayout
-                android:id="@+id/hotelDatesNextButton"
+                android:id="@+id/reservationSearchButton"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:layout_marginTop="18dp"
@@ -1287,7 +1285,6 @@
                     android:importantForAccessibility="no" />
 
                 <TextView
-                    android:id="@+id/hotelDatesNextButtonText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/button_search"
@@ -1302,7 +1299,7 @@
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/hotelDragHandle"
+            android:id="@+id/reservationDragHandle"
             android:layout_width="match_parent"
             android:layout_height="28dp"
             android:gravity="center"

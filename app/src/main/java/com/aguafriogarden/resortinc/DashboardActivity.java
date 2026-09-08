@@ -1,8 +1,13 @@
 package com.aguafriogarden.resortinc;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -21,6 +26,8 @@ import android.widget.TextView;
 public class DashboardActivity extends Activity {
 
     private static final long CONTENT_FADE_MS = 150L;
+    private static final long BADGE_REFRESH_MS = 2000L;
+    private static final int REQUEST_POST_NOTIFICATIONS = 1001;
 
     private static final String STATE_MODULE = "module";
 
@@ -82,6 +89,9 @@ public class DashboardActivity extends Activity {
     private NotificationController notificationController;
     private int currentModule = -1;
 
+    private final Handler badgeHandler = new Handler(Looper.getMainLooper());
+    private final Runnable badgeTick = this::tickBadges;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -106,18 +116,47 @@ public class DashboardActivity extends Activity {
                 () -> showModule(MODULE_DASHBOARD, true), this::logout);
         feedbackController = new FeedbackController(this);
         chatController = new ChatController(this);
-        notificationController = new NotificationController(this, ref -> {
-            showModule(MODULE_RESERVATION, true);
-            reservationFlow.openDetails(ref);
+        notificationController = new NotificationController(this, n -> {
+            if (n.type == NotificationStore.Type.CHAT) {
+                showModule(MODULE_CHAT, true);
+            } else {
+                showModule(MODULE_RESERVATION, true);
+                reservationFlow.openDetails(n.targetReference);
+            }
         });
 
         findViewById(R.id.bellButton).setOnClickListener(v -> showModule(MODULE_ALERTS, true));
         findViewById(R.id.profileButton).setOnClickListener(v -> showModule(MODULE_ME, true));
 
         buildBottomNav();
-        // Stay on the same module when the theme toggle recreates us.
-        showModule(savedInstanceState != null
-                ? savedInstanceState.getInt(STATE_MODULE, 0) : 0, false);
+
+        requestNotificationPermissionIfNeeded();
+        startChatPollingService();
+
+        // Stay on the same module when the theme toggle recreates us; a tap on the
+        // "new message" system notification instead jumps straight to Chat.
+        int initialModule = savedInstanceState != null ? savedInstanceState.getInt(STATE_MODULE, 0) : 0;
+        if (savedInstanceState == null
+                && ChatPollingService.EXTRA_VALUE_CHAT.equals(getIntent().getStringExtra(ChatPollingService.EXTRA_OPEN_MODULE))) {
+            initialModule = MODULE_CHAT;
+        }
+        showModule(initialModule, false);
+    }
+
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_POST_NOTIFICATIONS);
+        }
+    }
+
+    private void startChatPollingService() {
+        Intent serviceIntent = new Intent(this, ChatPollingService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent);
+        } else {
+            startService(serviceIntent);
+        }
     }
 
     @Override
@@ -134,12 +173,14 @@ public class DashboardActivity extends Activity {
         } else if (currentModule == MODULE_FEEDBACK) {
             feedbackController.onShown();
         }
+        badgeHandler.post(badgeTick);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         chatController.onHidden();
+        badgeHandler.removeCallbacks(badgeTick);
     }
 
     @Override
@@ -244,6 +285,29 @@ public class DashboardActivity extends Activity {
             content.animate().alpha(1f).translationY(0f)
                     .setDuration(CONTENT_FADE_MS).start();
         }
+        refreshBadges();
+    }
+
+    /** Reflects {@link UnreadChatStore} and {@link NotificationStore} unread counts onto the
+     *  Chat nav tab and bell icon; called on tab switches and on a short timer while resumed
+     *  so a count that changes in the background (see ChatPollingService) shows up promptly. */
+    private void refreshBadges() {
+        updateBadge((TextView) findViewById(R.id.bellBadge), NotificationStore.unreadCount());
+        updateBadge((TextView) navItems[MODULE_CHAT].findViewById(R.id.navBadge), UnreadChatStore.unreadCount());
+    }
+
+    private void tickBadges() {
+        refreshBadges();
+        badgeHandler.postDelayed(badgeTick, BADGE_REFRESH_MS);
+    }
+
+    private void updateBadge(TextView badge, int count) {
+        if (count <= 0) {
+            badge.setVisibility(View.GONE);
+            return;
+        }
+        badge.setVisibility(View.VISIBLE);
+        badge.setText(count > 9 ? getString(R.string.badge_count_overflow) : String.valueOf(count));
     }
 
     /** Shows the shared top bar only on Home; the bottom nav stays visible everywhere. */
@@ -252,6 +316,8 @@ public class DashboardActivity extends Activity {
     }
 
     private void logout() {
+        stopService(new Intent(this, ChatPollingService.class));
+        ProfileStore.clearAuthToken(this);
         Intent intent = new Intent(DashboardActivity.this, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);

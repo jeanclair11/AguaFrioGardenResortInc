@@ -5,6 +5,23 @@
     <string name="resort_title">AGUA FRIO </string>
     <string name="resort_subtitle">GARDEN RESORT INC.</string>
 
+    <!-- Landing page (pre-login welcome screen) -->
+    <string name="landing_nav_home">AGUA FRIO</string>
+    <string name="landing_nav_rooms">ROOMS</string>
+    <string name="landing_nav_cottages">COTTAGES</string>
+    <string name="landing_nav_ktv">KTV</string>
+    <string name="landing_nav_halls">HALLS</string>
+    <string name="landing_welcome_title">Welcome to Agua Frio Garden Resort Inc.</string>
+    <string name="landing_welcome_subtitle">— Venue for Great Events —</string>
+    <string name="landing_intro_paragraph">Established in 2004, Agua Frio is a relaxing destination in Koronadal where families and friends can gather, celebrate, and create lasting memories. From refreshing pools and comfortable accommodations to function halls and entertainment areas, we offer a welcoming space for every occasion and getaway.</string>
+    <string name="landing_gallery_title">Gallery</string>
+    <string name="landing_about_resort_title">About the Resort</string>
+    <string name="landing_about_resort_body">Established on December 8, 2004, Agua Frio Garden Resort Inc. began as a simple place for families and friends to enjoy quality time together. As the years passed, it continued to grow—adding Villa Rooms in 2006, Claricon Rooms and function halls in 2010, and KTV Rooms and entertainment facilities in 2016. Through every change, Agua Frio has remained a place where guests can relax, celebrate, and create cherished memories together.</string>
+    <string name="landing_about_owners_title">About the Owners</string>
+    <string name="landing_about_owners_body">Agua Frio Garden Resort Inc. is owned and managed by the Pascua siblings, who inherited the resort from their parents as part of their family legacy. They work together to oversee its operations and continued development while preserving Agua Frio as a place for relaxation, recreation, and memorable gatherings.</string>
+    <string name="landing_footer_line1">Agua Frio Garden Resort Inc.</string>
+    <string name="landing_footer_line2">All rights reserved.</string>
+
     <!-- Login -->
     <string name="login_heading">Welcome!</string>
     <string name="login_subheading">Access your reservations and bookings.</string>
@@ -204,6 +221,16 @@
     <string name="label_check_in">Check-in Date</string>
     <string name="label_check_out">Check-out Date</string>
     <string name="hint_select_date">Select date</string>
+    <string name="label_booking_type">Booking Type</string>
+    <string name="hint_select_booking_type">Select booking type</string>
+    <string name="booking_type_cottage">Cottage</string>
+    <string name="booking_type_ktv">KTV</string>
+    <string name="label_time">Time</string>
+    <string name="hint_select_time">Select time</string>
+    <string name="error_booking_type_required">Please select a booking type.</string>
+    <string name="error_date_required">Please select a date.</string>
+    <string name="error_date_past">Date cannot be in the past.</string>
+    <string name="error_time_required">Please select a time.</string>
     <string name="label_adults">Number of Adults</string>
     <string name="label_children">Number of Children</string>
     <string name="button_proceed">Proceed</string>
@@ -372,6 +399,18 @@
     <string name="chat_status_sent">Sent</string>
     <string name="chat_status_read">Read</string>
 
+    <string name="chat_poll_channel_name">Chat listening</string>
+    <string name="chat_poll_channel_desc">Keeps checking for new support messages while you\'re logged in.</string>
+    <string name="chat_poll_notification_title">Listening for new messages</string>
+    <string name="chat_poll_notification_text">You\'ll be notified here if the resort staff sends you a message.</string>
+    <string name="chat_messages_channel_name">New chat messages</string>
+    <string name="chat_messages_channel_desc">Alerts when the resort staff sends you a new message.</string>
+    <string name="chat_new_message_title">New message</string>
+    <string name="chat_new_message_body_one">You have a new message from the resort.</string>
+    <string name="chat_new_message_body_many">You have %1$d new messages from the resort.</string>
+    <string name="notif_button_view_chat">VIEW MESSAGE</string>
+    <string name="badge_count_overflow">9+</string>
+
     <string name="chip_room_availability">Check Room Availability</string>
     <string name="chip_booking_requirements">Booking Requirements</string>
     <string name="chip_resort_rates">Resort Rates</string>
@@ -479,12 +518,38 @@
     <string name="hotel_dates_title">Book Your Experience</string>
     <string name="hotel_dates_subtitle">Select your dates and number of guests to see available options.</string>
     <string name="button_next">Next</string>
+    <string name="button_reserve">Reserve</string>
     <string name="button_skip">Skip</string>
 
     <string name="hotel_rooms_title">Hotel Rooms</string>
     <string name="tab_cottages_ktv">Cottages &amp; KTV</string>
     <string name="label_section_rooms">Rooms</string>
     <string name="label_quantity">Quantity</string>
+
+    <!-- Cottage / KTV reservation-details tabs (Reserve tab) -->
+    <string name="label_rate_type">Select Rate Type</string>
+    <string name="rate_type_day">Day Rate</string>
+    <string name="rate_type_night">Night Rate</string>
+    <string name="label_total_guest">Total Guest</string>
+    <string name="label_available_units">Available Units</string>
+    <string name="format_available_units">Available Units: %1$d</string>
+    <string name="label_total_units_selected">Total Units Selected</string>
+    <string name="label_select_desired_cottage_type">Select Desired Cottage Type</string>
+    <string name="ktv_rate_type_regular">Regular KTV – 5 Hours</string>
+    <string name="ktv_rate_type_consumable">Consumable KTV – 3 Hours</string>
+    <string name="label_start_time">Start Time</string>
+    <string name="label_end_time">End Time</string>
+    <string name="label_duration">Duration</string>
+    <string name="label_guest_count">Guest Count</string>
+    <string name="label_select_ktv_room">Select KTV Room</string>
+    <string name="label_total_ktv_room_selected">Total KTV Room Selected</string>
+    <string name="button_select">SELECT</string>
+    <string name="button_selected">SELECTED</string>
+    <string name="format_duration_hours">%1$d hours</string>
+    <string name="placeholder_em_dash">—</string>
+    <string name="label_reservation_details">Reservation Details</string>
+    <string name="error_rate_type_required">Please select a rate type.</string>
+    <string name="toast_select_ktv_room_required">Please select a KTV room first.</string>
     <string name="dialog_no_room_title">No Room Selected</string>
     <string name="dialog_no_room_message">Please select at least one room before continuing.</string>
     <string name="no_rooms_available_message">No rooms are available for your selected dates and number of guests. Please try different dates.</string>
@@ -609,7 +674,9 @@
     <string name="error_check_in_past">Check-in date cannot be in the past.</string>
 
     <string name="reservation_rooms_title">Hotel Rooms</string>
-    <string name="reservation_rooms_subtitle">Available rooms for your selected reservation dates</string>
+    <string name="reservation_rooms_subtitle">Available options for your selected reservation details</string>
+    <string name="label_date_time">Date &amp; Time</string>
+    <string name="format_price_per_unit">PHP %1$s / %2$s</string>
 
     <string name="reservation_review_title">Review Your Reservation</string>
     <string name="reservation_review_subtitle">Here\'s what you\'ve selected for your reservation.</string>
@@ -663,6 +730,7 @@
     <string name="tab_cancelled">CANCELLED</string>
     <string name="reservation_list_empty">You have no reservations in this category yet.</string>
     <string name="reservation_type_hotel">Hotel Reservation</string>
+    <string name="reservation_type_cottage_ktv">Cottage &amp; KTV Reservation</string>
 
     <string name="reservation_details_title">Reservation Details</string>
     <string name="section_reservation_timeline">RESERVATION TIMELINE</string>
@@ -706,6 +774,30 @@
     <string name="timeline_alternative_proposed">Alternative Schedule Proposed</string>
     <string name="timeline_alternative_accepted">Alternative Schedule Accepted</string>
     <string name="timeline_cancelled_by_guest">Cancelled by Guest</string>
+
+    <!-- View My Bookings (Book tab) — mirrors the View My Reservations screens above,
+         reusing every generic string (Guests, Date, Reference No., Decline, Accept New
+         Schedule, Reason, timeline step wording, etc.) and only re-declaring the ones whose
+         text literally says "reservation". See HotelBookingFlowController#bindMyBookingsList /
+         #bindBookingDetails. -->
+    <string name="link_view_my_bookings">View My Bookings →</string>
+    <string name="booking_my_list_title">My Bookings</string>
+    <string name="tab_current_bookings">CURRENT</string>
+    <string name="tab_past_bookings">PAST</string>
+    <string name="booking_list_empty">You have no pending bookings.</string>
+    <string name="booking_type_hotel">Hotel Booking</string>
+    <string name="booking_type_cottage_ktv">Cottage &amp; KTV Booking</string>
+    <string name="section_booking_timeline">BOOKING TIMELINE</string>
+    <string name="message_additional_confirmation_booking_1">Our receptionist needs additional time to verify your booking request.</string>
+    <string name="message_additional_confirmation_booking_2">Your booking request is still active and has not been rejected.</string>
+    <string name="message_confirmed_next_step_booking">Your booking has been confirmed. Please follow the resort\'s instructions for the next step toward booking/payment.</string>
+    <string name="button_back_to_my_bookings">BACK TO MY BOOKINGS</string>
+    <string name="timeline_booking_submitted">Booking Submitted</string>
+    <string name="timeline_confirmed_booking">Booking Confirmed</string>
+    <string name="timeline_rejected_booking">Booking Rejected</string>
+    <string name="res_desc_confirmed_booking">Booking confirmed by the receptionist</string>
+    <string name="res_desc_rejected_booking">Booking could not be accommodated</string>
+    <string name="res_desc_cancelled_booking">Booking is no longer active</string>
 
     <string name="notification_screen_title">Notifications</string>
     <string name="notification_empty_message">You have no notifications yet.</string>

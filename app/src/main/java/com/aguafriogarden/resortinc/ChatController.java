@@ -102,6 +102,8 @@ final class ChatController {
 
     /** Starts polling for new messages; call when the Chat tab becomes visible. */
     void onShown() {
+        UnreadChatStore.setChatVisible(true);
+        UnreadChatStore.markSeen();
         if (!polling) {
             polling = true;
             handler.postDelayed(pollRunnable, POLL_INTERVAL_MS);
@@ -110,6 +112,7 @@ final class ChatController {
 
     /** Stops polling; call when the Chat tab is no longer visible. */
     void onHidden() {
+        UnreadChatStore.setChatVisible(false);
         polling = false;
         handler.removeCallbacks(pollRunnable);
     }

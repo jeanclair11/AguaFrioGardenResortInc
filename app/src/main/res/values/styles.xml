@@ -135,5 +135,39 @@
         <item name="android:textStyle">bold</item>
     </style>
 
+    <!-- Landing page (pre-login welcome screen) -->
+
+    <style name="LandingNavTab">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingEnd">14dp</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">12dp</item>
+        <item name="android:background">?android:attr/selectableItemBackground</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:letterSpacing">0.04</item>
+        <item name="android:textColor">?attr/textOnScreenMuted</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="LandingGalleryTile">
+        <item name="android:layout_width">320dp</item>
+        <item name="android:layout_height">240dp</item>
+        <item name="android:layout_marginEnd">12dp</item>
+        <item name="android:background">@drawable/bg_landing_gallery_tile</item>
+    </style>
+
+    <style name="LandingGalleryTileIcon">
+        <item name="android:layout_width">72dp</item>
+        <item name="android:layout_height">72dp</item>
+        <item name="android:layout_gravity">center</item>
+        <item name="android:alpha">0.85</item>
+        <item name="android:tint">@color/white</item>
+        <item name="android:importantForAccessibility">no</item>
+    </style>
+
 </resources>
 
