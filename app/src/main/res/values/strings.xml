@@ -7,13 +7,36 @@
 
     <!-- Landing page (pre-login welcome screen) -->
     <string name="landing_nav_home">AGUA FRIO</string>
-    <string name="landing_nav_rooms">ROOMS</string>
+    <string name="landing_nav_rooms">HOTEL ROOMS</string>
     <string name="landing_nav_cottages">COTTAGES</string>
-    <string name="landing_nav_ktv">KTV</string>
+    <string name="landing_nav_ktv">KTV ROOMS</string>
     <string name="landing_nav_halls">HALLS</string>
     <string name="landing_welcome_title">Welcome to Agua Frio Garden Resort Inc.</string>
     <string name="landing_welcome_subtitle">— Venue for Great Events —</string>
     <string name="landing_intro_paragraph">Established in 2004, Agua Frio is a relaxing destination in Koronadal where families and friends can gather, celebrate, and create lasting memories. From refreshing pools and comfortable accommodations to function halls and entertainment areas, we offer a welcoming space for every occasion and getaway.</string>
+
+    <string name="landing_rooms_section_title">EXPLORE OUR HOTEL ROOMS</string>
+    <string name="landing_rooms_empty_state">No room types are available right now. Please check back soon.</string>
+    <string name="landing_room_description_fallback">Comfortable accommodations for your stay.</string>
+    <string name="landing_room_capacity_format">Up to %1$d Guests</string>
+    <string name="format_room_type_with_category">%1$s (%2$s)</string>
+    <string name="status_room_type_fully_booked">FULLY BOOKED</string>
+    <plurals name="room_type_available_count">
+        <item quantity="one">%1$d ROOM AVAILABLE</item>
+        <item quantity="other">%1$d ROOMS AVAILABLE</item>
+    </plurals>
+    <plurals name="category_available_count">
+        <item quantity="one">%1$d AVAILABLE</item>
+        <item quantity="other">%1$d AVAILABLE</item>
+    </plurals>
+
+    <string name="landing_button_book">BOOK</string>
+    <string name="landing_cottages_section_title">EXPLORE OUR COTTAGES</string>
+    <string name="landing_ktv_section_title">EXPLORE OUR KTV ROOMS</string>
+    <string name="landing_halls_section_title">EXPLORE OUR FUNCTION HALLS</string>
+    <string name="landing_category_empty_state">No options are available right now. Please check back soon.</string>
+    <string name="format_price_with_unit">PHP %1$s / %2$s</string>
+
     <string name="landing_gallery_title">Gallery</string>
     <string name="landing_about_resort_title">About the Resort</string>
     <string name="landing_about_resort_body">Established on December 8, 2004, Agua Frio Garden Resort Inc. began as a simple place for families and friends to enjoy quality time together. As the years passed, it continued to grow—adding Villa Rooms in 2006, Claricon Rooms and function halls in 2010, and KTV Rooms and entertainment facilities in 2016. Through every change, Agua Frio has remained a place where guests can relax, celebrate, and create cherished memories together.</string>
@@ -292,17 +315,6 @@
     <string name="booking_progress_empty">You have no active reservation yet. Reserve a stay to track its progress here.</string>
     <string name="button_refresh_description">Refresh booking progress</string>
 
-    <string name="hotel_rooms_section_title">🏨 Hotel Rooms</string>
-    <string name="hotel_rooms_section_subtitle">Discover comfortable rooms for your stay.</string>
-    <string name="hotel_rooms_empty_state">No rooms are available right now. Please check back soon.</string>
-    <string name="format_capacity_pax">👤 Up to %1$d Guests</string>
-    <string name="status_room_available">🟢 Available</string>
-    <string name="status_room_fully_booked">🔴 Fully Booked</string>
-    <string name="button_see_more_rooms">See More Rooms →</string>
-    <string name="all_rooms_title">All Hotel Rooms</string>
-
-    <string name="room_details_title">Room Details</string>
-
     <string name="service_type_hotel">Hotel Room</string>
     <string name="service_type_ktv">KTV Room</string>
     <string name="service_type_cottage">Pool &amp; Cottage</string>
@@ -337,9 +349,6 @@
     <string name="label_remaining_balance_details">Remaining Balance</string>
     <string name="label_payment_status">Payment Status</string>
     <string name="label_total_guests_format">%1$d Guests</string>
-
-    <string name="recent_transaction_title">Recent Transaction</string>
-    <string name="recent_transaction_empty">No recent transactions yet.</string>
 
     <!-- Profile -->
     <string name="section_my_account">MY ACCOUNT</string>

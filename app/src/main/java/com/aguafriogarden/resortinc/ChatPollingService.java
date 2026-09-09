@@ -24,10 +24,10 @@ import retrofit2.Response;
 /**
  * Keeps polling {@code chat/poll} for new staff messages while the guest is
  * logged in, independent of whether the Chat tab is on screen, so
- * {@link UnreadChatStore} and the bell/nav badges in {@link DashboardActivity}
+ * {@link UnreadChatStore} and the bell/nav badges in {@link LandingActivity}
  * stay current while backgrounded. Runs as a foreground service because
  * Android kills plain background services within seconds of the app leaving
- * the foreground; started from DashboardActivity#onCreate, stopped on logout.
+ * the foreground; started from LandingActivity#enterLoggedInState, stopped on logout.
  */
 public class ChatPollingService extends Service {
 
@@ -135,7 +135,7 @@ public class ChatPollingService extends Service {
         if (manager == null) {
             return;
         }
-        Intent intent = new Intent(this, DashboardActivity.class);
+        Intent intent = new Intent(this, LandingActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         intent.putExtra(EXTRA_OPEN_MODULE, EXTRA_VALUE_CHAT);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,

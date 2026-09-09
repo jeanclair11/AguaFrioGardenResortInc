@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared browse card for the pre-login landing page's Hotel Rooms /
+     Cottages / KTV Rooms / Function Halls screens: a large image
+     placeholder with the live availability badge pinned top-right, then
+     type/category, capacity, description, and a price + BOOK row. See
+     LandingActivity#bindCard. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="14dp"
+    android:orientation="vertical"
+    android:background="@drawable/bg_card"
+    android:clipToOutline="true"
+    android:padding="14dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="170dp"
+        android:background="@drawable/bg_item_thumb"
+        android:clipToOutline="true">
+
+        <ImageView
+            android:id="@+id/roomTypeCardImage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:id="@+id/roomTypeCardAvailability"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_margin="12dp"
+            android:letterSpacing="0.03"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/roomTypeCardName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:textColor="?attr/textPrimary"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/roomTypeCardCapacity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:paddingStart="10dp"
+        android:textColor="?attr/textMuted"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/roomTypeCardDescription"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:textColor="?attr/textMuted"
+        android:textSize="12sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/roomTypeCardPrice"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="?attr/accentPrimary"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/roomTypeCardBookButton"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginStart="10dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:background="@drawable/bg_button_outline_accent"
+            android:text="@string/landing_button_book"
+            android:textColor="?attr/accentPrimary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.04"
+            android:stateListAnimator="@null" />
+
+    </LinearLayout>
+
+</LinearLayout>

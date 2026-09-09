@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Full-screen browse content swapped into LandingActivity's
+     landingContentContainer for the Hotel Rooms / Cottages / KTV Rooms /
+     Function Halls nav tabs. See LandingActivity#showCategory. Title and
+     cards share one ScrollView so the title scrolls away with the list
+     instead of staying pinned above it. Solid background (rather than
+     transparent) so this full-screen swap paints over the page's
+     top-quarter/bottom-three-quarter hero gradient split instead of letting
+     it show through as a band behind the title. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/screenGradientEnd"
+    android:fillViewport="true"
+    android:clipToPadding="false"
+    android:paddingStart="20dp"
+    android:paddingEnd="20dp"
+    android:paddingTop="20dp"
+    android:paddingBottom="24dp"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/categoryBrowseTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:letterSpacing="0.04"
+            android:textColor="?attr/textOnScreen"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/categoryBrowseEmptyState"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:textColor="?attr/textOnScreenMuted"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/categoryBrowseContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:orientation="vertical" />
+
+    </LinearLayout>
+
+</ScrollView>

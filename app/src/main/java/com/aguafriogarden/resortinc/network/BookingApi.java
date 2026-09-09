@@ -24,6 +24,19 @@ public interface BookingApi {
     @GET("booking/rooms")
     Call<RoomListResponse> getRooms(@Header("Authorization") String bearerToken);
 
+    /** Public — no login required. Powers the pre-login landing page's browse screens. */
+    @GET("booking/room-types")
+    Call<RoomTypeListResponse> getRoomTypes();
+
+    @GET("booking/cottage-types")
+    Call<CottageTypeListResponse> getCottageTypes();
+
+    @GET("booking/ktv-types")
+    Call<KtvTypeListResponse> getKtvTypes();
+
+    @GET("booking/hall-types")
+    Call<HallTypeListResponse> getHallTypes();
+
     @GET("booking/cottages-ktv")
     Call<CottageKtvListResponse> getCottagesKtv(@Header("Authorization") String bearerToken);
 

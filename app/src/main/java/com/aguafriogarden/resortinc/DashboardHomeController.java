@@ -6,7 +6,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -15,9 +14,6 @@ import android.widget.TextView;
 import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.MyBookingsResponse;
 import com.aguafriogarden.resortinc.network.ReservationSummary;
-import com.aguafriogarden.resortinc.network.RoomListResponse;
-import com.aguafriogarden.resortinc.network.RoomSummary;
-import com.bumptech.glide.Glide;
 
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -27,33 +23,20 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
 /**
- * Drives the Home tab: the greeting card (unchanged) plus a Booking Progress
- * section that summarizes the guest's real reservations (see
- * {@link #fetchMyBookings}) across all four service categories, and a
- * Booking Details screen drilled into from a summary card. Kept alive by
- * DashboardActivity across tab switches, so returning to Home from Details
- * (or another tab) preserves whichever screen was showing.
+ * Drives the Greeting card + Booking Progress section shown on LandingActivity's Home once a
+ * guest is logged in (see LandingActivity#heroOrGreetingSlot). Booking Details is a separate,
+ * full-screen state owned by LandingActivity itself (see {@link #buildDetailsView}) rather than
+ * something this controller swaps into its own root, since Details should take over the whole
+ * screen the way Hotel Rooms/Cottages/etc. do — not just the small Greeting/Progress slot.
  */
 final class DashboardHomeController {
-
-    private static final int SCREEN_HOME = 0;
-    private static final int SCREEN_DETAILS = 1;
-    private static final int SCREEN_ROOM_DETAILS = 2;
-    private static final int SCREEN_ALL_ROOMS = 3;
-
-    /** How many Hotel Rooms cards show on Home before "See More Rooms" is needed. */
-    private static final int HOME_ROOM_PREVIEW_LIMIT = 2;
-
-    /** Opens the Book tab's Hotel Rooms wizard at its own Select Your Stay screen. */
-    interface BookingHandoff {
-        void start();
-    }
 
     private static final long CLOCK_TICK_MS = 1000L;
     private static final long GREETING_FADE_MS = 400L;
@@ -91,42 +74,22 @@ final class DashboardHomeController {
 
     private final Activity activity;
     private final FrameLayout root;
-    private final BookingHandoff bookingHandoff;
+    private final Consumer<ReservationSummary> onBookingTap;
 
-    private int currentScreen = -1;
-    /** Whichever screen (Home or All Rooms) opened the currently showing Room Details. */
-    private int roomDetailsOrigin = SCREEN_HOME;
-    /** Full Hotel Rooms list from the last fetch, so All Rooms doesn't need its own network call. */
-    private List<RoomSummary> cachedRooms = new ArrayList<>();
-
-    DashboardHomeController(Activity activity, BookingHandoff bookingHandoff) {
+    DashboardHomeController(Activity activity, Consumer<ReservationSummary> onBookingTap) {
         this.activity = activity;
-        this.bookingHandoff = bookingHandoff;
+        this.onBookingTap = onBookingTap;
         root = new FrameLayout(activity);
-        showHome();
+        buildHome();
     }
 
     View getRootView() {
         return root;
     }
 
-    /** Steps back Details/All Rooms -> Home and Room Details -> wherever it was opened from; returns false once already on Home. */
-    boolean handleBackPressed() {
-        if (currentScreen == SCREEN_ROOM_DETAILS) {
-            returnFromRoomDetails();
-            return true;
-        }
-        if (currentScreen == SCREEN_DETAILS || currentScreen == SCREEN_ALL_ROOMS) {
-            showHome();
-            return true;
-        }
-        return false;
-    }
+    // ---- Greeting + booking progress ---------------------------------------
 
-    // ---- Home screen: greeting + booking progress -------------------------
-
-    private void showHome() {
-        currentScreen = SCREEN_HOME;
+    private void buildHome() {
         View home = LayoutInflater.from(activity).inflate(R.layout.view_dashboard_home, root, false);
 
         Handler handler = new Handler(Looper.getMainLooper());
@@ -150,7 +113,6 @@ final class DashboardHomeController {
         });
 
         fetchMyBookings(home);
-        fetchHotelRooms(home);
 
         root.removeAllViews();
         root.addView(home);
@@ -177,100 +139,6 @@ final class DashboardHomeController {
                 bindBookingProgress(home, new ArrayList<>());
             }
         });
-    }
-
-    /** Loads active rooms from the Room Management Module and renders the Hotel Rooms section. */
-    private void fetchHotelRooms(View home) {
-        String token = ProfileStore.getAuthToken(activity);
-        if (token.isEmpty()) {
-            bindHotelRooms(home, new ArrayList<>());
-            return;
-        }
-        ApiClient.bookingApi().getRooms("Bearer " + token).enqueue(new Callback<RoomListResponse>() {
-            @Override
-            public void onResponse(Call<RoomListResponse> call, Response<RoomListResponse> response) {
-                List<RoomSummary> rooms = response.isSuccessful() && response.body() != null
-                        && response.body().rooms != null
-                        ? response.body().rooms : new ArrayList<>();
-                bindHotelRooms(home, rooms);
-            }
-
-            @Override
-            public void onFailure(Call<RoomListResponse> call, Throwable t) {
-                bindHotelRooms(home, new ArrayList<>());
-            }
-        });
-    }
-
-    private void bindHotelRooms(View home, List<RoomSummary> rooms) {
-        cachedRooms = rooms;
-        home.findViewById(R.id.hotelRoomsEmptyState).setVisibility(rooms.isEmpty() ? View.VISIBLE : View.GONE);
-
-        boolean hasMore = rooms.size() > HOME_ROOM_PREVIEW_LIMIT;
-        List<RoomSummary> preview = hasMore ? rooms.subList(0, HOME_ROOM_PREVIEW_LIMIT) : rooms;
-
-        LinearLayout container = home.findViewById(R.id.hotelRoomsContainer);
-        container.removeAllViews();
-        LayoutInflater inflater = LayoutInflater.from(activity);
-        for (RoomSummary room : preview) {
-            View card = inflater.inflate(R.layout.view_home_room_card, container, false);
-            bindHotelRoomCard(card, room);
-            card.setOnClickListener(view -> showRoomDetails(room));
-            container.addView(card);
-        }
-
-        Button seeMoreButton = home.findViewById(R.id.hotelRoomsSeeMoreButton);
-        seeMoreButton.setVisibility(hasMore ? View.VISIBLE : View.GONE);
-        seeMoreButton.setOnClickListener(view -> showAllRooms());
-    }
-
-    private void bindHotelRoomCard(View card, RoomSummary room) {
-        loadImage(card.findViewById(R.id.roomCardImage), room.image_path);
-        ((TextView) card.findViewById(R.id.roomCardName)).setText(room.name);
-        ((TextView) card.findViewById(R.id.roomCardCategory)).setText(resolveRoomCategoryLabel(room));
-        ((TextView) card.findViewById(R.id.roomCardCapacity))
-                .setText(activity.getString(R.string.format_capacity_pax, room.capacity));
-        ((TextView) card.findViewById(R.id.roomCardPrice))
-                .setText(activity.getString(R.string.format_price_per_night, formatMoney(room.price_per_night)));
-
-        TextView availability = card.findViewById(R.id.roomCardAvailability);
-        availability.setText(room.available ? R.string.status_room_available : R.string.status_room_fully_booked);
-        availability.setTextColor(ThemeManager.color(activity,
-                room.available ? R.attr.accentPrimary : R.attr.errorText));
-    }
-
-    /**
-     * The room's category label (e.g. "Villa", "Claricon"), trying every
-     * field name this backend uses for that concept elsewhere ({@code
-     * category_name} on {@link RoomSummary}/{@link
-     * com.aguafriogarden.resortinc.network.RoomTypeAvailability}, {@code
-     * item_name} on {@link com.aguafriogarden.resortinc.network.ReservationSummary})
-     * since the real field on this endpoint's live JSON couldn't be
-     * confirmed. Falls back to a generic label only if none of them are set.
-     */
-    private String resolveRoomCategoryLabel(RoomSummary room) {
-        String[] candidates = {room.category_name, room.category, room.item_name};
-        for (String candidate : candidates) {
-            if (candidate != null && !candidate.trim().isEmpty()) {
-                return candidate;
-            }
-        }
-        return activity.getString(R.string.service_type_hotel);
-    }
-
-    /** Loads a room photo from the backend, falling back to a placeholder icon. */
-    private void loadImage(ImageView imageView, String imagePath) {
-        String url = ApiClient.imageUrl(imagePath);
-        if (url == null) {
-            imageView.setImageResource(R.drawable.ic_bed);
-            return;
-        }
-        Glide.with(activity)
-                .load(url)
-                .placeholder(R.drawable.ic_bed)
-                .error(R.drawable.ic_bed)
-                .centerCrop()
-                .into(imageView);
     }
 
     private void updateGreeting(View home) {
@@ -363,7 +231,7 @@ final class DashboardHomeController {
         for (ReservationSummary booking : bookings) {
             View card = inflater.inflate(R.layout.view_home_booking_card, container, false);
             bindBookingCard(card, booking);
-            card.setOnClickListener(view -> showDetails(booking));
+            card.setOnClickListener(view -> onBookingTap.accept(booking));
             container.addView(card);
         }
 
@@ -481,11 +349,11 @@ final class DashboardHomeController {
 
     // ---- Booking Details screen --------------------------------------------
 
-    private void showDetails(ReservationSummary booking) {
-        currentScreen = SCREEN_DETAILS;
-        View v = LayoutInflater.from(activity).inflate(R.layout.view_booking_details, root, false);
+    /** Builds a standalone, full-screen Booking Details view for LandingActivity to show. */
+    View buildDetailsView(ReservationSummary booking, Runnable onBack) {
+        View v = LayoutInflater.from(activity).inflate(R.layout.view_booking_details, null, false);
 
-        bindHeader(v, R.id.detailsHeaderBar, R.string.booking_details_title, this::showHome);
+        bindHeader(v, R.id.detailsHeaderBar, R.string.booking_details_title, onBack);
 
         ((TextView) v.findViewById(R.id.detailsItemName)).setText(booking.item_name);
 
@@ -563,8 +431,7 @@ final class DashboardHomeController {
 
         bindRow(v.findViewById(R.id.detailsRowPaymentStatus), R.string.label_payment_status, booking.payment_status);
 
-        root.removeAllViews();
-        root.addView(v);
+        return v;
     }
 
     /**
@@ -618,77 +485,6 @@ final class DashboardHomeController {
                 cancelledRow.findViewById(R.id.stepLine).setVisibility(View.GONE);
                 list.addView(cancelledRow);
             }
-        }
-    }
-
-    // ---- All Rooms screen --------------------------------------------------
-
-    /** Shows every room from the last Hotel Rooms fetch (see {@link #cachedRooms}), reached via "See More Rooms". */
-    private void showAllRooms() {
-        currentScreen = SCREEN_ALL_ROOMS;
-        View v = LayoutInflater.from(activity).inflate(R.layout.view_all_rooms, root, false);
-
-        bindHeader(v, R.id.allRoomsHeaderBar, R.string.all_rooms_title, this::showHome);
-        v.findViewById(R.id.allRoomsEmptyState).setVisibility(cachedRooms.isEmpty() ? View.VISIBLE : View.GONE);
-
-        LinearLayout container = v.findViewById(R.id.allRoomsContainer);
-        container.removeAllViews();
-        LayoutInflater inflater = LayoutInflater.from(activity);
-        for (RoomSummary room : cachedRooms) {
-            View card = inflater.inflate(R.layout.view_home_room_card, container, false);
-            bindHotelRoomCard(card, room);
-            card.setOnClickListener(view -> showRoomDetails(room));
-            container.addView(card);
-        }
-
-        root.removeAllViews();
-        root.addView(v);
-    }
-
-    // ---- Room Details screen ----------------------------------------------
-
-    /**
-     * Shows the full-info screen for one Hotel Rooms card: static details
-     * from {@link RoomSummary} only (image, category, capacity, price,
-     * description) — no stay-dates/party picker here, since that's the
-     * Booking Module's own Select Your Stay screen and shouldn't be
-     * duplicated. "Book Now" hands off to {@link #bookingHandoff}, which
-     * opens that screen fresh. Remembers whether it was opened from Home or
-     * All Rooms so back navigation returns to the right place.
-     */
-    private void showRoomDetails(RoomSummary room) {
-        roomDetailsOrigin = currentScreen;
-        currentScreen = SCREEN_ROOM_DETAILS;
-        View v = LayoutInflater.from(activity).inflate(R.layout.view_room_details, root, false);
-
-        bindHeader(v, R.id.roomDetailsHeaderBar, R.string.room_details_title, this::returnFromRoomDetails);
-
-        loadImage(v.findViewById(R.id.roomDetailsImage), room.image_path);
-        ((TextView) v.findViewById(R.id.roomDetailsName)).setText(room.name);
-        ((TextView) v.findViewById(R.id.roomDetailsCategory)).setText(resolveRoomCategoryLabel(room));
-        ((TextView) v.findViewById(R.id.roomDetailsCapacity))
-                .setText(activity.getString(R.string.format_capacity_pax, room.capacity));
-        ((TextView) v.findViewById(R.id.roomDetailsPrice))
-                .setText(activity.getString(R.string.format_price_per_night, formatMoney(room.price_per_night)));
-        ((TextView) v.findViewById(R.id.roomDetailsDescription)).setText(
-                room.description != null && !room.description.trim().isEmpty()
-                        ? room.description : activity.getString(R.string.hotel_rooms_empty_state));
-
-        v.findViewById(R.id.roomDetailsBookNowButton).setOnClickListener(view -> {
-            showHome();
-            bookingHandoff.start();
-        });
-
-        root.removeAllViews();
-        root.addView(v);
-    }
-
-    /** Returns to wherever Room Details was opened from — All Rooms or Home. */
-    private void returnFromRoomDetails() {
-        if (roomDetailsOrigin == SCREEN_ALL_ROOMS) {
-            showAllRooms();
-        } else {
-            showHome();
         }
     }
 

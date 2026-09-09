@@ -158,14 +158,13 @@
         <item name="android:layout_height">240dp</item>
         <item name="android:layout_marginEnd">12dp</item>
         <item name="android:background">@drawable/bg_landing_gallery_tile</item>
+        <item name="android:clipToOutline">true</item>
     </style>
 
-    <style name="LandingGalleryTileIcon">
-        <item name="android:layout_width">72dp</item>
-        <item name="android:layout_height">72dp</item>
-        <item name="android:layout_gravity">center</item>
-        <item name="android:alpha">0.85</item>
-        <item name="android:tint">@color/white</item>
+    <style name="LandingGalleryTilePhoto">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:scaleType">centerCrop</item>
         <item name="android:importantForAccessibility">no</item>
     </style>
 

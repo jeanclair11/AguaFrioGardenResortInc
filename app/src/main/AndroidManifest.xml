@@ -34,12 +34,6 @@
             android:label="@string/app_name"
             android:theme="@style/Theme.AguaFrioGardenResortInc" />
 
-        <activity
-            android:name=".DashboardActivity"
-            android:exported="false"
-            android:label="Dashboard"
-            android:theme="@style/Theme.AguaFrioGardenResortInc" />
-
         <service
             android:name=".ChatPollingService"
             android:exported="false"

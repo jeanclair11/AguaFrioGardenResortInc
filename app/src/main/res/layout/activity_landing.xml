@@ -3,15 +3,22 @@
      scrollable marketing page (hero, gallery, about, footer). Only the
      "AGUA FRIO" nav tab is wired up; ROOMS/COTTAGES/KTV/HALLS are left as
      inert labels until their destinations exist. -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:fitsSystemWindows="true"
-    android:background="@drawable/bg_screen_gradient">
+    android:background="?attr/screenGradientEnd"
+    android:fitsSystemWindows="true">
 
-    <!-- Fixed header: logo + resort name, Log In shortcut -->
     <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Fixed header: logo + resort name, Log In shortcut (or bell/profile once logged
+             in). Visible on Home/browse tabs; fully hidden elsewhere once logged in — see
+             LandingActivity#setNavBarPresent. -->
+    <LinearLayout
+        android:id="@+id/landingHeaderBar"
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:orientation="horizontal"
@@ -69,55 +76,73 @@
             android:textStyle="bold"
             android:letterSpacing="0.06" />
 
+        <!-- Shown instead of Log In once a guest is logged in. -->
+        <FrameLayout
+            android:id="@+id/landingBellCluster"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="8dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/bellButton"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="9dp"
+                android:src="@drawable/ic_bell"
+                android:tint="?attr/onTopBar"
+                android:contentDescription="@string/open_notifications" />
+
+            <TextView
+                android:id="@+id/bellBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="16dp"
+                android:layout_gravity="top|end"
+                android:minWidth="16dp"
+                android:background="@drawable/bg_badge_count"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:paddingStart="3dp"
+                android:paddingEnd="3dp"
+                android:textColor="@color/white"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                android:importantForAccessibility="no" />
+
+        </FrameLayout>
+
+        <ImageView
+            android:id="@+id/profileButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:padding="8dp"
+            android:src="@drawable/ic_person"
+            android:tint="?attr/onTopBar"
+            android:contentDescription="@string/profile"
+            android:visibility="gone" />
+
     </LinearLayout>
 
-    <!-- Section nav tabs -->
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="?attr/surfaceRaised"
-        android:scrollbars="none">
-
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp">
-
-            <TextView
-                android:id="@+id/navTabHome"
-                style="@style/LandingNavTab"
-                android:text="@string/landing_nav_home" />
-
-            <TextView
-                android:id="@+id/navTabRooms"
-                style="@style/LandingNavTab"
-                android:text="@string/landing_nav_rooms" />
-
-            <TextView
-                android:id="@+id/navTabCottages"
-                style="@style/LandingNavTab"
-                android:text="@string/landing_nav_cottages" />
-
-            <TextView
-                android:id="@+id/navTabKtv"
-                style="@style/LandingNavTab"
-                android:text="@string/landing_nav_ktv" />
-
-            <TextView
-                android:id="@+id/navTabHalls"
-                style="@style/LandingNavTab"
-                android:text="@string/landing_nav_halls" />
-
-        </LinearLayout>
-    </HorizontalScrollView>
-
-    <ScrollView
-        android:id="@+id/landingScroll"
+    <!-- landingContentContainer + landingNavBar are overlaid siblings (not stacked in
+         the normal vertical flow) so the nav bar can hide/show via translationY alone
+         — a pure transform, no layout pass — letting it respond to scroll direction
+         immediately instead of fighting an active touch-scroll with a relayout. -->
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_weight="1">
+
+    <FrameLayout
+        android:id="@+id/landingContentContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="true">
+
+    <ScrollView
+        android:id="@+id/landingHomeScroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:fillViewport="true"
         android:scrollbars="none">
 
@@ -127,29 +152,35 @@
             android:orientation="vertical"
             android:paddingBottom="24dp">
 
-            <!-- Hero -->
+            <!-- Hero card (logged out) vs Greeting+Progress (logged in, see
+                 view_dashboard_home.xml) — LandingActivity swaps this slot's single child
+                 based on login state; everything below (Intro/Gallery/About/Footer) stays
+                 the same either way. -->
+            <FrameLayout
+                android:id="@+id/heroOrGreetingSlot"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
             <LinearLayout
                 android:id="@+id/heroSection"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
+                android:layout_marginTop="20dp"
                 android:orientation="vertical"
                 android:gravity="center_horizontal"
+                android:background="@drawable/bg_card"
                 android:paddingTop="28dp"
+                android:paddingBottom="24dp"
                 android:paddingStart="24dp"
                 android:paddingEnd="24dp">
 
-                <FrameLayout
-                    android:layout_width="104dp"
-                    android:layout_height="104dp"
-                    android:background="@drawable/bg_logo_circle"
-                    android:padding="12dp">
-
-                    <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:src="@drawable/agua_frio_logo"
-                        android:importantForAccessibility="no" />
-                </FrameLayout>
+                <ImageView
+                    android:layout_width="160dp"
+                    android:layout_height="160dp"
+                    android:src="@drawable/agua_frio_logo"
+                    android:importantForAccessibility="no" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -173,6 +204,8 @@
                     android:textStyle="bold" />
 
             </LinearLayout>
+
+            </FrameLayout>
 
             <!-- Intro card -->
             <LinearLayout
@@ -233,27 +266,26 @@
                     android:paddingStart="20dp"
                     android:paddingEnd="8dp">
 
-                    <FrameLayout style="@style/LandingGalleryTile" android:backgroundTint="@color/catalog_tile_hotel">
-                        <ImageView style="@style/LandingGalleryTileIcon" android:src="@drawable/ic_bed" />
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode" />
                     </FrameLayout>
 
-                    <FrameLayout style="@style/LandingGalleryTile" android:backgroundTint="@color/catalog_tile_pool">
-                        <ImageView style="@style/LandingGalleryTileIcon" android:src="@drawable/ic_pool" />
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode2" />
                     </FrameLayout>
 
-                    <FrameLayout style="@style/LandingGalleryTile" android:backgroundTint="@color/catalog_tile_ktv">
-                        <ImageView style="@style/LandingGalleryTileIcon" android:src="@drawable/ic_mic" />
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_frio_bgimg" />
                     </FrameLayout>
 
-                    <FrameLayout style="@style/LandingGalleryTile" android:backgroundTint="@color/catalog_tile_halls">
-                        <ImageView style="@style/LandingGalleryTileIcon" android:src="@drawable/ic_hall" />
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_night_mode" />
                     </FrameLayout>
 
                     <FrameLayout
                         style="@style/LandingGalleryTile"
-                        android:layout_marginEnd="0dp"
-                        android:backgroundTint="@color/catalog_tile_hotel">
-                        <ImageView style="@style/LandingGalleryTileIcon" android:src="@drawable/ic_location" />
+                        android:layout_marginEnd="0dp">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_night_mode2" />
                     </FrameLayout>
 
                 </LinearLayout>
@@ -350,4 +382,71 @@
         </LinearLayout>
     </ScrollView>
 
-</LinearLayout>
+    </FrameLayout>
+
+    <!-- Section nav tabs: drawn after landingContentContainer so it overlays on top. -->
+    <HorizontalScrollView
+        android:id="@+id/landingNavBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:elevation="6dp"
+        android:background="?attr/surfaceRaised"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
+
+            <TextView
+                android:id="@+id/navTabHome"
+                style="@style/LandingNavTab"
+                android:text="@string/landing_nav_home" />
+
+            <TextView
+                android:id="@+id/navTabRooms"
+                style="@style/LandingNavTab"
+                android:text="@string/landing_nav_rooms" />
+
+            <TextView
+                android:id="@+id/navTabCottages"
+                style="@style/LandingNavTab"
+                android:text="@string/landing_nav_cottages" />
+
+            <TextView
+                android:id="@+id/navTabKtv"
+                style="@style/LandingNavTab"
+                android:text="@string/landing_nav_ktv" />
+
+            <TextView
+                android:id="@+id/navTabHalls"
+                style="@style/LandingNavTab"
+                android:text="@string/landing_nav_halls" />
+
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    </FrameLayout>
+
+    <!-- Reserve/Book/Chat/Feedback bottom nav — only shown once logged in. -->
+    <View
+        android:id="@+id/bottomNavDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?attr/dividerColor"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/bottomNav"
+        android:layout_width="match_parent"
+        android:layout_height="58dp"
+        android:orientation="horizontal"
+        android:background="?attr/navBarBackground"
+        android:visibility="gone" />
+
+    </LinearLayout>
+
+</FrameLayout>

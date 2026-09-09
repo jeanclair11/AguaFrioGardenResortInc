@@ -1,9 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Manifest/default theme; ThemeManager.apply() swaps in the user's
          choice before each activity inflates. Dark is the default. -->
-    <style name="Theme.AguaFrioGardenResortInc" parent="Theme.AguaFrio.Dark" />
+    <style name="Theme.AguaFrioGardenResortInc" parent="Theme.AguaFrio.Dark">
+        <!-- System splash screen (API 31+). Resolved from this manifest
+             theme before onCreate runs, so it can't follow the user's
+             Light/Dark preference like ThemeManager does - one formal
+             navy-and-medallion look is used for every cold start. The
+             icon points straight at the circular logo artwork (not the
+             adaptive launcher icon), since windowSplashScreenAnimatedIcon
+             only auto-masks adaptive icons - a raw drawable like this one
+             is drawn as-is, so OEM square/squircle icon masks can't
+             square it off the way they do on the home screen. -->
+        <item name="android:windowSplashScreenBackground" tools:targetApi="31">@color/dark_gradient_start</item>
+        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="31">@drawable/agua_frio_logo</item>
+        <item name="android:windowSplashScreenIconBackgroundColor" tools:targetApi="31">@color/light_card</item>
+    </style>
 
     <!-- Light Mode: cream/ivory surfaces with Royal Blue buttons. The status
          bar matches the espresso top bar, so its icons stay light; the cream

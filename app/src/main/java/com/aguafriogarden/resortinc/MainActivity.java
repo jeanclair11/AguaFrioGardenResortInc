@@ -133,10 +133,10 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         // Already logged in from a previous session (see ProfileStore#saveAuthToken /
-        // DashboardActivity#logout): skip straight past the auth screens instead of
+        // LandingActivity#logout): skip straight past the auth screens instead of
         // forcing the guest to log in again on every cold start.
         if (savedInstanceState == null && !ProfileStore.getAuthToken(this).isEmpty()) {
-            startActivity(new Intent(this, DashboardActivity.class));
+            startActivity(new Intent(this, LandingActivity.class));
             finish();
             return;
         }
@@ -472,8 +472,9 @@ public class MainActivity extends Activity {
             switch (result) {
                 case AuthService.RESULT_SUCCESS:
                     Toast.makeText(this, "Login successful.", Toast.LENGTH_SHORT).show();
-                    Intent intent = new Intent(MainActivity.this, DashboardActivity.class);
-                    startActivity(intent);
+                    // LandingActivity is already on the back stack beneath this screen (see
+                    // LandingActivity#openLogin) and picks up the new session in its own
+                    // onResume() — no need to start a new Activity.
                     overridePendingTransition(R.anim.fade_enter, R.anim.fade_exit);
                     finish();
                     break;
