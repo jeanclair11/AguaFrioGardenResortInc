@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Opaque base so the greeting card's rounded-rect outline (used for both
-     clipToOutline and the elevation shadow) is well-defined; always fully
-     covered by the time-of-day photo drawn above it. -->
+<!-- Opaque base for the greeting banner (full-width rectangular hero section);
+     always fully covered by the time-of-day photo drawn above it. Corners set
+     to 0dp for rectangular (non-card) appearance. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="@color/white" />
-    <corners android:radius="28dp" />
+    <corners android:radius="0dp" />
 </shape>

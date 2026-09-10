@@ -7,13 +7,18 @@
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
-        <!-- Greeting banner: a full-width hero section with time-of-day background
-             and frosted glass overlay. Height represents approximately 25% of screen
-             (~280dp responsive). All greeting content (label, name, date, time, welcome
-             message) preserved. No card styling—extends edge-to-edge across full width. -->
+        <!-- Greeting banner: a full-width rectangular hero section with time-of-day background
+             and frosted glass overlay. Height represents approximately 25% of screen (~280dp).
+             All greeting content (label, name, date, time, welcome message) preserved.
+             Rectangular shape (0dp corner radius), no elevation, extends edge-to-edge. -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="280dp">
+            android:layout_height="280dp"
+            android:layout_marginStart="0dp"
+            android:layout_marginTop="0dp"
+            android:layout_marginEnd="0dp"
+            android:layout_marginBottom="0dp"
+            android:background="@drawable/bg_greeting_card_base">
 
             <ImageView
                 android:id="@+id/greetingBackgroundBack"
