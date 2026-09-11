@@ -148,6 +148,54 @@ final class BookingCatalogController {
         root.addView(hotelBookingFlow.getRootView());
     }
 
+    /**
+     * Same entry as {@link #showHotelFlow()}, but always lands on the focused "Choose Your Stay
+     * Dates" gate screen (see HotelBookingFlowController#showRoomDatesEntry) instead of the Book
+     * tab's own tabbed Rooms/Cottage/KTV dates+search screen. Used only by LandingActivity's Room
+     * Overview "Book Now" for a Hotel Room selection.
+     */
+    void showHotelFlowFromRoomOverview(int variantId) {
+        currentScreen = SCREEN_HOTEL_FLOW;
+        if (hotelBookingFlow == null) {
+            hotelBookingFlow = new HotelBookingFlowController(activity, onBookNow, onBackToHome);
+        }
+        hotelBookingFlow.showRoomDatesEntry(variantId);
+        root.removeAllViews();
+        root.addView(hotelBookingFlow.getRootView());
+    }
+
+    /**
+     * Same as {@link #showHotelFlow()}, but always lands on the focused "Choose Your Visit Date"
+     * gate screen (see HotelBookingFlowController#showCottageDatesEntry) instead of the Book
+     * tab's own tabbed Rooms/Cottage/KTV dates+search screen. Used only by LandingActivity's Room
+     * Overview "Book Now" for a Cottage selection.
+     */
+    void showHotelFlowFromCottageOverview(int variantId) {
+        currentScreen = SCREEN_HOTEL_FLOW;
+        if (hotelBookingFlow == null) {
+            hotelBookingFlow = new HotelBookingFlowController(activity, onBookNow, onBackToHome);
+        }
+        hotelBookingFlow.showCottageDatesEntry(variantId);
+        root.removeAllViews();
+        root.addView(hotelBookingFlow.getRootView());
+    }
+
+    /**
+     * Same as {@link #showHotelFlow()}, but always lands on the focused "Plan Your KTV Session"
+     * gate screen (see HotelBookingFlowController#showKtvDatesEntry) instead of the Book tab's
+     * own tabbed Rooms/Cottage/KTV dates+search screen. Used only by LandingActivity's Room
+     * Overview "Book Now" for a KTV selection.
+     */
+    void showHotelFlowFromKtvOverview(int variantId) {
+        currentScreen = SCREEN_HOTEL_FLOW;
+        if (hotelBookingFlow == null) {
+            hotelBookingFlow = new HotelBookingFlowController(activity, onBookNow, onBackToHome);
+        }
+        hotelBookingFlow.showKtvDatesEntry(variantId);
+        root.removeAllViews();
+        root.addView(hotelBookingFlow.getRootView());
+    }
+
     // ---- Browse screen: catalog of items within one category ------------
 
     private void showBrowse(int categoryId) {

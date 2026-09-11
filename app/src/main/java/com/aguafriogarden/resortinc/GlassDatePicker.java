@@ -112,6 +112,26 @@ public final class GlassDatePicker {
     }
 
     /**
+     * Shows the platform's default single-date {@link DatePickerDialog} — used by the Hotel
+     * Rooms/Cottage/KTV booking flow's Cottage and KTV Date fields (see
+     * HotelBookingFlowController) instead of {@link #showCalendarPicker}, whose custom
+     * glassmorphism calendar grid was buggy for guests entering a date.
+     */
+    public static void showDatePickerDialog(Activity activity, long initialMillis, long minMillis, DateCallback callback) {
+        Calendar initial = Calendar.getInstance();
+        initial.setTimeInMillis(initialMillis > 0 ? initialMillis : Math.max(minMillis, System.currentTimeMillis()));
+
+        DatePickerDialog dialog = new DatePickerDialog(activity, (view, year, month, day) -> {
+            Calendar result = Calendar.getInstance();
+            result.set(year, month, day, 0, 0, 0);
+            result.set(Calendar.MILLISECOND, 0);
+            callback.onDatePicked(result.getTimeInMillis());
+        }, initial.get(Calendar.YEAR), initial.get(Calendar.MONTH), initial.get(Calendar.DAY_OF_MONTH));
+        dialog.getDatePicker().setMinDate(Math.max(minMillis, 0));
+        dialog.show();
+    }
+
+    /**
      * Shows the platform's default check-in/check-out date range picker (two chained
      * {@link DatePickerDialog}s), used by the Book tab.
      */

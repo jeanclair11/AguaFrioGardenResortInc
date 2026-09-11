@@ -450,6 +450,12 @@
     <string name="button_view_details">VIEW DETAILS</string>
     <string name="button_book_now">BOOK NOW</string>
 
+    <!-- Room overview screen (shown after login if room was selected before login) -->
+    <string name="room_image">Room image</string>
+    <string name="room_overview_header_room">You Selected This Room</string>
+    <string name="room_overview_header_cottage">You Selected This Cottage</string>
+    <string name="room_overview_header_ktv">You Selected This KTV Room</string>
+
     <string name="booking_status_available">Available</string>
     <string name="booking_status_limited">Limited Slots</string>
     <string name="booking_status_full">Fully Booked</string>
@@ -526,6 +532,22 @@
     <!-- Hotel Room booking flow (Book tab -> Hotel Rooms) -->
     <string name="hotel_dates_title">Book Your Experience</string>
     <string name="hotel_dates_subtitle">Select your dates and number of guests to see available options.</string>
+
+    <!-- Room Overview's "Book Now" entry only (see HotelBookingFlowController#bindRoomDates) —
+         a focused, Room-only gate screen distinct from the tabbed Book-tab screen above. -->
+    <string name="room_dates_title">Choose Your Stay Dates</string>
+    <string name="room_dates_subtitle">To help us find the best available accommodation for your preferred schedule, please select your check-in and check-out dates before exploring our rooms.</string>
+
+    <!-- Cottage Overview's "Book Now" entry only (see HotelBookingFlowController#bindCottageDatesEntry) —
+         a focused, Cottage-only gate screen distinct from the tabbed Book-tab screen above. -->
+    <string name="cottage_dates_title">Choose Your Visit Date</string>
+    <string name="cottage_dates_subtitle">To help us find the best available cottage for your preferred schedule, please select your visit date and time.</string>
+    <string name="note_entrance_fee_calculation">Please indicate the number of adults and children in your group for entrance fee calculation. The details will be verified upon entry.</string>
+
+    <!-- KTV Overview's "Book Now" entry only (see HotelBookingFlowController#bindKtvDatesEntry) —
+         a focused, KTV-only gate screen distinct from the tabbed Book-tab screen above. -->
+    <string name="ktv_dates_title">Plan Your KTV Session</string>
+    <string name="ktv_dates_subtitle">Please set your preferred date and time so we can check the availability of your chosen KTV room.</string>
     <string name="button_next">Next</string>
     <string name="button_reserve">Reserve</string>
     <string name="button_skip">Skip</string>
@@ -568,6 +590,36 @@
     <string name="toast_guests_required">Please select at least 1 guest.</string>
     <string name="toast_availability_check_failed">We couldn\'t check room availability right now. Please try again.</string>
     <string name="toast_network_error">Couldn\'t reach the server. Check your internet connection and try again.</string>
+
+    <!-- Room/Cottage/KTV Overview's "Your Selected ..." screen (see HotelBookingFlowController's
+         bindRoomSelection/bindCottageSelection/bindKtvSelection) — shows the originally-chosen
+         item as pre-selected (with a quantity control) if it's available for the guest's
+         entered dates/time/guests, or grayed-out with an unavailable message if not, plus other
+         available alternatives below. -->
+    <string name="room_selection_title">Your Selected Room/s</string>
+    <string name="cottage_selection_title">Your Selected Cottage/s</string>
+    <string name="ktv_selection_title">Your Selected KTV Room/s</string>
+    <string name="label_selected_badge">✓ SELECTED</string>
+    <string name="label_other_available_rooms">OTHER AVAILABLE ROOMS</string>
+    <string name="label_other_available_cottages">OTHER AVAILABLE COTTAGES</string>
+    <string name="label_other_available_ktv">OTHER AVAILABLE KTV ROOMS</string>
+    <string name="button_add_another_room">ADD ANOTHER ROOM</string>
+    <string name="button_add_another_cottage">ADD ANOTHER COTTAGE</string>
+    <string name="button_add_another_ktv">ADD ANOTHER KTV ROOM</string>
+    <string name="unavailable_room_message">This room is unavailable for your selected dates.</string>
+    <string name="unavailable_cottage_message">This cottage is unavailable for your selected schedule.</string>
+    <string name="unavailable_ktv_message">This KTV room is unavailable for your selected schedule.</string>
+    <string name="toast_feature_coming_soon">This feature is coming soon.</string>
+
+    <!-- "Add Another ..." browse screens (see HotelBookingFlowController's bindRoomBrowse/
+         bindCottageBrowse/bindKtvBrowse) — a separate screen listing every other available item,
+         reached from the "Your Selected ..." screen's Add Another button. -->
+    <string name="room_browse_title">Hotel Rooms</string>
+    <string name="cottage_browse_title">Cottages</string>
+    <string name="ktv_browse_title">KTV Rooms</string>
+    <string name="label_browse_available_rooms">Available rooms</string>
+    <string name="label_browse_available_cottages">Available cottages</string>
+    <string name="label_browse_available_ktv">Available KTV rooms</string>
 
     <string name="button_search">Search</string>
     <string name="label_available_accommodations">Available Accommodations</string>

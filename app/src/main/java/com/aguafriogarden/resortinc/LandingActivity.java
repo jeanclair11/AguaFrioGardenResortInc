@@ -51,7 +51,7 @@ public class LandingActivity extends Activity {
 
     private enum Section {
         HOME, ROOMS, COTTAGES, KTV, HALLS,
-        RESERVE, BOOK, CHAT, FEEDBACK, PROFILE, ALERTS, BOOKING_DETAILS
+        RESERVE, BOOK, CHAT, FEEDBACK, PROFILE, ALERTS, BOOKING_DETAILS, ROOM_OVERVIEW
     }
 
     /** Bottom-nav order; index into this array lines up with bottomNavItems. */
@@ -77,6 +77,7 @@ public class LandingActivity extends Activity {
     private final View[] bottomNavItems = new View[BOTTOM_NAV_SECTIONS.length];
 
     private Section currentSection = Section.HOME;
+    private Section roomOverviewOrigin = Section.ROOMS;
     private boolean navBarVisible = true;
     private boolean loggedIn = false;
 
@@ -190,6 +191,10 @@ public class LandingActivity extends Activity {
             showHome();
             return true;
         }
+        if (currentSection == Section.ROOM_OVERVIEW) {
+            showCategory(roomOverviewOrigin);
+            return true;
+        }
         if (loggedIn) {
             if (currentSection == Section.PROFILE && profileController.handleBackPressed()) {
                 return true;
@@ -267,6 +272,11 @@ public class LandingActivity extends Activity {
         requestNotificationPermissionIfNeeded();
         startChatPollingService();
         badgeHandler.post(badgeTick);
+
+        // Check if guest selected a room before login and show its overview
+        if (PendingRoomSelection.has()) {
+            showRoomOverview(PendingRoomSelection.take());
+        }
     }
 
     private void logout() {
@@ -285,6 +295,11 @@ public class LandingActivity extends Activity {
 
         heroOrGreetingSlot.removeAllViews();
         heroOrGreetingSlot.addView(heroSectionView);
+
+        // Logged out, the header always stays up (see setNavBarPresent) — but it may have been
+        // left GONE by a chrome-hidden section (Reserve/Book/Chat/etc.) visited before logging
+        // out, and setNavBarPresent only touches headerBar while loggedIn, so it never resets.
+        headerBar.setVisibility(View.VISIBLE);
 
         landingLogInButton.setVisibility(View.VISIBLE);
         landingBellCluster.setVisibility(View.GONE);
@@ -333,8 +348,12 @@ public class LandingActivity extends Activity {
         }
     }
 
-    /** Colors the bottom nav icons/labels for whichever section (if any) is active. */
+    /** Colors the bottom nav icons/labels for whichever section (if any) is active. Logged-out
+     *  guests have no bottom nav yet (built in enterLoggedInState()), so this is a no-op then. */
     private void retintBottomNav() {
+        if (!loggedIn) {
+            return;
+        }
         for (int i = 0; i < bottomNavItems.length; i++) {
             boolean active = BOTTOM_NAV_SECTIONS[i] == currentSection;
             int color = ThemeManager.color(this, active ? R.attr.navItemActive : R.attr.navItemInactive);
@@ -673,11 +692,12 @@ public class LandingActivity extends Activity {
                         roomType.available_quantity, roomType.available_quantity)
                 : getString(R.string.status_room_type_fully_booked);
 
+        String priceText = getString(R.string.format_price_per_night, formatMoney(roomType.price_per_night));
         bindCard(card, roomType.image_path,
                 getString(R.string.format_room_type_with_category, name, category),
-                roomType.capacity, roomType.description,
-                getString(R.string.format_price_per_night, formatMoney(roomType.price_per_night)),
-                available, availabilityText, true, Section.ROOMS);
+                roomType.capacity, roomType.description, priceText,
+                available, availabilityText, true, Section.ROOMS,
+                name, category, roomType.variant_id, roomType.image_path, priceText);
     }
 
     private void bindCottageKtvCard(View card, CottageKtvOption option, String fallbackCategory, boolean bookable, Section origin) {
@@ -691,16 +711,18 @@ public class LandingActivity extends Activity {
                         option.available_quantity, option.available_quantity)
                 : getString(R.string.status_room_type_fully_booked);
 
+        String priceText = getString(R.string.format_price_with_unit, formatMoney(option.price), option.price_unit);
         bindCard(card, option.image_path,
                 getString(R.string.format_room_type_with_category, name, category),
-                option.capacity, option.description,
-                getString(R.string.format_price_with_unit, formatMoney(option.price), option.price_unit),
-                available, availabilityText, bookable, origin);
+                option.capacity, option.description, priceText,
+                available, availabilityText, bookable, origin,
+                name, category, option.variant_id, option.image_path, priceText);
     }
 
     /** Shared binder for view_landing_room_type_card.xml, used by all four browse screens. */
     private void bindCard(View card, String imagePath, String titleText, int capacity, String description,
-                           String priceText, boolean available, CharSequence availabilityText, boolean bookable, Section origin) {
+                           String priceText, boolean available, CharSequence availabilityText, boolean bookable, Section origin,
+                           String roomTypeName, String categoryName, int variantId, String imagePathForStorage, String pricePerNight) {
         loadImage(card.findViewById(R.id.roomTypeCardImage), imagePath);
 
         ((TextView) card.findViewById(R.id.roomTypeCardName)).setText(titleText);
@@ -718,12 +740,21 @@ public class LandingActivity extends Activity {
 
         View bookButton = card.findViewById(R.id.roomTypeCardBookButton);
         bookButton.setVisibility(bookable ? View.VISIBLE : View.GONE);
-        bookButton.setOnClickListener(bookable ? v -> handleBookTap(origin) : null);
+        if (bookable) {
+            bookButton.setOnClickListener(v -> handleBookTap(origin, roomTypeName, categoryName,
+                    capacity, description, pricePerNight, variantId, imagePathForStorage));
+        }
     }
 
-    /** Not logged in: BOOK opens Login. Logged in: BOOK jumps straight into the real booking flow. */
-    private void handleBookTap(Section origin) {
+    /** Not logged in: BOOK opens Login and remembers room selection. Logged in: BOOK jumps straight into the real booking flow. */
+    private void handleBookTap(Section origin, String roomTypeName, String categoryName,
+                              int capacity, String description, String pricePerNight, int variantId, String imagePath) {
         if (!loggedIn) {
+            int type = origin == Section.COTTAGES ? PendingRoomSelection.TYPE_COTTAGE
+                    : origin == Section.KTV ? PendingRoomSelection.TYPE_KTV
+                    : PendingRoomSelection.TYPE_ROOM;
+            PendingRoomSelection.set(imagePath, roomTypeName, categoryName,
+                    capacity, description, pricePerNight, variantId, type);
             openLogin();
             return;
         }
@@ -750,5 +781,68 @@ public class LandingActivity extends Activity {
 
     private String formatMoney(double amount) {
         return NumberFormat.getInstance(Locale.US).format(Math.round(amount));
+    }
+
+    /**
+     * Shows a room/cottage/KTV overview screen after login, if an item was selected before
+     * login. Keeps the page's standard header (logo/bell/profile) and Hotel Rooms/Cottages/KTV/
+     * Halls nav bar visible on top, same as the browse screens — plus this screen's own back
+     * arrow + "You Selected This Room/Cottage/KTV Room" header, whose back button (and system
+     * back, see consumeBackPress) returns to the browse category the item was picked from
+     * (roomOverviewOrigin) rather than all the way to Home.
+     */
+    private void showRoomOverview(PendingRoomSelection room) {
+        leavingChat();
+        currentSection = Section.ROOM_OVERVIEW;
+        retintBottomNav();
+
+        int headerTitleRes;
+        if (room.type == PendingRoomSelection.TYPE_COTTAGE) {
+            roomOverviewOrigin = Section.COTTAGES;
+            headerTitleRes = R.string.room_overview_header_cottage;
+        } else if (room.type == PendingRoomSelection.TYPE_KTV) {
+            roomOverviewOrigin = Section.KTV;
+            headerTitleRes = R.string.room_overview_header_ktv;
+        } else {
+            roomOverviewOrigin = Section.ROOMS;
+            headerTitleRes = R.string.room_overview_header_room;
+        }
+
+        View v = LayoutInflater.from(this).inflate(R.layout.view_room_overview, landingContentContainer, false);
+
+        // Header: this screen's own root isn't a ScrollView (see the layout's header comment),
+        // so it misses swapContent()'s automatic nav-bar-height inset — applied manually here.
+        navBar.post(() -> v.setPadding(v.getPaddingLeft(), v.getPaddingTop() + navBar.getHeight(),
+                v.getPaddingRight(), v.getPaddingBottom()));
+        ((TextView) v.findViewById(R.id.roomOverviewHeaderTitle)).setText(headerTitleRes);
+        v.findViewById(R.id.roomOverviewBackButton).setOnClickListener(view -> showCategory(roomOverviewOrigin));
+
+        // Image
+        ImageView imageView = v.findViewById(R.id.roomOverviewImage);
+        loadImage(imageView, room.imagePath);
+
+        // Room details
+        ((TextView) v.findViewById(R.id.roomOverviewType)).setText(
+                getString(R.string.format_room_type_with_category, room.roomTypeName, room.categoryName));
+        ((TextView) v.findViewById(R.id.roomOverviewCapacity)).setText(
+                getString(R.string.landing_room_capacity_format, room.capacity));
+        ((TextView) v.findViewById(R.id.roomOverviewDescription)).setText(room.description);
+        ((TextView) v.findViewById(R.id.roomOverviewPrice)).setText(room.pricePerNight);
+
+        // Book Now button: Hotel Rooms, Cottages and KTV each get their own focused gate screen
+        // (see BookingCatalogController#showHotelFlowFromRoomOverview /
+        // #showHotelFlowFromCottageOverview / #showHotelFlowFromKtvOverview).
+        v.findViewById(R.id.roomOverviewBookNowButton).setOnClickListener(view -> {
+            if (room.type == PendingRoomSelection.TYPE_ROOM) {
+                bookingCatalog.showHotelFlowFromRoomOverview(room.variantId);
+            } else if (room.type == PendingRoomSelection.TYPE_COTTAGE) {
+                bookingCatalog.showHotelFlowFromCottageOverview(room.variantId);
+            } else if (room.type == PendingRoomSelection.TYPE_KTV) {
+                bookingCatalog.showHotelFlowFromKtvOverview(room.variantId);
+            }
+            showModule(Section.BOOK);
+        });
+
+        swapContent(v, true);
     }
 }

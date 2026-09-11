@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Room/Cottage/KTV overview screen shown after login if an item was selected before login (see
+     LandingActivity#showRoomOverview). Root is a plain LinearLayout rather than the ScrollView
+     root the browse screens use, since "Book Now" must stay fixed just above the bottom nav
+     instead of scrolling away with the content — LandingActivity manually applies the same
+     nav-bar-height top inset that swapContent()/configureScrollableContent() apply automatically
+     for ScrollView roots. Header (back arrow + "You Selected This Room/Cottage/KTV Room") and the
+     footer button are fixed; only the room card (image + type/capacity/description/price, mirrors
+     view_landing_room_type_card.xml's one-card layout) scrolls in between. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="?attr/screenGradientEnd">
+
+    <!-- Header: back arrow + dynamic title -->
+    <LinearLayout
+        android:id="@+id/roomOverviewHeaderBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
+
+        <ImageView
+            android:id="@+id/roomOverviewBackButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:padding="8dp"
+            android:src="@drawable/ic_arrow_back"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/button_back" />
+
+        <TextView
+            android:id="@+id/roomOverviewHeaderTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:textColor="?attr/textOnScreen"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Scrollable room card -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="6dp"
+        android:scrollbars="none">
+
+        <!-- Room card: image + type/capacity/description/price, one continuous card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:clipToOutline="true"
+            android:padding="14dp">
+
+            <ImageView
+                android:id="@+id/roomOverviewImage"
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:background="@drawable/bg_item_thumb"
+                android:clipToOutline="true"
+                android:scaleType="centerCrop"
+                android:contentDescription="@string/room_image" />
+
+            <!-- Room type -->
+            <TextView
+                android:id="@+id/roomOverviewType"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:textColor="?attr/textPrimary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <!-- Capacity -->
+            <TextView
+                android:id="@+id/roomOverviewCapacity"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="?attr/textMuted"
+                android:textSize="13sp" />
+
+            <!-- Description -->
+            <TextView
+                android:id="@+id/roomOverviewDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textColor="?attr/textMuted"
+                android:textSize="13sp"
+                android:lineSpacingMultiplier="1.4" />
+
+            <!-- Price -->
+            <TextView
+                android:id="@+id/roomOverviewPrice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textColor="?attr/accentPrimary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+    </ScrollView>
+
+    <!-- Fixed footer: Book Now stays pinned just above the bottom nav, never scrolls away -->
+    <Button
+        android:id="@+id/roomOverviewBookNowButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginTop="14dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_button_primary"
+        android:textColor="@color/button_primary_text"
+        android:text="@string/button_book_now"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.04"
+        android:stateListAnimator="@null" />
+
+</LinearLayout>
