@@ -4,6 +4,8 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
+import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -59,11 +61,18 @@ public class LandingActivity extends Activity {
             {Section.HOME, Section.RESERVE, Section.BOOK, Section.CHAT, Section.FEEDBACK};
     private static final int BOTTOM_NAV_CHAT_INDEX = 3;
 
+    /** Top-nav order; index into this array lines up with topNavItems. Swiping left/right over
+     *  the Home content steps forward/backward through this same order (see #stepTopNav). */
+    private static final Section[] TOP_NAV_SECTIONS =
+            {Section.HOME, Section.ROOMS, Section.COTTAGES, Section.KTV, Section.HALLS};
+
     private static final long CONTENT_FADE_MS = 150L;
+    private static final long CONTENT_SLIDE_MS = 220L;
     private static final long BADGE_REFRESH_MS = 2000L;
     private static final int REQUEST_POST_NOTIFICATIONS = 1001;
+    private static final String STATE_SECTION = "section";
 
-    private FrameLayout landingContentContainer;
+    private SwipeNavigationContainer landingContentContainer;
     private ScrollView landingHomeScroll;
     private HorizontalScrollView navBar;
     private View headerBar;
@@ -71,15 +80,17 @@ public class LandingActivity extends Activity {
     private View heroSectionView;
     private View landingLogInButton;
     private View landingBellCluster;
-    private View profileButton;
+    private ImageView profileButton;
     private View bottomNavDivider;
     private LinearLayout bottomNav;
     private final View[] bottomNavItems = new View[BOTTOM_NAV_SECTIONS.length];
+    private final View[] topNavItems = new View[TOP_NAV_SECTIONS.length];
 
     private Section currentSection = Section.HOME;
     private Section roomOverviewOrigin = Section.ROOMS;
     private boolean navBarVisible = true;
     private boolean loggedIn = false;
+    private int activeThemeMode;
 
     private ReservationFlowController reservationFlow;
     private BookingCatalogController bookingCatalog;
@@ -96,7 +107,9 @@ public class LandingActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ThemeManager.apply(this);
+        activeThemeMode = ThemeManager.mode(this);
         setContentView(R.layout.activity_landing);
+        ThemeManager.playPendingFade(this);
 
         landingContentContainer = findViewById(R.id.landingContentContainer);
         landingHomeScroll = findViewById(R.id.landingHomeScroll);
@@ -111,18 +124,37 @@ public class LandingActivity extends Activity {
         bottomNav = findViewById(R.id.bottomNav);
         configureScrollableContent(landingHomeScroll);
 
-        findViewById(R.id.navTabHome).setOnClickListener(v -> showHome());
-        findViewById(R.id.navTabRooms).setOnClickListener(v -> showCategory(Section.ROOMS));
-        findViewById(R.id.navTabCottages).setOnClickListener(v -> showCategory(Section.COTTAGES));
-        findViewById(R.id.navTabKtv).setOnClickListener(v -> showCategory(Section.KTV));
-        findViewById(R.id.navTabHalls).setOnClickListener(v -> showCategory(Section.HALLS));
+        topNavItems[0] = findViewById(R.id.navTabHome);
+        topNavItems[1] = findViewById(R.id.navTabRooms);
+        topNavItems[2] = findViewById(R.id.navTabCottages);
+        topNavItems[3] = findViewById(R.id.navTabKtv);
+        topNavItems[4] = findViewById(R.id.navTabHalls);
+        topNavItems[0].setOnClickListener(v -> showHome());
+        topNavItems[1].setOnClickListener(v -> showCategory(Section.ROOMS));
+        topNavItems[2].setOnClickListener(v -> showCategory(Section.COTTAGES));
+        topNavItems[3].setOnClickListener(v -> showCategory(Section.KTV));
+        topNavItems[4].setOnClickListener(v -> showCategory(Section.HALLS));
         landingLogInButton.setOnClickListener(v -> openLogin());
         landingBellCluster.setOnClickListener(v -> showModule(Section.ALERTS));
         profileButton.setOnClickListener(v -> showModule(Section.PROFILE));
 
+        landingContentContainer.setOnSwipeListener(new SwipeNavigationContainer.OnSwipeListener() {
+            @Override
+            public void onSwipeLeft() {
+                stepTopNav(1);
+            }
+
+            @Override
+            public void onSwipeRight() {
+                stepTopNav(-1);
+            }
+        });
+        updateSwipeChrome();
+
         if (!ProfileStore.getAuthToken(this).isEmpty()) {
             enterLoggedInState();
         }
+        restoreSection(savedInstanceState);
         if (loggedIn && ChatPollingService.EXTRA_VALUE_CHAT.equals(
                 getIntent().getStringExtra(ChatPollingService.EXTRA_OPEN_MODULE))) {
             showModule(Section.CHAT);
@@ -143,8 +175,45 @@ public class LandingActivity extends Activity {
     }
 
     @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(STATE_SECTION, currentSection.name());
+    }
+
+    /**
+     * After Activity.recreate() — e.g. the theme toggle (ThemeManager#setMode, tapped from
+     * Profile's dark mode switch) recreates whichever Activity is currently on screen — returns
+     * to whichever tab/category was showing instead of resetting to Home, which is what a bare
+     * recreate() would otherwise do since currentSection has no other persistence. ROOM_OVERVIEW
+     * and BOOKING_DETAILS aren't restorable this way (their backing data isn't saved here), so
+     * those fall back to Home same as before.
+     */
+    private void restoreSection(Bundle savedInstanceState) {
+        if (savedInstanceState == null) {
+            return;
+        }
+        Section section;
+        try {
+            section = Section.valueOf(savedInstanceState.getString(STATE_SECTION, ""));
+        } catch (IllegalArgumentException e) {
+            return;
+        }
+        if (section == Section.HOME || section == Section.ROOM_OVERVIEW || section == Section.BOOKING_DETAILS) {
+            return;
+        }
+        if (indexOfTopNavSection(section) >= 0) {
+            showCategory(section);
+        } else if (loggedIn) {
+            showModule(section);
+        }
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
+        if (ThemeManager.recreateIfThemeChanged(this, activeThemeMode)) {
+            return;
+        }
         // Returning here after a successful login (MainActivity just finishes itself, see
         // openLogin()) — pick up the now-present session in place instead of a fresh Activity.
         if (!loggedIn && !ProfileStore.getAuthToken(this).isEmpty()) {
@@ -246,7 +315,7 @@ public class LandingActivity extends Activity {
         bookingCatalog = new BookingCatalogController(this,
                 () -> showModule(Section.RESERVE), this::showHome);
         dashboardHome = new DashboardHomeController(this, this::showBookingDetails);
-        profileController = new ProfileController(this, this::showHome, this::logout);
+        profileController = new ProfileController(this, this::showHome, this::logout, this::bindHeaderAvatar);
         feedbackController = new FeedbackController(this);
         chatController = new ChatController(this);
         notificationController = new NotificationController(this, n -> {
@@ -264,6 +333,7 @@ public class LandingActivity extends Activity {
         landingLogInButton.setVisibility(View.GONE);
         landingBellCluster.setVisibility(View.VISIBLE);
         profileButton.setVisibility(View.VISIBLE);
+        bindHeaderAvatar();
 
         buildBottomNav();
         bottomNavDivider.setVisibility(View.VISIBLE);
@@ -276,6 +346,32 @@ public class LandingActivity extends Activity {
         // Check if guest selected a room before login and show its overview
         if (PendingRoomSelection.has()) {
             showRoomOverview(PendingRoomSelection.take());
+        }
+    }
+
+    /**
+     * Shows the guest's uploaded profile picture on the header's profile icon once logged in —
+     * same picture/fallback logic as ProfileController's own avatar (see that class's
+     * bindAvatar), kept in sync here via the onAvatarChanged callback passed into
+     * ProfileController's constructor so a picture change is reflected immediately without
+     * needing to reopen the app.
+     */
+    private void bindHeaderAvatar() {
+        Bitmap picture = ProfileStore.loadAvatar(this);
+        if (picture != null) {
+            profileButton.setPadding(0, 0, 0, 0);
+            profileButton.setImageTintList(null);
+            profileButton.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            profileButton.setBackgroundResource(R.drawable.bg_module_icon_circle);
+            profileButton.setClipToOutline(true);
+            profileButton.setImageBitmap(picture);
+        } else {
+            profileButton.setPadding(8, 8, 8, 8);
+            profileButton.setBackground(null);
+            profileButton.setClipToOutline(false);
+            profileButton.setImageResource(R.drawable.ic_person);
+            profileButton.setImageTintList(ColorStateList.valueOf(ThemeManager.color(this, R.attr.onTopBar)));
+            profileButton.setScaleType(ImageView.ScaleType.FIT_CENTER);
         }
     }
 
@@ -362,6 +458,52 @@ public class LandingActivity extends Activity {
         }
     }
 
+    // ---- Top nav: Home/Rooms/Cottages/KTV/Halls, plus swipe-to-page ----------
+
+    /** Colors the top nav tabs for whichever Home/Rooms/Cottages/KTV/Halls section (if any) is
+     *  active — same idea as retintBottomNav(), but these tabs are plain text with no icon. */
+    private void retintTopNav() {
+        for (int i = 0; i < topNavItems.length; i++) {
+            boolean active = TOP_NAV_SECTIONS[i] == currentSection;
+            ((TextView) topNavItems[i]).setTextColor(
+                    ThemeManager.color(this, active ? R.attr.navItemActive : R.attr.textOnScreenMuted));
+        }
+    }
+
+    private int indexOfTopNavSection(Section section) {
+        for (int i = 0; i < TOP_NAV_SECTIONS.length; i++) {
+            if (TOP_NAV_SECTIONS[i] == section) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Keeps the top nav highlight and the swipe gesture in sync with whichever section is
+     *  showing. Swiping only makes sense while browsing Home/Rooms/Cottages/KTV/Halls, so it's
+     *  switched off for the logged-in Reserve/Book/Chat/Feedback/Profile/Alerts tabs and the
+     *  Room/Cottage/KTV Overview screen, none of which are part of that ring. */
+    private void updateSwipeChrome() {
+        retintTopNav();
+        landingContentContainer.setSwipeEnabled(indexOfTopNavSection(currentSection) >= 0);
+    }
+
+    /** Swipe left moves to the next section to the right (+1); swipe right moves to the previous
+     *  one (-1). Clamps at the first/last tab rather than wrapping around. */
+    private void stepTopNav(int direction) {
+        int index = indexOfTopNavSection(currentSection);
+        int nextIndex = index + direction;
+        if (index < 0 || nextIndex < 0 || nextIndex >= TOP_NAV_SECTIONS.length) {
+            return;
+        }
+        Section next = TOP_NAV_SECTIONS[nextIndex];
+        if (next == Section.HOME) {
+            showHome(direction);
+        } else {
+            showCategory(next, direction);
+        }
+    }
+
     /**
      * Switches to one of the six logged-in-only sections (Reserve/Book/Chat/Feedback/Profile/
      * Alerts), retinting the bottom nav and cross-fading the body — mirrors the former
@@ -374,6 +516,7 @@ public class LandingActivity extends Activity {
         leavingChat();
         currentSection = section;
         retintBottomNav();
+        updateSwipeChrome();
 
         View content;
         if (section == Section.RESERVE) {
@@ -400,6 +543,7 @@ public class LandingActivity extends Activity {
         leavingChat();
         currentSection = Section.BOOKING_DETAILS;
         retintBottomNav();
+        updateSwipeChrome();
         swapContent(dashboardHome.buildDetailsView(booking, this::showHome), false);
     }
 
@@ -433,13 +577,20 @@ public class LandingActivity extends Activity {
     // ---- Home / browse tabs (Hotel Rooms/Cottages/KTV Rooms/Function Halls) -
 
     private void showHome() {
+        showHome(0);
+    }
+
+    /** slideDirection: 0 fades in (tap navigation); +1/-1 slides in from the right/left (swipe —
+     *  see #stepTopNav), matching the finger's drag direction instead of cross-fading. */
+    private void showHome(int slideDirection) {
         if (currentSection == Section.HOME) {
             return;
         }
         leavingChat();
-        swapContent(landingHomeScroll, true);
+        swapContent(landingHomeScroll, true, slideDirection);
         currentSection = Section.HOME;
         retintBottomNav();
+        updateSwipeChrome();
         if (loggedIn) {
             refreshBadges();
         }
@@ -447,6 +598,12 @@ public class LandingActivity extends Activity {
 
     /** Inflates a fresh browse screen for the tapped section and starts loading its live data. */
     private void showCategory(Section section) {
+        showCategory(section, 0);
+    }
+
+    /** slideDirection: 0 fades in (tap navigation); +1/-1 slides in from the right/left (swipe —
+     *  see #stepTopNav), matching the finger's drag direction instead of cross-fading. */
+    private void showCategory(Section section, int slideDirection) {
         if (currentSection == section) {
             return;
         }
@@ -477,9 +634,10 @@ public class LandingActivity extends Activity {
                 break;
         }
 
-        swapContent(browse, true);
+        swapContent(browse, true, slideDirection);
         currentSection = section;
         retintBottomNav();
+        updateSwipeChrome();
     }
 
     private int sectionTitleRes(Section section) {
@@ -496,35 +654,77 @@ public class LandingActivity extends Activity {
         }
     }
 
+    /** Fades newContent in — see the 3-arg overload for the full contract; slideDirection 0. */
+    private void swapContent(View newContent, boolean showTopNavBar) {
+        swapContent(newContent, showTopNavBar, 0);
+    }
+
     /**
-     * Fades newContent in over whatever's currently showing, then drops the old content once the
+     * Swaps in newContent over whatever's currently showing, then drops the old content once the
      * animation finishes. landingHomeScroll is a retained field (never destroyed), so swapping
      * back to it later just re-adds the same instance. showTopNavBar controls the top nav bar
      * (Agua Frio/Hotel Rooms/Cottages/KTV/Halls): present on Home/browse tabs, fully gone on
      * Reserve/Book/Chat/Feedback/Profile/Alerts/Booking Details, which have their own bottom nav.
+     * slideDirection 0 cross-fades (tap navigation, and every non-top-nav caller); +1/-1 instead
+     * slides newContent in from the right/left while the old content slides out the opposite
+     * side in lockstep, matching the swipe gesture that triggered it (see #stepTopNav) instead of
+     * a directionless fade.
      */
-    private void swapContent(View newContent, boolean showTopNavBar) {
+    private void swapContent(View newContent, boolean showTopNavBar, int slideDirection) {
         List<View> oldChildren = new ArrayList<>();
         for (int i = 0; i < landingContentContainer.getChildCount(); i++) {
             oldChildren.add(landingContentContainer.getChildAt(i));
         }
+        // A rapid follow-up swipe can retrigger this before the previous transition's
+        // withEndAction has run; cancelling first and resetting both properties normalizes
+        // whichever one the previous transition didn't touch (fade never resets translationX,
+        // slide never resets alpha), so a persisted view like landingHomeScroll can't get stuck
+        // off-screen or invisible from a leftover animation value.
+        newContent.animate().cancel();
+        newContent.setAlpha(1f);
+        newContent.setTranslationX(0f);
 
         landingContentContainer.addView(newContent);
         if (newContent instanceof ScrollView) {
             configureScrollableContent((ScrollView) newContent);
         }
         setNavBarPresent(showTopNavBar);
-        newContent.setAlpha(0f);
+
+        if (slideDirection == 0) {
+            newContent.setAlpha(0f);
+            newContent.animate()
+                    .alpha(1f)
+                    .setDuration(CONTENT_FADE_MS)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .withEndAction(() -> {
+                        for (View old : oldChildren) {
+                            landingContentContainer.removeView(old);
+                        }
+                    })
+                    .start();
+            return;
+        }
+
+        float width = landingContentContainer.getWidth();
+        newContent.setTranslationX(slideDirection > 0 ? width : -width);
         newContent.animate()
-                .alpha(1f)
-                .setDuration(CONTENT_FADE_MS)
+                .translationX(0f)
+                .setDuration(CONTENT_SLIDE_MS)
                 .setInterpolator(new DecelerateInterpolator())
                 .withEndAction(() -> {
                     for (View old : oldChildren) {
                         landingContentContainer.removeView(old);
+                        old.setTranslationX(0f);
                     }
                 })
                 .start();
+        for (View old : oldChildren) {
+            old.animate()
+                    .translationX(slideDirection > 0 ? -width : width)
+                    .setDuration(CONTENT_SLIDE_MS)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        }
     }
 
     /**
@@ -744,24 +944,46 @@ public class LandingActivity extends Activity {
             bookButton.setOnClickListener(v -> handleBookTap(origin, roomTypeName, categoryName,
                     capacity, description, pricePerNight, variantId, imagePathForStorage));
         }
+
+        View reserveButton = card.findViewById(R.id.roomTypeCardReserveButton);
+        reserveButton.setVisibility(bookable ? View.VISIBLE : View.GONE);
+        if (bookable) {
+            reserveButton.setOnClickListener(v -> handleReserveTap());
+        }
     }
 
-    /** Not logged in: BOOK opens Login and remembers room selection. Logged in: BOOK jumps straight into the real booking flow. */
-    private void handleBookTap(Section origin, String roomTypeName, String categoryName,
-                              int capacity, String description, String pricePerNight, int variantId, String imagePath) {
+    /**
+     * RESERVE hands off to the existing Reserve tab wizard (see ReservationFlowController) —
+     * same "not logged in: open Login first" gate as BOOK, but generic rather than scoped to the
+     * tapped card, matching how Cottage/KTV detail screens already hand off to this same tab
+     * elsewhere in the app (see BookingCatalogController's onBookNow callback) instead of
+     * duplicating that flow here.
+     */
+    private void handleReserveTap() {
         if (!loggedIn) {
-            int type = origin == Section.COTTAGES ? PendingRoomSelection.TYPE_COTTAGE
-                    : origin == Section.KTV ? PendingRoomSelection.TYPE_KTV
-                    : PendingRoomSelection.TYPE_ROOM;
-            PendingRoomSelection.set(imagePath, roomTypeName, categoryName,
-                    capacity, description, pricePerNight, variantId, type);
             openLogin();
             return;
         }
-        if (origin == Section.ROOMS) {
-            bookingCatalog.showHotelFlow();
+        showModule(Section.RESERVE);
+    }
+
+    /**
+     * Not logged in: BOOK remembers the room selection and opens Login; once logged in,
+     * {@link #onCreate} restores it via {@link #showRoomOverview}. Logged in: BOOK goes straight
+     * to that same Room/Cottage/KTV Overview screen, so the flow is identical either way.
+     */
+    private void handleBookTap(Section origin, String roomTypeName, String categoryName,
+                              int capacity, String description, String pricePerNight, int variantId, String imagePath) {
+        int type = origin == Section.COTTAGES ? PendingRoomSelection.TYPE_COTTAGE
+                : origin == Section.KTV ? PendingRoomSelection.TYPE_KTV
+                : PendingRoomSelection.TYPE_ROOM;
+        PendingRoomSelection.set(imagePath, roomTypeName, categoryName,
+                capacity, description, pricePerNight, variantId, type);
+        if (!loggedIn) {
+            openLogin();
+            return;
         }
-        showModule(Section.BOOK);
+        showRoomOverview(PendingRoomSelection.take());
     }
 
     /** Loads a photo from the backend, falling back to a placeholder icon. */
@@ -795,6 +1017,7 @@ public class LandingActivity extends Activity {
         leavingChat();
         currentSection = Section.ROOM_OVERVIEW;
         retintBottomNav();
+        updateSwipeChrome();
 
         int headerTitleRes;
         if (room.type == PendingRoomSelection.TYPE_COTTAGE) {
@@ -833,12 +1056,13 @@ public class LandingActivity extends Activity {
         // (see BookingCatalogController#showHotelFlowFromRoomOverview /
         // #showHotelFlowFromCottageOverview / #showHotelFlowFromKtvOverview).
         v.findViewById(R.id.roomOverviewBookNowButton).setOnClickListener(view -> {
+            Runnable backToThisOverview = () -> showRoomOverview(room);
             if (room.type == PendingRoomSelection.TYPE_ROOM) {
-                bookingCatalog.showHotelFlowFromRoomOverview(room.variantId);
+                bookingCatalog.showHotelFlowFromRoomOverview(room.variantId, backToThisOverview);
             } else if (room.type == PendingRoomSelection.TYPE_COTTAGE) {
-                bookingCatalog.showHotelFlowFromCottageOverview(room.variantId);
+                bookingCatalog.showHotelFlowFromCottageOverview(room.variantId, backToThisOverview);
             } else if (room.type == PendingRoomSelection.TYPE_KTV) {
-                bookingCatalog.showHotelFlowFromKtvOverview(room.variantId);
+                bookingCatalog.showHotelFlowFromKtvOverview(room.variantId, backToThisOverview);
             }
             showModule(Section.BOOK);
         });

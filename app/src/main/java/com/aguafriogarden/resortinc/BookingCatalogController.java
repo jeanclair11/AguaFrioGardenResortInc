@@ -154,12 +154,12 @@ final class BookingCatalogController {
      * tab's own tabbed Rooms/Cottage/KTV dates+search screen. Used only by LandingActivity's Room
      * Overview "Book Now" for a Hotel Room selection.
      */
-    void showHotelFlowFromRoomOverview(int variantId) {
+    void showHotelFlowFromRoomOverview(int variantId, Runnable onBackToOverview) {
         currentScreen = SCREEN_HOTEL_FLOW;
         if (hotelBookingFlow == null) {
             hotelBookingFlow = new HotelBookingFlowController(activity, onBookNow, onBackToHome);
         }
-        hotelBookingFlow.showRoomDatesEntry(variantId);
+        hotelBookingFlow.showRoomDatesEntry(variantId, onBackToOverview);
         root.removeAllViews();
         root.addView(hotelBookingFlow.getRootView());
     }
@@ -170,12 +170,12 @@ final class BookingCatalogController {
      * tab's own tabbed Rooms/Cottage/KTV dates+search screen. Used only by LandingActivity's Room
      * Overview "Book Now" for a Cottage selection.
      */
-    void showHotelFlowFromCottageOverview(int variantId) {
+    void showHotelFlowFromCottageOverview(int variantId, Runnable onBackToOverview) {
         currentScreen = SCREEN_HOTEL_FLOW;
         if (hotelBookingFlow == null) {
             hotelBookingFlow = new HotelBookingFlowController(activity, onBookNow, onBackToHome);
         }
-        hotelBookingFlow.showCottageDatesEntry(variantId);
+        hotelBookingFlow.showCottageDatesEntry(variantId, onBackToOverview);
         root.removeAllViews();
         root.addView(hotelBookingFlow.getRootView());
     }
@@ -186,12 +186,12 @@ final class BookingCatalogController {
      * own tabbed Rooms/Cottage/KTV dates+search screen. Used only by LandingActivity's Room
      * Overview "Book Now" for a KTV selection.
      */
-    void showHotelFlowFromKtvOverview(int variantId) {
+    void showHotelFlowFromKtvOverview(int variantId, Runnable onBackToOverview) {
         currentScreen = SCREEN_HOTEL_FLOW;
         if (hotelBookingFlow == null) {
             hotelBookingFlow = new HotelBookingFlowController(activity, onBookNow, onBackToHome);
         }
-        hotelBookingFlow.showKtvDatesEntry(variantId);
+        hotelBookingFlow.showKtvDatesEntry(variantId, onBackToOverview);
         root.removeAllViews();
         root.addView(hotelBookingFlow.getRootView());
     }

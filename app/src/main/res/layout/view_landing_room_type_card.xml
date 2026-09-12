@@ -85,6 +85,23 @@
             android:textStyle="bold" />
 
         <Button
+            android:id="@+id/roomTypeCardReserveButton"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginStart="10dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:background="@drawable/bg_button_outline_accent"
+            android:text="@string/landing_button_reserve"
+            android:textColor="?attr/accentPrimary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.04"
+            android:stateListAnimator="@null" />
+
+        <Button
             android:id="@+id/roomTypeCardBookButton"
             android:layout_width="wrap_content"
             android:layout_height="36dp"

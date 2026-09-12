@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ClaudeCodeEditorTabs">
-    <option name="activeSessionId" value="47dc8b9a-3982-4d22-a295-dfb1dc9d72d6" />
+    <option name="activeSessionId" value="bd916526-c354-4f9d-a3f2-dec591bd4f02" />
     <option name="openSessionIds">
       <list>
         <option value="7e5d4578-a487-4a13-b032-e0688eaa0495" />
@@ -23,6 +23,7 @@
         <option value="2b00fd2c-5747-4374-84c2-2ab2b6503f3f" />
         <option value="2049bb08-0ea4-44e2-8066-5fa06855731e" />
         <option value="47dc8b9a-3982-4d22-a295-dfb1dc9d72d6" />
+        <option value="bd916526-c354-4f9d-a3f2-dec591bd4f02" />
       </list>
     </option>
     <option name="sessionPaths">
@@ -44,6 +45,7 @@
         <entry key="9f8f8018-de9e-4acc-ae04-cea23775c85e" value="/sessions/new" />
         <entry key="a955a0a8-405c-49ba-b2d7-3e7a74fda7ac" value="/sessions/7b94cb5a-3fad-4e60-9e1d-e3c7bb4fe7ab" />
         <entry key="ab1550fb-dfbc-499f-b401-01ca62e7ed66" value="/sessions/4fca51c6-cc69-44bb-aaaa-b1f17e0fa05a" />
+        <entry key="bd916526-c354-4f9d-a3f2-dec591bd4f02" value="/sessions/74338647-e389-4d6c-b02e-03692f068992" />
         <entry key="c1773fd0-b386-4cae-b875-2307a3dbcb43" value="/sessions/0bf80598-e05f-428a-b44a-0c7bad740b5b" />
         <entry key="e1a888ed-eeb7-4d2f-8095-01c782770003" value="/sessions/b8337342-cc87-40fe-8c51-a9005e8993bb" />
       </map>
@@ -67,6 +69,7 @@
         <entry key="9f8f8018-de9e-4acc-ae04-cea23775c85e" value="Claude Code" />
         <entry key="a955a0a8-405c-49ba-b2d7-3e7a74fda7ac" value="I want to connect the Chat Module of the Guest Mob" />
         <entry key="ab1550fb-dfbc-499f-b401-01ca62e7ed66" value="Create a **landing page for Agua Frio Garden Resor" />
+        <entry key="bd916526-c354-4f9d-a3f2-dec591bd4f02" value="for the hotel rooms, &quot;Billing Summary&quot; The guest i" />
         <entry key="c1773fd0-b386-4cae-b875-2307a3dbcb43" value="Update the current booking UI mockup for “Cottages" />
         <entry key="e1a888ed-eeb7-4d2f-8095-01c782770003" value="can you check up on our website in the receptionis" />
       </map>

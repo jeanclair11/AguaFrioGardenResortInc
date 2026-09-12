@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.MediaStore;
+import android.text.InputFilter;
 import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -55,6 +56,23 @@ final class ProfileController {
     private static final String PASSWORD_COMPLEXITY_REGEX =
             "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!])(?=\\S+$).{8,}$";
 
+    private static final int PHONE_NUMBER_LENGTH = 11;
+
+    /** Strips out anything that isn't a digit (Personal Information's Phone Number field). */
+    private static final InputFilter DIGITS_ONLY_FILTER = (source, start, end, dest, dstart, dend) -> {
+        StringBuilder kept = new StringBuilder();
+        boolean rejectedAny = false;
+        for (int i = start; i < end; i++) {
+            char c = source.charAt(i);
+            if (Character.isDigit(c)) {
+                kept.append(c);
+            } else {
+                rejectedAny = true;
+            }
+        }
+        return rejectedAny ? kept.toString() : null;
+    };
+
     private interface DateCallback {
         void onDatePicked(String date);
     }
@@ -62,6 +80,7 @@ final class ProfileController {
     private final Activity activity;
     private final Runnable onBackToHome;
     private final Runnable onLogout;
+    private final Runnable onAvatarChanged;
     private final FrameLayout root;
 
     private View currentScreenView;
@@ -71,10 +90,12 @@ final class ProfileController {
     private Bitmap idFrontBitmap;
     private Bitmap idBackBitmap;
 
-    ProfileController(Activity activity, Runnable onBackToHome, Runnable onLogout) {
+    ProfileController(Activity activity, Runnable onBackToHome, Runnable onLogout,
+            Runnable onAvatarChanged) {
         this.activity = activity;
         this.onBackToHome = onBackToHome;
         this.onLogout = onLogout;
+        this.onAvatarChanged = onAvatarChanged;
         root = new FrameLayout(activity);
         showScreen(SCREEN_MAIN);
     }
@@ -114,6 +135,7 @@ final class ProfileController {
         if (requestCode == REQUEST_AVATAR) {
             ProfileStore.saveAvatarUri(activity, uri);
             showAvatarPreview();
+            onAvatarChanged.run();
             return;
         }
         if (requestCode != REQUEST_ID_FRONT && requestCode != REQUEST_ID_BACK) {
@@ -362,6 +384,10 @@ final class ProfileController {
             v.findViewById(R.id.piBirthDateError).setVisibility(View.GONE);
         }));
 
+        EditText phoneNumber = v.findViewById(R.id.piPhoneNumberField);
+        phoneNumber.setFilters(new InputFilter[]{DIGITS_ONLY_FILTER, new InputFilter.LengthFilter(PHONE_NUMBER_LENGTH)});
+        phoneNumber.setText(ProfileStore.getContactNumber(activity));
+
         v.findViewById(R.id.piCancelButton).setOnClickListener(view -> showScreen(SCREEN_MAIN));
         v.findViewById(R.id.piChangeButton).setOnClickListener(view -> {
             if (validatePersonalInfo(v)) {
@@ -378,6 +404,7 @@ final class ProfileController {
         String middleName = fieldText(v, R.id.piMiddleNameField);
         String lastName = fieldText(v, R.id.piLastNameField);
         String birthDate = fieldText(v, R.id.piBirthDateField);
+        String phoneNumber = fieldText(v, R.id.piPhoneNumberField);
         String province = fieldText(v, R.id.piProvinceField);
         String city = fieldText(v, R.id.piCityField);
         String barangay = fieldText(v, R.id.piBarangayField);
@@ -392,6 +419,8 @@ final class ProfileController {
         valid &= checkField(v, R.id.piLastNameError,
                 lastName.matches("[a-zA-Z ]+"), R.string.error_name_invalid);
         valid &= checkField(v, R.id.piGenderError, genderPos > 0, R.string.error_gender_required);
+        valid &= checkField(v, R.id.piPhoneNumberError,
+                phoneNumber.matches("09\\d{9}"), R.string.error_phone_invalid);
 
         if (birthDate.isEmpty()) {
             valid &= checkField(v, R.id.piBirthDateError, false, R.string.error_birth_date_required);
@@ -421,6 +450,7 @@ final class ProfileController {
                 fieldText(v, R.id.piLastNameField),
                 genderPos,
                 fieldText(v, R.id.piBirthDateField),
+                fieldText(v, R.id.piPhoneNumberField),
                 fieldText(v, R.id.piProvinceField),
                 fieldText(v, R.id.piCityField),
                 fieldText(v, R.id.piBarangayField),

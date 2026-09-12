@@ -149,7 +149,7 @@
                     android:id="@+id/paymentReferenceField"
                     style="@style/InputEditText"
                     android:hint="@string/hint_reference_number"
-                    android:inputType="text" />
+                    android:inputType="number" />
             </LinearLayout>
 
             <TextView

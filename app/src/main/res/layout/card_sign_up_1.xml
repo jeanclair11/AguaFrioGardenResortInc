@@ -147,6 +147,25 @@
         </LinearLayout>
     </LinearLayout>
 
+    <!-- Phone Number -->
+    <TextView
+        style="@style/FieldLabel"
+        android:layout_marginTop="16dp"
+        android:text="@string/label_phone" />
+
+    <LinearLayout style="@style/InputField">
+
+        <EditText
+            android:id="@+id/phoneNumberField"
+            style="@style/InputEditText"
+            android:hint="@string/hint_phone"
+            android:inputType="phone" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/phoneNumberError"
+        style="@style/FieldError" />
+
     <!-- Home Address -->
     <TextView
         style="@style/FieldLabel"

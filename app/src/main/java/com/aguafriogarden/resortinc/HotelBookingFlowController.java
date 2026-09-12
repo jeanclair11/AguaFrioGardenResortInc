@@ -12,6 +12,7 @@ import android.graphics.Bitmap;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.provider.MediaStore;
+import android.text.InputFilter;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -106,6 +107,41 @@ final class HotelBookingFlowController {
     private static final long ONE_DAY_MS = 24L * 60 * 60 * 1000;
     private static final double PARTIAL_PAYMENT_RATE = 0.30;
     private static final int REQUEST_PAYMENT_SCREENSHOT = 4101;
+    private static final int REFERENCE_NUMBER_LENGTH = 13;
+
+    /** Strips out anything that isn't a digit (Payment screen's Reference Number field). */
+    private static final InputFilter DIGITS_ONLY_FILTER = (source, start, end, dest, dstart, dend) -> {
+        StringBuilder kept = new StringBuilder();
+        boolean rejectedAny = false;
+        for (int i = start; i < end; i++) {
+            char c = source.charAt(i);
+            if (Character.isDigit(c)) {
+                kept.append(c);
+            } else {
+                rejectedAny = true;
+            }
+        }
+        return rejectedAny ? kept.toString() : null;
+    };
+
+    /** Digits plus a single decimal point (Payment screen's Amount Paid field). */
+    private static final InputFilter AMOUNT_INPUT_FILTER = (source, start, end, dest, dstart, dend) -> {
+        boolean alreadyHasDot = dest.toString().contains(".");
+        StringBuilder kept = new StringBuilder();
+        boolean rejectedAny = false;
+        for (int i = start; i < end; i++) {
+            char c = source.charAt(i);
+            if (Character.isDigit(c)) {
+                kept.append(c);
+            } else if (c == '.' && !alreadyHasDot) {
+                kept.append(c);
+                alreadyHasDot = true;
+            } else {
+                rejectedAny = true;
+            }
+        }
+        return rejectedAny ? kept.toString() : null;
+    };
 
     // Tabs: Hotel Rooms / Cottage / KTV each get their own field group and card style below
     // (see #updateCategoryTabs / #renderAvailabilityResults).
@@ -134,6 +170,12 @@ final class HotelBookingFlowController {
     // Book tab's own tabbed entry never sets this). Reset each time a dates-entry screen is
     // (re)entered via showRoomDatesEntry/showCottageDatesEntry/showKtvDatesEntry.
     private int selectionOriginVariantId = -1;
+    // Non-null only when this flow was entered via a Room/Cottage/KTV Overview screen's "Book
+    // Now" — set by showRoomDatesEntry/showCottageDatesEntry/showKtvDatesEntry, cleared by
+    // showHotelFlow() and resetFlow(). Lets the dates-entry screen's back arrow (and system back,
+    // see handleBackPressed) return to that Overview screen instead of falling all the way back
+    // to Home, which is only correct when Dates truly is the Book tab's own root screen.
+    private Runnable onBackToOverview;
     // Whether "other available" alternatives are shown below the originally-chosen item — always
     // true once that item turns out unavailable, otherwise only after "Add Another Room" is tapped.
     private boolean selectionShowOthers = false;
@@ -215,12 +257,13 @@ final class HotelBookingFlowController {
      * to 1 adult if the shared guest fields are still untouched, matching that screen's own
      * Cottage/KTV tabs' default.
      */
-    void showRoomDatesEntry(int variantId) {
+    void showRoomDatesEntry(int variantId, Runnable onBackToOverview) {
         if (adults == 0 && children == 0) {
             adults = 1;
         }
         selectionOriginVariantId = variantId;
         selectionShowOthers = false;
+        this.onBackToOverview = onBackToOverview;
         showScreen(SCREEN_ROOM_DATES);
     }
 
@@ -229,9 +272,10 @@ final class HotelBookingFlowController {
      * BookingCatalogController#showHotelFlowFromCottageOverview) — lands on the focused Choose
      * Your Visit Date gate screen instead of the Book tab's own tabbed dates+search screen.
      */
-    void showCottageDatesEntry(int variantId) {
+    void showCottageDatesEntry(int variantId, Runnable onBackToOverview) {
         selectionOriginVariantId = variantId;
         selectionShowOthers = false;
+        this.onBackToOverview = onBackToOverview;
         showScreen(SCREEN_COTTAGE_DATES);
     }
 
@@ -240,22 +284,27 @@ final class HotelBookingFlowController {
      * BookingCatalogController#showHotelFlowFromKtvOverview) — lands on the focused Plan Your
      * KTV Session gate screen instead of the Book tab's own tabbed dates+search screen.
      */
-    void showKtvDatesEntry(int variantId) {
+    void showKtvDatesEntry(int variantId, Runnable onBackToOverview) {
         selectionOriginVariantId = variantId;
         selectionShowOthers = false;
+        this.onBackToOverview = onBackToOverview;
         showScreen(SCREEN_KTV_DATES);
     }
 
-    /** Steps back one screen at a time; Dates is the Book tab's root screen
-     *  (nothing to step back to), so it's left unhandled like every other
-     *  tab root; Success exits the flow back to Home. */
+    /** Steps back one screen at a time; SCREEN_DATES is the Book tab's own root screen (nothing
+     *  to step back to), so it's left unhandled like every other tab root. The Room/Cottage/KTV
+     *  Dates entry screens are only reached via a Room/Cottage/KTV Overview's "Book Now" (see
+     *  showRoomDatesEntry etc.), so they step back to that Overview screen instead; Success exits
+     *  the flow back to Home. */
     boolean handleBackPressed() {
         switch (currentScreen) {
             case SCREEN_DATES:
+                return false;
             case SCREEN_ROOM_DATES:
             case SCREEN_COTTAGE_DATES:
             case SCREEN_KTV_DATES:
-                return false;
+                onBackToOverview.run();
+                return true;
             case SCREEN_ROOM_SELECTION:
                 showScreen(SCREEN_ROOM_DATES);
                 return true;
@@ -432,7 +481,7 @@ final class HotelBookingFlowController {
      * its room-selection/results logic rather than duplicating it here.
      */
     private void bindRoomDates(View v) {
-        bindHeader(v, R.id.roomDatesHeaderBar, R.string.room_dates_title, onBackToHome);
+        bindHeader(v, R.id.roomDatesHeaderBar, R.string.room_dates_title, onBackToOverview);
 
         TextView checkInDateText = v.findViewById(R.id.roomDatesCheckInDateText);
         TextView checkInDayText = v.findViewById(R.id.roomDatesCheckInDayText);
@@ -591,7 +640,7 @@ final class HotelBookingFlowController {
      * catalog below — reusing its browse/select logic rather than duplicating it here.
      */
     private void bindCottageDatesEntry(View v) {
-        bindHeader(v, R.id.cottageDatesHeaderBar, R.string.cottage_dates_title, onBackToHome);
+        bindHeader(v, R.id.cottageDatesHeaderBar, R.string.cottage_dates_title, onBackToOverview);
 
         View dateField = v.findViewById(R.id.cottageDatesDateField);
         TextView dateText = v.findViewById(R.id.cottageDatesDateText);
@@ -756,7 +805,7 @@ final class HotelBookingFlowController {
      * browse/select logic rather than duplicating it here.
      */
     private void bindKtvDatesEntry(View v) {
-        bindHeader(v, R.id.ktvDatesHeaderBar, R.string.ktv_dates_title, onBackToHome);
+        bindHeader(v, R.id.ktvDatesHeaderBar, R.string.ktv_dates_title, onBackToOverview);
 
         View dateField = v.findViewById(R.id.ktvDatesDateField);
         TextView dateText = v.findViewById(R.id.ktvDatesDateText);
@@ -2607,7 +2656,11 @@ final class HotelBookingFlowController {
     // ---- Screen 2: Review Your Selection -----------------------------------
 
     private void bindReview(View v) {
-        bindHeader(v, R.id.hotelReviewHeaderBar, R.string.hotel_review_title, () -> showScreen(SCREEN_DATES));
+        // Mirrors handleBackPressed()'s SCREEN_REVIEW case: if this flow started at Room
+        // Overview (selectionOriginVariantId set), back returns to Your Selected Room/s instead
+        // of the Book tab's generic "Book Your Experience" screen.
+        bindHeader(v, R.id.hotelReviewHeaderBar, R.string.hotel_review_title,
+                () -> showScreen(selectionOriginVariantId >= 0 ? SCREEN_ROOM_SELECTION : SCREEN_DATES));
 
         bindRow(v.findViewById(R.id.reviewRowCheckIn), R.string.label_stay_check_in, formatDate(checkInMillis));
         bindRow(v.findViewById(R.id.reviewRowCheckOut), R.string.label_stay_check_out, formatDate(checkOutMillis));
@@ -2879,10 +2932,10 @@ final class HotelBookingFlowController {
     private void bindBilling(View v) {
         bindHeader(v, R.id.hotelBillingHeaderBar, R.string.hotel_billing_title, () -> showScreen(SCREEN_FOOD));
 
-        bindRow(v.findViewById(R.id.billingRowFullName), R.string.label_full_name, "Adrianne N. Romero");
-        bindRow(v.findViewById(R.id.billingRowEmail), R.string.label_email_address, "adrianneromero2005@gmail.com");
-        bindRow(v.findViewById(R.id.billingRowMobile), R.string.label_mobile_number, "0912345678");
-        bindRow(v.findViewById(R.id.billingRowAddress), R.string.label_address, "Koronadal City, South Cotabato");
+        bindRow(v.findViewById(R.id.billingRowFullName), R.string.label_full_name, ProfileStore.getFullName(activity));
+        bindRow(v.findViewById(R.id.billingRowEmail), R.string.label_email_address, ProfileStore.getEmail(activity));
+        bindRow(v.findViewById(R.id.billingRowMobile), R.string.label_mobile_number, ProfileStore.getContactNumber(activity));
+        bindRow(v.findViewById(R.id.billingRowAddress), R.string.label_address, ProfileStore.getAddress(activity));
 
         int nights = nights();
         bindRow(v.findViewById(R.id.billingRowCheckIn), R.string.label_stay_check_in, formatDate(checkInMillis));
@@ -3023,9 +3076,28 @@ final class HotelBookingFlowController {
 
         EditText amountPaidField = v.findViewById(R.id.paymentAmountPaidField);
         EditText referenceField = v.findViewById(R.id.paymentReferenceField);
+        amountPaidField.setFilters(new InputFilter[]{AMOUNT_INPUT_FILTER});
+        referenceField.setFilters(new InputFilter[]{DIGITS_ONLY_FILTER, new InputFilter.LengthFilter(REFERENCE_NUMBER_LENGTH)});
         amountPaidField.setText(amountPaidText);
         referenceField.setText(referenceNumberText);
         AuthUiUtils.afterTextChanged(amountPaidField, () -> amountPaidText = amountPaidField.getText().toString());
+        amountPaidField.setOnFocusChangeListener((view, hasFocus) -> {
+            if (hasFocus) {
+                return;
+            }
+            String typed = amountPaidField.getText().toString().trim();
+            if (typed.isEmpty()) {
+                return;
+            }
+            try {
+                String formatted = String.format(Locale.US, "%.2f", Double.parseDouble(typed));
+                amountPaidField.setText(formatted);
+                amountPaidText = formatted;
+            } catch (NumberFormatException ignored) {
+                // Leave whatever the guest typed as-is; the Complete Payment button's own
+                // required-field check catches an empty result, nothing further to validate here.
+            }
+        });
         AuthUiUtils.afterTextChanged(referenceField, () -> referenceNumberText = referenceField.getText().toString());
 
         v.findViewById(R.id.paymentScreenshotDropzone).setOnClickListener(view -> {
@@ -3043,6 +3115,10 @@ final class HotelBookingFlowController {
             }
             if (referenceNumberText.trim().isEmpty()) {
                 Toast.makeText(activity, R.string.toast_reference_number_required, Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (referenceNumberText.trim().length() != REFERENCE_NUMBER_LENGTH) {
+                Toast.makeText(activity, R.string.toast_reference_number_invalid_length, Toast.LENGTH_LONG).show();
                 return;
             }
             if (screenshotUri == null) {
@@ -3431,6 +3507,7 @@ final class HotelBookingFlowController {
         selectedTab = TAB_HOTEL_ROOMS;
         selectionOriginVariantId = -1;
         selectionShowOthers = false;
+        onBackToOverview = null;
         cottageRateType = "";
         cottageDateMillis = -1;
         cottageTimeHour = -1;

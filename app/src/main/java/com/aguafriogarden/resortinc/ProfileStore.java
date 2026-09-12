@@ -27,6 +27,8 @@ final class ProfileStore {
     private static final String KEY_PROVINCE = "province";
     private static final String KEY_CITY = "city";
     private static final String KEY_BARANGAY = "barangay";
+    private static final String KEY_ADDRESS = "address";
+    private static final String KEY_CONTACT_NUMBER = "contact_number";
     private static final String KEY_USERNAME = "username";
     private static final String KEY_EMAIL = "email";
     private static final String KEY_PASSWORD = "password";
@@ -121,6 +123,21 @@ final class ProfileStore {
         return prefs(context).getString(KEY_BARANGAY, "");
     }
 
+    /**
+     * The single free-text address string the server stores (built from Barangay/City/Province
+     * at sign-up — see MainActivity#buildAddress). Kept separate from getProvince/getCity/
+     * getBarangay above since those are this device's own split-out sign-up fields and can't be
+     * losslessly reconstructed from this string once it round-trips through the server.
+     */
+    static String getAddress(Context context) {
+        return prefs(context).getString(KEY_ADDRESS, "");
+    }
+
+    /** The mobile number collected at sign-up (see MainActivity's Phone Number field). */
+    static String getContactNumber(Context context) {
+        return prefs(context).getString(KEY_CONTACT_NUMBER, "");
+    }
+
     static String getUsername(Context context) {
         return prefs(context).getString(KEY_USERNAME, "");
     }
@@ -168,14 +185,15 @@ final class ProfileStore {
 
     /** Called after Personal Information is edited and confirmed. */
     static void savePersonalInfo(Context context, String firstName, String middleName,
-            String lastName, int genderPos, String birthDate, String province, String city,
-            String barangay, String username, String email) {
+            String lastName, int genderPos, String birthDate, String phoneNumber, String province,
+            String city, String barangay, String username, String email) {
         prefs(context).edit()
                 .putString(KEY_FIRST_NAME, firstName)
                 .putString(KEY_MIDDLE_NAME, middleName)
                 .putString(KEY_LAST_NAME, lastName)
                 .putInt(KEY_GENDER_POS, genderPos)
                 .putString(KEY_BIRTH_DATE, birthDate)
+                .putString(KEY_CONTACT_NUMBER, phoneNumber)
                 .putString(KEY_PROVINCE, province)
                 .putString(KEY_CITY, city)
                 .putString(KEY_BARANGAY, barangay)
@@ -186,10 +204,11 @@ final class ProfileStore {
 
     /** Called once a new account finishes the sign-up wizard. */
     static void saveSignUpProfile(Context context, String firstName, String middleName,
-            String lastName, int genderPos, String birthDate, String province, String city,
-            String barangay, String username, String email, String password, int idTypePos) {
+            String lastName, int genderPos, String birthDate, String phoneNumber, String province,
+            String city, String barangay, String username, String email, String password,
+            int idTypePos) {
         savePersonalInfo(context, firstName, middleName, lastName, genderPos, birthDate,
-                province, city, barangay, username, email);
+                phoneNumber, province, city, barangay, username, email);
         prefs(context).edit()
                 .putString(KEY_PASSWORD, password)
                 .putInt(KEY_ID_TYPE_POS, idTypePos)
@@ -214,14 +233,14 @@ final class ProfileStore {
 
     /**
      * Called after a successful login against the live backend, to sync real
-     * profile fields for display. Only fields that map cleanly onto this
-     * store's existing shape are synced (gender/address are stored here as a
-     * spinner position and province/city/barangay respectively, which the
-     * server's plain gender/address strings can't be losslessly split back
-     * into, so those stay whatever the device already had).
+     * profile fields for display. Gender is stored here as a spinner position, which the
+     * server's plain gender string can't be losslessly mapped back into, so it stays whatever
+     * the device already had. Address is synced as-is into its own getAddress() field (see
+     * there) rather than split back into province/city/barangay.
      */
     static void saveServerProfile(Context context, String firstName, String middleName,
-            String lastName, String birthDate, String username, String email) {
+            String lastName, String birthDate, String username, String email, String address,
+            String contactNumber) {
         prefs(context).edit()
                 .putString(KEY_FIRST_NAME, firstName)
                 .putString(KEY_MIDDLE_NAME, middleName)
@@ -229,6 +248,8 @@ final class ProfileStore {
                 .putString(KEY_BIRTH_DATE, birthDate)
                 .putString(KEY_USERNAME, username)
                 .putString(KEY_EMAIL, email)
+                .putString(KEY_ADDRESS, address)
+                .putString(KEY_CONTACT_NUMBER, contactNumber)
                 .apply();
     }
 

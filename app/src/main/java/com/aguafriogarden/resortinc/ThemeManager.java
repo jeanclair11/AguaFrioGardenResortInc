@@ -52,6 +52,23 @@ final class ThemeManager {
                 ? R.style.Theme_AguaFrio_Light : R.style.Theme_AguaFrio_Dark);
     }
 
+    /**
+     * Call from onResume, passing back whatever mode(activity) returned when this instance was
+     * created: recreates the activity if the persisted theme has since changed — e.g. toggled
+     * from a different Activity in the back stack (this app's Activity/setTheme() approach, with
+     * no AppCompatDelegate, otherwise only updates whichever single Activity did the toggling;
+     * every other already-running Activity keeps showing the old theme until force-closed and
+     * reopened). Returns true if a recreate was triggered, so the caller can skip the rest of its
+     * own onResume work — it's about to be torn down anyway.
+     */
+    static boolean recreateIfThemeChanged(Activity activity, int themeModeAtCreate) {
+        if (mode(activity) != themeModeAtCreate) {
+            activity.recreate();
+            return true;
+        }
+        return false;
+    }
+
     /** Resolves one of the theme's semantic color attributes (R.attr.*). */
     static int color(Activity activity, int attr) {
         TypedValue value = new TypedValue();
@@ -114,8 +131,15 @@ final class ThemeManager {
         pendingSnapshot = snapshot;
     }
 
-    /** Dissolves the previous theme's screenshot into the rebuilt screen. */
-    private static void playPendingFade(Activity activity) {
+    /**
+     * Dissolves the previous theme's screenshot into the rebuilt screen. Call after
+     * setContentView from every Activity that can be recreated by setMode() — bindToggle() does
+     * this for MainActivity's own toggle button; an Activity recreated by a theme switch
+     * triggered elsewhere (e.g. LandingActivity, via Profile's dark mode switch) needs to call
+     * this directly instead, or the captured snapshot is never shown and leaks until some later,
+     * unrelated bindToggle() call plays a stale screenshot over the wrong screen.
+     */
+    static void playPendingFade(Activity activity) {
         Bitmap snapshot = pendingSnapshot;
         if (snapshot == null) {
             return;

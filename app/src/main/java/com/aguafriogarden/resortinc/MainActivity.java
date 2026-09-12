@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.MediaStore;
+import android.text.InputFilter;
 import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -79,6 +80,22 @@ public class MainActivity extends Activity {
     private static final float CONTENT_SHIFT_DP = 8f;
 
     private static final int MIN_PASSWORD_LENGTH = 8;
+    private static final int PHONE_NUMBER_LENGTH = 11;
+
+    /** Strips out anything that isn't a digit (sign-up step 1's Phone Number field). */
+    private static final InputFilter DIGITS_ONLY_FILTER = (source, start, end, dest, dstart, dend) -> {
+        StringBuilder kept = new StringBuilder();
+        boolean rejectedAny = false;
+        for (int i = start; i < end; i++) {
+            char c = source.charAt(i);
+            if (Character.isDigit(c)) {
+                kept.append(c);
+            } else {
+                rejectedAny = true;
+            }
+        }
+        return rejectedAny ? kept.toString() : null;
+    };
 
     private static final int PICK_IMAGE_PROFILE = 1001;
     private static final int PICK_IMAGE_GOV_ID = 1002;
@@ -93,6 +110,7 @@ public class MainActivity extends Activity {
     private ValueAnimator cardHeightAnimator;
     private int currentScreen = -1;
     private boolean loginInProgress;
+    private int activeThemeMode;
 
     /**
      * Everything entered across the three sign-up steps, kept while the user
@@ -105,6 +123,7 @@ public class MainActivity extends Activity {
         String lastName = "";
         int genderPos;
         String birthDate = "";
+        String phoneNumber = "";
         String province = "";
         String city = "";
         String barangay = "";
@@ -141,6 +160,7 @@ public class MainActivity extends Activity {
             return;
         }
         ThemeManager.apply(this);
+        activeThemeMode = ThemeManager.mode(this);
         setContentView(R.layout.activity_main);
 
         // Keep the header fixed; anchor the card to overlap its bottom by 30dp
@@ -163,6 +183,12 @@ public class MainActivity extends Activity {
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putInt(STATE_SCREEN, currentScreen);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        ThemeManager.recreateIfThemeChanged(this, activeThemeMode);
     }
 
     @Override
@@ -693,6 +719,10 @@ public class MainActivity extends Activity {
         birthDate.setText(s.birthDate);
         birthDate.setOnClickListener(v -> showDatePicker(birthDate));
 
+        EditText phoneNumber = card.findViewById(R.id.phoneNumberField);
+        phoneNumber.setFilters(new InputFilter[]{DIGITS_ONLY_FILTER, new InputFilter.LengthFilter(PHONE_NUMBER_LENGTH)});
+        phoneNumber.setText(s.phoneNumber);
+
         setUpAddressSpinners(card);
 
         card.findViewById(R.id.signUp1BackButton).setOnClickListener(v -> {
@@ -718,6 +748,7 @@ public class MainActivity extends Activity {
         s.lastName = fieldText(card, R.id.lastNameField);
         s.genderPos = ((Spinner) card.findViewById(R.id.genderSpinner)).getSelectedItemPosition();
         s.birthDate = fieldText(card, R.id.birthDateField);
+        s.phoneNumber = fieldText(card, R.id.phoneNumberField);
         // s.province/city/barangay are kept current live by the address spinner
         // listeners (setUpAddressSpinners), so there's nothing to read here.
     }
@@ -735,6 +766,8 @@ public class MainActivity extends Activity {
                 s.lastName.matches("[a-zA-Z ]+"), R.string.error_name_invalid);
         valid &= checkField(card, R.id.genderError,
                 s.genderPos > 0, R.string.error_gender_required);
+        valid &= checkField(card, R.id.phoneNumberError,
+                s.phoneNumber.matches("09\\d{9}"), R.string.error_phone_invalid);
 
         if (s.birthDate.isEmpty()) {
             valid &= checkField(card, R.id.birthDateError, false, R.string.error_birth_date_required);
@@ -888,7 +921,7 @@ public class MainActivity extends Activity {
                 textPart(s.lastName),
                 optionalTextPart(genderApiValue(s.genderPos)),
                 optionalTextPart(s.birthDate),
-                null,
+                textPart(s.phoneNumber),
                 optionalTextPart(buildAddress(s)),
                 toMultipart("profile_image", "profile.jpg", profileImagePart),
                 toMultipart("validID", "valid_id.jpg", validIdPart)

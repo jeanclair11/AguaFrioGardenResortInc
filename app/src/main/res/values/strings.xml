@@ -31,6 +31,7 @@
     </plurals>
 
     <string name="landing_button_book">BOOK</string>
+    <string name="landing_button_reserve">RESERVE</string>
     <string name="landing_cottages_section_title">EXPLORE OUR COTTAGES</string>
     <string name="landing_ktv_section_title">EXPLORE OUR KTV ROOMS</string>
     <string name="landing_halls_section_title">EXPLORE OUR FUNCTION HALLS</string>
@@ -665,7 +666,7 @@
     <string name="dialog_no_food_message">You haven\'t added any food to your order. Add an item or tap Skip to continue without ordering food.</string>
     <string name="toast_food_load_failed">We couldn\'t load the food menu right now. Please try again.</string>
 
-    <string name="hotel_billing_title">Billing Summary</string>
+    <string name="hotel_billing_title">Summary</string>
     <string name="hotel_billing_subtitle">Please review your details before proceeding.</string>
     <string name="section_guest_information">GUEST INFORMATION</string>
     <string name="section_accommodation">ACCOMMODATION</string>
@@ -715,6 +716,7 @@
     <string name="button_complete_booking">Complete Booking</string>
     <string name="toast_amount_paid_required">Please enter the amount you paid.</string>
     <string name="toast_reference_number_required">Please enter the GCash reference number.</string>
+    <string name="toast_reference_number_invalid_length">GCash reference number must be exactly 13 digits.</string>
     <string name="toast_screenshot_required">Please upload a screenshot of your payment.</string>
     <string name="toast_booking_failed">We couldn\'t submit your booking. Please try again.</string>
 

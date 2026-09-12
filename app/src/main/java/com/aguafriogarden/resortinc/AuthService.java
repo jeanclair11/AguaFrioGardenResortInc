@@ -76,7 +76,8 @@ final class AuthService {
                 if (response.isSuccessful() && response.body() != null) {
                     ProfileResponse profile = response.body();
                     ProfileStore.saveServerProfile(context, profile.Firstname, profile.Middlename,
-                            profile.Lastname, profile.birthday, profile.username, profile.email);
+                            profile.Lastname, profile.birthday, profile.username, profile.email,
+                            profile.address, profile.contact_number);
                 }
             }
 

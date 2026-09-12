@@ -107,6 +107,21 @@
 
         <TextView
             style="@style/FieldLabelOnScreen"
+            android:layout_marginTop="16dp"
+            android:text="@string/label_phone" />
+
+        <LinearLayout style="@style/InputField">
+            <ImageView style="@style/InputIcon" android:src="@drawable/ic_phone" />
+            <EditText
+                android:id="@+id/piPhoneNumberField"
+                style="@style/InputEditText"
+                android:hint="@string/hint_phone"
+                android:inputType="phone" />
+        </LinearLayout>
+        <TextView android:id="@+id/piPhoneNumberError" style="@style/FieldError" />
+
+        <TextView
+            style="@style/FieldLabelOnScreen"
             android:layout_marginTop="24dp"
             android:letterSpacing="0.06"
             android:textColor="?attr/accentPrimary"
