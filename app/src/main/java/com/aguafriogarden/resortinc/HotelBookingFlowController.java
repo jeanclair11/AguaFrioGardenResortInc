@@ -99,6 +99,19 @@ final class HotelBookingFlowController {
     private static final int SCREEN_ROOM_BROWSE = 16;
     private static final int SCREEN_COTTAGE_BROWSE = 17;
     private static final int SCREEN_KTV_BROWSE = 18;
+    // Cottage/KTV flows' own Review Your Selection, reached from Your Selected Cottage/KTV Room/s
+    // only — separate from SCREEN_REVIEW, which is Hotel Rooms-only (stay dates/nights, room rows).
+    private static final int SCREEN_COTTAGE_REVIEW = 19;
+    private static final int SCREEN_KTV_REVIEW = 22;
+    // Cottage/KTV flows' own Billing Summary/Payment — reuse the same layouts as SCREEN_BILLING/
+    // SCREEN_PAYMENT (see layoutFor) with separate bind methods (bindCottageBilling/
+    // bindCottagePayment/bindKtvBilling/bindKtvPayment), same pattern as the Room/Cottage/KTV
+    // Selection screens sharing view_item_selection.xml. Amenity/Food themselves stay fully
+    // shared (see activeContinuation).
+    private static final int SCREEN_COTTAGE_BILLING = 20;
+    private static final int SCREEN_COTTAGE_PAYMENT = 21;
+    private static final int SCREEN_KTV_BILLING = 23;
+    private static final int SCREEN_KTV_PAYMENT = 24;
 
     private static final int PAYMENT_NONE = 0;
     private static final int PAYMENT_FULL = 1;
@@ -164,6 +177,15 @@ final class HotelBookingFlowController {
 
     private int currentScreen = -1;
     private View currentScreenView;
+
+    // Set from Cottage/KTV Review's Next onward (through Amenity/Food, which are otherwise
+    // shared with the Hotel Rooms flow) until that category's own Payment screen or back past
+    // its Review — lets those shared screens know to route back/forward into the Cottage/KTV
+    // continuation instead of the Hotel Rooms one. Reset by resetFlow().
+    private static final int CONTINUATION_NONE = 0;
+    private static final int CONTINUATION_COTTAGE = 1;
+    private static final int CONTINUATION_KTV = 2;
+    private int activeContinuation = CONTINUATION_NONE;
 
     // ---- "Your Selected ..." screen state (Room/Cottage/KTV Overview entry only) -----------
     // variant_id of the item the guest originally picked before login; -1 means none (e.g. the
@@ -323,13 +345,19 @@ final class HotelBookingFlowController {
             case SCREEN_KTV_BROWSE:
                 showScreen(SCREEN_KTV_SELECTION);
                 return true;
+            case SCREEN_COTTAGE_REVIEW:
+                showScreen(SCREEN_COTTAGE_SELECTION);
+                return true;
+            case SCREEN_KTV_REVIEW:
+                showScreen(SCREEN_KTV_SELECTION);
+                return true;
             case SCREEN_REVIEW:
                 // Reached either from the Book tab's tabbed dates+search screen, or (if this
                 // flow started at Room Overview) from the dedicated Your Selected Room/s screen.
                 showScreen(selectionOriginVariantId >= 0 ? SCREEN_ROOM_SELECTION : SCREEN_DATES);
                 return true;
             case SCREEN_AMENITY:
-                showScreen(SCREEN_REVIEW);
+                showScreen(reviewScreenForContinuation());
                 return true;
             case SCREEN_FOOD:
                 showScreen(SCREEN_AMENITY);
@@ -339,6 +367,18 @@ final class HotelBookingFlowController {
                 return true;
             case SCREEN_PAYMENT:
                 showScreen(SCREEN_BILLING);
+                return true;
+            case SCREEN_COTTAGE_BILLING:
+                showScreen(SCREEN_FOOD);
+                return true;
+            case SCREEN_COTTAGE_PAYMENT:
+                showScreen(SCREEN_COTTAGE_BILLING);
+                return true;
+            case SCREEN_KTV_BILLING:
+                showScreen(SCREEN_FOOD);
+                return true;
+            case SCREEN_KTV_PAYMENT:
+                showScreen(SCREEN_KTV_BILLING);
                 return true;
             case SCREEN_SUCCESS:
                 resetFlow();
@@ -355,13 +395,38 @@ final class HotelBookingFlowController {
         }
     }
 
+    /** Which Review screen the shared Amenity/Food screens should step back to. */
+    private int reviewScreenForContinuation() {
+        switch (activeContinuation) {
+            case CONTINUATION_COTTAGE:
+                return SCREEN_COTTAGE_REVIEW;
+            case CONTINUATION_KTV:
+                return SCREEN_KTV_REVIEW;
+            default:
+                return SCREEN_REVIEW;
+        }
+    }
+
+    /** Which Billing screen Food's Skip/Next should advance to. */
+    private int billingScreenForContinuation() {
+        switch (activeContinuation) {
+            case CONTINUATION_COTTAGE:
+                return SCREEN_COTTAGE_BILLING;
+            case CONTINUATION_KTV:
+                return SCREEN_KTV_BILLING;
+            default:
+                return SCREEN_BILLING;
+        }
+    }
+
     void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode != REQUEST_PAYMENT_SCREENSHOT || resultCode != Activity.RESULT_OK
                 || data == null || data.getData() == null) {
             return;
         }
         screenshotUri = data.getData();
-        if (currentScreen == SCREEN_PAYMENT && currentScreenView != null) {
+        if ((currentScreen == SCREEN_PAYMENT || currentScreen == SCREEN_COTTAGE_PAYMENT
+                || currentScreen == SCREEN_KTV_PAYMENT) && currentScreenView != null) {
             showScreenshotPreview(currentScreenView);
         }
     }
@@ -403,6 +468,16 @@ final class HotelBookingFlowController {
             case SCREEN_COTTAGE_SELECTION:
             case SCREEN_KTV_SELECTION:
                 return R.layout.view_item_selection;
+            case SCREEN_COTTAGE_REVIEW:
+                return R.layout.view_cottage_review;
+            case SCREEN_KTV_REVIEW:
+                return R.layout.view_ktv_review;
+            case SCREEN_COTTAGE_BILLING:
+            case SCREEN_KTV_BILLING:
+                return R.layout.view_hotel_billing;
+            case SCREEN_COTTAGE_PAYMENT:
+            case SCREEN_KTV_PAYMENT:
+                return R.layout.view_hotel_payment;
             case SCREEN_ROOM_BROWSE:
             case SCREEN_COTTAGE_BROWSE:
             case SCREEN_KTV_BROWSE:
@@ -465,6 +540,24 @@ final class HotelBookingFlowController {
             case SCREEN_KTV_BROWSE:
                 bindKtvBrowse(v);
                 break;
+            case SCREEN_COTTAGE_REVIEW:
+                bindCottageReview(v);
+                break;
+            case SCREEN_KTV_REVIEW:
+                bindKtvReview(v);
+                break;
+            case SCREEN_COTTAGE_BILLING:
+                bindCottageBilling(v);
+                break;
+            case SCREEN_COTTAGE_PAYMENT:
+                bindCottagePayment(v);
+                break;
+            case SCREEN_KTV_BILLING:
+                bindKtvBilling(v);
+                break;
+            case SCREEN_KTV_PAYMENT:
+                bindKtvPayment(v);
+                break;
             default:
                 bindDates(v);
                 break;
@@ -489,13 +582,11 @@ final class HotelBookingFlowController {
         TextView checkOutDayText = v.findViewById(R.id.roomDatesCheckOutDayText);
         TextView checkInError = v.findViewById(R.id.roomDatesCheckInError);
         TextView checkOutError = v.findViewById(R.id.roomDatesCheckOutError);
-        TextView adultsValue = v.findViewById(R.id.roomDatesAdultsValue);
-        TextView childrenValue = v.findViewById(R.id.roomDatesChildrenValue);
+        EditText adultsValue = v.findViewById(R.id.roomDatesAdultsValue);
+        EditText childrenValue = v.findViewById(R.id.roomDatesChildrenValue);
 
         updateDateField(checkInDateText, checkInDayText, checkInMillis);
         updateDateField(checkOutDateText, checkOutDayText, checkOutMillis);
-        adultsValue.setText(String.valueOf(adults));
-        childrenValue.setText(String.valueOf(children));
 
         View.OnClickListener openDatePicker = view -> GlassDatePicker.showRangePicker(activity, checkInMillis, checkOutMillis, System.currentTimeMillis() - 1000L, (start, end) -> {
             checkInMillis = start;
@@ -508,26 +599,10 @@ final class HotelBookingFlowController {
         v.findViewById(R.id.roomDatesCheckInField).setOnClickListener(openDatePicker);
         v.findViewById(R.id.roomDatesCheckOutField).setOnClickListener(openDatePicker);
 
-        v.findViewById(R.id.roomDatesAdultsMinus).setOnClickListener(view -> {
-            if (adults > 0) {
-                adults--;
-                adultsValue.setText(String.valueOf(adults));
-            }
-        });
-        v.findViewById(R.id.roomDatesAdultsPlus).setOnClickListener(view -> {
-            adults++;
-            adultsValue.setText(String.valueOf(adults));
-        });
-        v.findViewById(R.id.roomDatesChildrenMinus).setOnClickListener(view -> {
-            if (children > 0) {
-                children--;
-                childrenValue.setText(String.valueOf(children));
-            }
-        });
-        v.findViewById(R.id.roomDatesChildrenPlus).setOnClickListener(view -> {
-            children++;
-            childrenValue.setText(String.valueOf(children));
-        });
+        AuthUiUtils.bindQuantityStepper(adultsValue, v.findViewById(R.id.roomDatesAdultsMinus),
+                v.findViewById(R.id.roomDatesAdultsPlus), adults, 0, Integer.MAX_VALUE, value -> adults = value);
+        AuthUiUtils.bindQuantityStepper(childrenValue, v.findViewById(R.id.roomDatesChildrenMinus),
+                v.findViewById(R.id.roomDatesChildrenPlus), children, 0, Integer.MAX_VALUE, value -> children = value);
 
         v.findViewById(R.id.roomDatesNextButton).setOnClickListener(view -> {
             boolean valid = true;
@@ -650,14 +725,12 @@ final class HotelBookingFlowController {
         TextView timeError = v.findViewById(R.id.cottageDatesTimeError);
         RadioGroup rateGroup = v.findViewById(R.id.cottageDatesRateTypeGroup);
         TextView rateError = v.findViewById(R.id.cottageDatesRateTypeError);
-        TextView adultsValue = v.findViewById(R.id.cottageDatesAdultsValue);
-        TextView childrenValue = v.findViewById(R.id.cottageDatesChildrenValue);
+        EditText adultsValue = v.findViewById(R.id.cottageDatesAdultsValue);
+        EditText childrenValue = v.findViewById(R.id.cottageDatesChildrenValue);
         TextView totalGuestValue = v.findViewById(R.id.cottageDatesTotalGuestValue);
 
         updateCottageDateField(dateText);
         updateCottageTimeField(timeText);
-        adultsValue.setText(String.valueOf(cottageAdults));
-        childrenValue.setText(String.valueOf(cottageChildren));
         totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
         if (ReservationCatalog.RATE_TYPE_DAY.equals(cottageRateType)) {
             rateGroup.check(R.id.cottageDatesRateDay);
@@ -694,30 +767,16 @@ final class HotelBookingFlowController {
             dialog.show();
         });
 
-        v.findViewById(R.id.cottageDatesAdultsMinus).setOnClickListener(view -> {
-            if (cottageAdults > 1) {
-                cottageAdults--;
-                adultsValue.setText(String.valueOf(cottageAdults));
-                totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-            }
-        });
-        v.findViewById(R.id.cottageDatesAdultsPlus).setOnClickListener(view -> {
-            cottageAdults++;
-            adultsValue.setText(String.valueOf(cottageAdults));
-            totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-        });
-        v.findViewById(R.id.cottageDatesChildrenMinus).setOnClickListener(view -> {
-            if (cottageChildren > 0) {
-                cottageChildren--;
-                childrenValue.setText(String.valueOf(cottageChildren));
-                totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-            }
-        });
-        v.findViewById(R.id.cottageDatesChildrenPlus).setOnClickListener(view -> {
-            cottageChildren++;
-            childrenValue.setText(String.valueOf(cottageChildren));
-            totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-        });
+        AuthUiUtils.bindQuantityStepper(adultsValue, v.findViewById(R.id.cottageDatesAdultsMinus),
+                v.findViewById(R.id.cottageDatesAdultsPlus), cottageAdults, 1, Integer.MAX_VALUE, value -> {
+                    cottageAdults = value;
+                    totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
+                });
+        AuthUiUtils.bindQuantityStepper(childrenValue, v.findViewById(R.id.cottageDatesChildrenMinus),
+                v.findViewById(R.id.cottageDatesChildrenPlus), cottageChildren, 0, Integer.MAX_VALUE, value -> {
+                    cottageChildren = value;
+                    totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
+                });
 
         v.findViewById(R.id.cottageDatesNextButton).setOnClickListener(view -> {
             boolean valid = true;
@@ -815,12 +874,11 @@ final class HotelBookingFlowController {
         TextView startTimeError = v.findViewById(R.id.ktvDatesStartTimeError);
         RadioGroup rateGroup = v.findViewById(R.id.ktvDatesRateTypeGroup);
         TextView rateError = v.findViewById(R.id.ktvDatesRateTypeError);
-        TextView guestCountValue = v.findViewById(R.id.ktvDatesGuestCountValue);
+        EditText guestCountValue = v.findViewById(R.id.ktvDatesGuestCountValue);
 
         updateKtvDateField(dateText);
         updateKtvStartTimeField(startTimeText);
         updateKtvDatesEndTimeAndDuration(v);
-        guestCountValue.setText(String.valueOf(ktvGuestCount));
         if (ReservationCatalog.RATE_TYPE_REGULAR.equals(ktvRateType)) {
             rateGroup.check(R.id.ktvDatesRateRegular);
         } else if (ReservationCatalog.RATE_TYPE_CONSUMABLE.equals(ktvRateType)) {
@@ -858,16 +916,8 @@ final class HotelBookingFlowController {
             dialog.show();
         });
 
-        v.findViewById(R.id.ktvDatesGuestCountMinus).setOnClickListener(view -> {
-            if (ktvGuestCount > 1) {
-                ktvGuestCount--;
-                guestCountValue.setText(String.valueOf(ktvGuestCount));
-            }
-        });
-        v.findViewById(R.id.ktvDatesGuestCountPlus).setOnClickListener(view -> {
-            ktvGuestCount++;
-            guestCountValue.setText(String.valueOf(ktvGuestCount));
-        });
+        AuthUiUtils.bindQuantityStepper(guestCountValue, v.findViewById(R.id.ktvDatesGuestCountMinus),
+                v.findViewById(R.id.ktvDatesGuestCountPlus), ktvGuestCount, 1, Integer.MAX_VALUE, value -> ktvGuestCount = value);
 
         v.findViewById(R.id.ktvDatesNextButton).setOnClickListener(view -> {
             boolean valid = true;
@@ -1206,7 +1256,7 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.dialog_no_room_message, Toast.LENGTH_LONG).show();
                 return;
             }
-            Toast.makeText(activity, R.string.toast_feature_coming_soon, Toast.LENGTH_LONG).show();
+            showScreen(SCREEN_COTTAGE_REVIEW);
         });
     }
 
@@ -1239,6 +1289,287 @@ final class HotelBookingFlowController {
         }
 
         v.findViewById(R.id.itemBrowseNextButton).setOnClickListener(view -> showScreen(SCREEN_COTTAGE_SELECTION));
+    }
+
+    /**
+     * Cottage flow's own Review Your Selection (see view_cottage_review.xml) — rate type/date/
+     * time/total guest, every cottage the guest added on Your Selected Cottage/s, and a special
+     * request note. Separate from bindReview, which is Hotel Rooms-only (check-in/out, nights,
+     * room rows); Next is a placeholder for now, since cottage bookings don't have an Amenity/
+     * Food/Billing/Payment continuation yet.
+     */
+    private void bindCottageReview(View v) {
+        bindHeader(v, R.id.cottageReviewHeaderBar, R.string.hotel_review_title,
+                () -> showScreen(SCREEN_COTTAGE_SELECTION));
+
+        bindRow(v.findViewById(R.id.cottageReviewRowRateType), R.string.label_selected_rate_type,
+                cottageRateTypeLabel());
+        bindRow(v.findViewById(R.id.cottageReviewRowDate), R.string.label_date, formatDate(cottageDateMillis));
+        bindRow(v.findViewById(R.id.cottageReviewRowTime), R.string.label_time,
+                formatHourMinute(cottageTimeHour, cottageTimeMinute));
+        bindRow(v.findViewById(R.id.cottageReviewRowTotalGuest), R.string.label_total_guest, formatCottageGuests());
+
+        LinearLayout container = v.findViewById(R.id.cottageReviewCottagesContainer);
+        container.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(activity);
+        for (CottageKtvOption item : cottageItems) {
+            int qty = roomQuantities.containsKey(item.group_id) ? roomQuantities.get(item.group_id) : 0;
+            if (qty <= 0) {
+                continue;
+            }
+            View row = inflater.inflate(R.layout.view_cottage_review_row, container, false);
+            loadImage(row.findViewById(R.id.cottageReviewRowImage), item.image_path, R.drawable.ic_bed);
+            ((TextView) row.findViewById(R.id.cottageReviewRowName))
+                    .setText(formatShowcaseName(item.variant_name, item.category_name));
+            ((TextView) row.findViewById(R.id.cottageReviewRowMeta)).setText(activity.getString(
+                    R.string.format_capacity, item.capacity) + " · " + activity.getString(R.string.format_quantity, qty));
+            ((TextView) row.findViewById(R.id.cottageReviewRowPrice)).setText(activity.getString(
+                    R.string.format_price_with_unit, formatMoney((int) Math.round(item.price)), item.price_unit));
+            container.addView(row);
+        }
+
+        EditText specialRequestField = v.findViewById(R.id.cottageReviewSpecialRequestField);
+        specialRequestField.setText(specialRequest);
+        AuthUiUtils.afterTextChanged(specialRequestField,
+                () -> specialRequest = specialRequestField.getText().toString());
+
+        v.findViewById(R.id.hotelReviewNextButton).setOnClickListener(view -> {
+            activeContinuation = CONTINUATION_COTTAGE;
+            fetchAmenities(v);
+        });
+    }
+
+    private String cottageRateTypeLabel() {
+        if (ReservationCatalog.RATE_TYPE_NIGHT.equals(cottageRateType)) {
+            return activity.getString(R.string.rate_type_night);
+        }
+        return activity.getString(R.string.rate_type_day);
+    }
+
+    private String formatCottageGuests() {
+        String guests = cottageAdults + (cottageAdults == 1 ? " Adult" : " Adults");
+        if (cottageChildren > 0) {
+            guests += ", " + cottageChildren + (cottageChildren == 1 ? " Child" : " Children");
+        }
+        return guests;
+    }
+
+    /**
+     * Cottage flow's own Billing Summary — reuses view_hotel_billing.xml (see layoutFor) with
+     * cottage-appropriate Stay Details rows (rate type/date/time instead of check-in/check-out/
+     * nights) and cottage line items instead of room ones; guest info, amenities, food and
+     * payment option sections are identical to bindBilling since none of those are Hotel
+     * Rooms-specific.
+     */
+    private void bindCottageBilling(View v) {
+        bindHeader(v, R.id.hotelBillingHeaderBar, R.string.hotel_billing_title, () -> showScreen(SCREEN_FOOD));
+
+        bindRow(v.findViewById(R.id.billingRowFullName), R.string.label_full_name, ProfileStore.getFullName(activity));
+        bindRow(v.findViewById(R.id.billingRowEmail), R.string.label_email_address, ProfileStore.getEmail(activity));
+        bindRow(v.findViewById(R.id.billingRowMobile), R.string.label_mobile_number, ProfileStore.getContactNumber(activity));
+        bindRow(v.findViewById(R.id.billingRowAddress), R.string.label_address, ProfileStore.getAddress(activity));
+
+        bindRow(v.findViewById(R.id.billingRowCheckIn), R.string.label_selected_rate_type, cottageRateTypeLabel());
+        bindRow(v.findViewById(R.id.billingRowCheckOut), R.string.label_date, formatDate(cottageDateMillis));
+        bindRow(v.findViewById(R.id.billingRowNights), R.string.label_time,
+                formatHourMinute(cottageTimeHour, cottageTimeMinute));
+        bindRow(v.findViewById(R.id.billingRowAdults), R.string.label_billing_adults, String.valueOf(cottageAdults));
+        bindRow(v.findViewById(R.id.billingRowChildren), R.string.label_billing_children, String.valueOf(cottageChildren));
+        bindRow(v.findViewById(R.id.billingRowTotalGuests), R.string.label_total_guests,
+                String.valueOf(cottageAdults + cottageChildren));
+
+        ((TextView) v.findViewById(R.id.billingAccommodationLabel)).setText(R.string.section_cottage);
+        LinearLayout accommodationContainer = v.findViewById(R.id.billingAccommodationContainer);
+        accommodationContainer.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(activity);
+        int cottageTotal = 0;
+        for (CottageKtvOption item : cottageItems) {
+            int qty = roomQuantities.get(item.group_id);
+            if (qty <= 0) {
+                continue;
+            }
+            int unitPrice = (int) Math.round(item.price);
+            int subtotal = unitPrice * qty;
+            cottageTotal += subtotal;
+            View row = inflater.inflate(R.layout.view_hotel_billing_line_row, accommodationContainer, false);
+            ((TextView) row.findViewById(R.id.lineName)).setText(formatShowcaseName(item.variant_name, item.category_name));
+            TextView meta = row.findViewById(R.id.lineMeta);
+            meta.setText(activity.getString(R.string.format_capacity, item.capacity) + " · Qty " + qty + " · "
+                    + activity.getString(R.string.format_price_with_unit, formatMoney(unitPrice), item.price_unit));
+            meta.setVisibility(View.VISIBLE);
+            ((TextView) row.findViewById(R.id.linePrice)).setText(formatCurrency(subtotal));
+            accommodationContainer.addView(row);
+        }
+
+        View amenitiesCard = v.findViewById(R.id.billingAmenitiesCard);
+        LinearLayout amenitiesContainer = v.findViewById(R.id.billingAmenitiesContainer);
+        amenitiesContainer.removeAllViews();
+        int amenitiesTotal = 0;
+        for (AmenityAvailability amenity : availableAmenities) {
+            int qty = amenityQuantities.get(amenity.id);
+            if (qty <= 0) {
+                continue;
+            }
+            int unitPrice = (int) Math.round(amenity.price);
+            int subtotal = unitPrice * qty;
+            amenitiesTotal += subtotal;
+            View row = inflater.inflate(R.layout.view_hotel_billing_line_row, amenitiesContainer, false);
+            ((TextView) row.findViewById(R.id.lineName)).setText(amenity.name);
+            TextView meta = row.findViewById(R.id.lineMeta);
+            meta.setText("Qty " + qty + " · " + formatCurrency(unitPrice));
+            meta.setVisibility(View.VISIBLE);
+            ((TextView) row.findViewById(R.id.linePrice)).setText(formatCurrency(subtotal));
+            amenitiesContainer.addView(row);
+        }
+        amenitiesCard.setVisibility(amenitiesTotal > 0 ? View.VISIBLE : View.GONE);
+
+        View foodCard = v.findViewById(R.id.billingFoodCard);
+        LinearLayout foodContainer = v.findViewById(R.id.billingFoodContainer);
+        foodContainer.removeAllViews();
+        int foodTotal = 0;
+        for (MenuItemAvailability food : availableFood) {
+            int qty = foodQuantities.get(food.id);
+            if (qty <= 0) {
+                continue;
+            }
+            int unitPrice = (int) Math.round(food.price);
+            int subtotal = unitPrice * qty;
+            foodTotal += subtotal;
+            View row = inflater.inflate(R.layout.view_hotel_billing_line_row, foodContainer, false);
+            ((TextView) row.findViewById(R.id.lineName)).setText(food.name);
+            TextView meta = row.findViewById(R.id.lineMeta);
+            meta.setText("Qty " + qty + " · " + formatCurrency(unitPrice));
+            meta.setVisibility(View.VISIBLE);
+            ((TextView) row.findViewById(R.id.linePrice)).setText(formatCurrency(subtotal));
+            foodContainer.addView(row);
+        }
+        foodCard.setVisibility(foodTotal > 0 ? View.VISIBLE : View.GONE);
+
+        bindLine(v.findViewById(R.id.billingRowRoomCharges), R.string.label_cottage_charges, cottageTotal);
+        bindLine(v.findViewById(R.id.billingRowAmenitiesTotal), R.string.label_amenities_total, amenitiesTotal);
+        bindLine(v.findViewById(R.id.billingRowFoodTotal), R.string.label_food_total, foodTotal);
+
+        int grandTotal = cottageTotal + amenitiesTotal + foodTotal;
+        ((TextView) v.findViewById(R.id.billingGrandTotal)).setText(formatCurrency(grandTotal));
+
+        View fullCard = v.findViewById(R.id.paymentOptionFullCard);
+        View partialCard = v.findViewById(R.id.paymentOptionPartialCard);
+        ((TextView) v.findViewById(R.id.paymentOptionFullPrice)).setText(formatCurrency(grandTotal));
+        int partialAmount = computePartialAmount(grandTotal);
+        ((TextView) v.findViewById(R.id.paymentOptionPartialPrice)).setText(formatCurrency(partialAmount));
+        ((TextView) v.findViewById(R.id.paymentOptionPartialRemaining)).setText(
+                activity.getString(R.string.label_remaining_balance) + ": "
+                        + formatCurrency(grandTotal - partialAmount));
+        updatePaymentOptionCards(fullCard, partialCard);
+        fullCard.setOnClickListener(view -> {
+            paymentOption = PAYMENT_FULL;
+            updatePaymentOptionCards(fullCard, partialCard);
+        });
+        partialCard.setOnClickListener(view -> {
+            paymentOption = PAYMENT_PARTIAL;
+            updatePaymentOptionCards(fullCard, partialCard);
+        });
+
+        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
+        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
+        termsBox.setChecked(termsChecked);
+        cancellationBox.setChecked(cancellationChecked);
+        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
+        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+
+        v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(view -> {
+            if (paymentOption == PAYMENT_NONE) {
+                Toast.makeText(activity, R.string.toast_select_payment_option, Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (!termsChecked || !cancellationChecked) {
+                Toast.makeText(activity, R.string.toast_agree_terms_required, Toast.LENGTH_LONG).show();
+                return;
+            }
+            showScreen(SCREEN_COTTAGE_PAYMENT);
+        });
+    }
+
+    /**
+     * Cottage flow's own Payment screen — reuses view_hotel_payment.xml. Amount Paid/Reference
+     * Number/screenshot validation is identical to bindPayment, but Complete Booking is a
+     * placeholder for now: reserve() has no field for a cottage's rate type/date/time, so wiring
+     * a real submission here would either silently drop that data or need a backend change
+     * first (flagged, not assumed).
+     */
+    private void bindCottagePayment(View v) {
+        bindHeader(v, R.id.hotelPaymentHeaderBar, R.string.hotel_payment_title, () -> showScreen(SCREEN_COTTAGE_BILLING));
+
+        int grandTotal = computeCottageGrandTotal();
+        int amountDue = paymentOption == PAYMENT_PARTIAL ? computePartialAmount(grandTotal) : grandTotal;
+        ((TextView) v.findViewById(R.id.paymentAmountDue)).setText(formatCurrency(amountDue));
+
+        EditText amountPaidField = v.findViewById(R.id.paymentAmountPaidField);
+        EditText referenceField = v.findViewById(R.id.paymentReferenceField);
+        amountPaidField.setFilters(new InputFilter[]{AMOUNT_INPUT_FILTER});
+        referenceField.setFilters(new InputFilter[]{DIGITS_ONLY_FILTER, new InputFilter.LengthFilter(REFERENCE_NUMBER_LENGTH)});
+        amountPaidField.setText(amountPaidText);
+        referenceField.setText(referenceNumberText);
+        AuthUiUtils.afterTextChanged(amountPaidField, () -> amountPaidText = amountPaidField.getText().toString());
+        amountPaidField.setOnFocusChangeListener((view, hasFocus) -> {
+            if (hasFocus) {
+                return;
+            }
+            String typed = amountPaidField.getText().toString().trim();
+            if (typed.isEmpty()) {
+                return;
+            }
+            try {
+                String formatted = String.format(Locale.US, "%.2f", Double.parseDouble(typed));
+                amountPaidField.setText(formatted);
+                amountPaidText = formatted;
+            } catch (NumberFormatException ignored) {
+                // Same as bindPayment: nothing further to validate here.
+            }
+        });
+        AuthUiUtils.afterTextChanged(referenceField, () -> referenceNumberText = referenceField.getText().toString());
+
+        v.findViewById(R.id.paymentScreenshotDropzone).setOnClickListener(view -> {
+            Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            activity.startActivityForResult(intent, REQUEST_PAYMENT_SCREENSHOT);
+        });
+        if (screenshotUri != null) {
+            showScreenshotPreview(v);
+        }
+
+        v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(view -> {
+            if (amountPaidText.trim().isEmpty()) {
+                Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (referenceNumberText.trim().isEmpty()) {
+                Toast.makeText(activity, R.string.toast_reference_number_required, Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (referenceNumberText.trim().length() != REFERENCE_NUMBER_LENGTH) {
+                Toast.makeText(activity, R.string.toast_reference_number_invalid_length, Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (screenshotUri == null) {
+                Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
+                return;
+            }
+            Toast.makeText(activity, R.string.toast_feature_coming_soon, Toast.LENGTH_LONG).show();
+        });
+    }
+
+    private int computeCottageGrandTotal() {
+        int total = 0;
+        for (CottageKtvOption item : cottageItems) {
+            total += (int) Math.round(item.price) * roomQuantities.get(item.group_id);
+        }
+        for (AmenityAvailability amenity : availableAmenities) {
+            total += (int) Math.round(amenity.price) * amenityQuantities.get(amenity.id);
+        }
+        for (MenuItemAvailability food : availableFood) {
+            total += (int) Math.round(food.price) * foodQuantities.get(food.id);
+        }
+        return total;
     }
 
     /**
@@ -1338,7 +1669,7 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.dialog_no_room_message, Toast.LENGTH_LONG).show();
                 return;
             }
-            Toast.makeText(activity, R.string.toast_feature_coming_soon, Toast.LENGTH_LONG).show();
+            showScreen(SCREEN_KTV_REVIEW);
         });
     }
 
@@ -1370,6 +1701,300 @@ final class HotelBookingFlowController {
         }
 
         v.findViewById(R.id.itemBrowseNextButton).setOnClickListener(view -> showScreen(SCREEN_KTV_SELECTION));
+    }
+
+    /**
+     * KTV flow's own Review Your Selection (see view_ktv_review.xml) — rate type/date/start
+     * time/end time/total guests, every KTV room the guest added on Your Selected KTV Room/s,
+     * and a special request note. Separate from bindReview, which is Hotel Rooms-only; Next is a
+     * placeholder for now, since KTV bookings don't have an Amenity/Food/Billing/Payment
+     * continuation yet.
+     */
+    private void bindKtvReview(View v) {
+        bindHeader(v, R.id.ktvReviewHeaderBar, R.string.hotel_review_title,
+                () -> showScreen(SCREEN_KTV_SELECTION));
+
+        bindRow(v.findViewById(R.id.ktvReviewRowRateType), R.string.label_selected_rate_type, ktvRateTypeLabel());
+        bindRow(v.findViewById(R.id.ktvReviewRowDate), R.string.label_date, formatDate(ktvDateMillis));
+        bindRow(v.findViewById(R.id.ktvReviewRowTime), R.string.label_time, formatHourMinute(ktvStartHour, ktvStartMinute));
+        bindRow(v.findViewById(R.id.ktvReviewRowEndTime), R.string.label_end_time, formatKtvEndTime());
+        bindRow(v.findViewById(R.id.ktvReviewRowTotalGuest), R.string.label_total_guest, formatKtvGuests());
+
+        LinearLayout container = v.findViewById(R.id.ktvReviewRoomsContainer);
+        container.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(activity);
+        for (CottageKtvOption item : ktvItems) {
+            int qty = roomQuantities.containsKey(item.group_id) ? roomQuantities.get(item.group_id) : 0;
+            if (qty <= 0) {
+                continue;
+            }
+            View row = inflater.inflate(R.layout.view_ktv_review_row, container, false);
+            loadImage(row.findViewById(R.id.ktvReviewRowImage), item.image_path, R.drawable.ic_bed);
+            ((TextView) row.findViewById(R.id.ktvReviewRowName))
+                    .setText(formatShowcaseName(item.variant_name, item.category_name));
+            ((TextView) row.findViewById(R.id.ktvReviewRowMeta)).setText(activity.getString(
+                    R.string.format_capacity, item.capacity) + " · " + activity.getString(R.string.format_quantity, qty));
+            ((TextView) row.findViewById(R.id.ktvReviewRowPrice)).setText(activity.getString(
+                    R.string.format_price_with_unit, formatMoney((int) Math.round(item.price)), item.price_unit));
+            container.addView(row);
+        }
+
+        EditText specialRequestField = v.findViewById(R.id.ktvReviewSpecialRequestField);
+        specialRequestField.setText(specialRequest);
+        AuthUiUtils.afterTextChanged(specialRequestField,
+                () -> specialRequest = specialRequestField.getText().toString());
+
+        v.findViewById(R.id.hotelReviewNextButton).setOnClickListener(view -> {
+            activeContinuation = CONTINUATION_KTV;
+            fetchAmenities(v);
+        });
+    }
+
+    private String ktvRateTypeLabel() {
+        if (ReservationCatalog.RATE_TYPE_CONSUMABLE.equals(ktvRateType)) {
+            return activity.getString(R.string.ktv_rate_type_consumable);
+        }
+        return activity.getString(R.string.ktv_rate_type_regular);
+    }
+
+    private String formatKtvGuests() {
+        return ktvGuestCount + (ktvGuestCount == 1 ? " Guest" : " Guests");
+    }
+
+    /** Same calculation as updateKtvDatesEndTimeAndDuration, as a plain String for the Review
+     *  screen's read-only row instead of writing straight into a TextView. */
+    private String formatKtvEndTime() {
+        int hours = ReservationCatalog.RATE_TYPE_REGULAR.equals(ktvRateType) ? KTV_REGULAR_HOURS
+                : ReservationCatalog.RATE_TYPE_CONSUMABLE.equals(ktvRateType) ? KTV_CONSUMABLE_HOURS : 0;
+        if (hours <= 0 || ktvStartHour < 0) {
+            return activity.getString(R.string.placeholder_em_dash);
+        }
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, ktvStartHour);
+        calendar.set(Calendar.MINUTE, ktvStartMinute);
+        calendar.add(Calendar.HOUR_OF_DAY, hours);
+        return formatHourMinute(calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE));
+    }
+
+    /**
+     * KTV flow's own Billing Summary — reuses view_hotel_billing.xml (see layoutFor) with
+     * KTV-appropriate Stay Details rows (rate type/date/start time/end time instead of check-in/
+     * check-out/nights) and KTV room line items instead of room ones; guest info, amenities,
+     * food and payment option sections are identical to bindBilling since none of those are
+     * Hotel Rooms-specific.
+     */
+    private void bindKtvBilling(View v) {
+        bindHeader(v, R.id.hotelBillingHeaderBar, R.string.hotel_billing_title, () -> showScreen(SCREEN_FOOD));
+
+        bindRow(v.findViewById(R.id.billingRowFullName), R.string.label_full_name, ProfileStore.getFullName(activity));
+        bindRow(v.findViewById(R.id.billingRowEmail), R.string.label_email_address, ProfileStore.getEmail(activity));
+        bindRow(v.findViewById(R.id.billingRowMobile), R.string.label_mobile_number, ProfileStore.getContactNumber(activity));
+        bindRow(v.findViewById(R.id.billingRowAddress), R.string.label_address, ProfileStore.getAddress(activity));
+
+        // Stay Details has 6 generic label/value row slots (built for check-in/out/nights/
+        // adults/children/total-guests); KTV only needs 5 differently-shaped fields, so they're
+        // remapped onto those same rows (CheckIn->RateType, CheckOut->Date, Nights->Time,
+        // Adults->EndTime, Children->TotalGuest) and the 6th slot is hidden — same reuse-the-
+        // layout approach as bindCottageBilling, just with one fewer field needed.
+        bindRow(v.findViewById(R.id.billingRowCheckIn), R.string.label_selected_rate_type, ktvRateTypeLabel());
+        bindRow(v.findViewById(R.id.billingRowCheckOut), R.string.label_date, formatDate(ktvDateMillis));
+        bindRow(v.findViewById(R.id.billingRowNights), R.string.label_time, formatHourMinute(ktvStartHour, ktvStartMinute));
+        bindRow(v.findViewById(R.id.billingRowAdults), R.string.label_end_time, formatKtvEndTime());
+        bindRow(v.findViewById(R.id.billingRowChildren), R.string.label_total_guest, formatKtvGuests());
+        v.findViewById(R.id.billingRowTotalGuests).setVisibility(View.GONE);
+
+        ((TextView) v.findViewById(R.id.billingAccommodationLabel)).setText(R.string.section_ktv_rooms);
+        LinearLayout accommodationContainer = v.findViewById(R.id.billingAccommodationContainer);
+        accommodationContainer.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(activity);
+        int ktvTotal = 0;
+        for (CottageKtvOption item : ktvItems) {
+            int qty = roomQuantities.get(item.group_id);
+            if (qty <= 0) {
+                continue;
+            }
+            int unitPrice = (int) Math.round(item.price);
+            int subtotal = unitPrice * qty;
+            ktvTotal += subtotal;
+            View row = inflater.inflate(R.layout.view_hotel_billing_line_row, accommodationContainer, false);
+            ((TextView) row.findViewById(R.id.lineName)).setText(formatShowcaseName(item.variant_name, item.category_name));
+            TextView meta = row.findViewById(R.id.lineMeta);
+            meta.setText(activity.getString(R.string.format_capacity, item.capacity) + " · Qty " + qty + " · "
+                    + activity.getString(R.string.format_price_with_unit, formatMoney(unitPrice), item.price_unit));
+            meta.setVisibility(View.VISIBLE);
+            ((TextView) row.findViewById(R.id.linePrice)).setText(formatCurrency(subtotal));
+            accommodationContainer.addView(row);
+        }
+
+        View amenitiesCard = v.findViewById(R.id.billingAmenitiesCard);
+        LinearLayout amenitiesContainer = v.findViewById(R.id.billingAmenitiesContainer);
+        amenitiesContainer.removeAllViews();
+        int amenitiesTotal = 0;
+        for (AmenityAvailability amenity : availableAmenities) {
+            int qty = amenityQuantities.get(amenity.id);
+            if (qty <= 0) {
+                continue;
+            }
+            int unitPrice = (int) Math.round(amenity.price);
+            int subtotal = unitPrice * qty;
+            amenitiesTotal += subtotal;
+            View row = inflater.inflate(R.layout.view_hotel_billing_line_row, amenitiesContainer, false);
+            ((TextView) row.findViewById(R.id.lineName)).setText(amenity.name);
+            TextView meta = row.findViewById(R.id.lineMeta);
+            meta.setText("Qty " + qty + " · " + formatCurrency(unitPrice));
+            meta.setVisibility(View.VISIBLE);
+            ((TextView) row.findViewById(R.id.linePrice)).setText(formatCurrency(subtotal));
+            amenitiesContainer.addView(row);
+        }
+        amenitiesCard.setVisibility(amenitiesTotal > 0 ? View.VISIBLE : View.GONE);
+
+        View foodCard = v.findViewById(R.id.billingFoodCard);
+        LinearLayout foodContainer = v.findViewById(R.id.billingFoodContainer);
+        foodContainer.removeAllViews();
+        int foodTotal = 0;
+        for (MenuItemAvailability food : availableFood) {
+            int qty = foodQuantities.get(food.id);
+            if (qty <= 0) {
+                continue;
+            }
+            int unitPrice = (int) Math.round(food.price);
+            int subtotal = unitPrice * qty;
+            foodTotal += subtotal;
+            View row = inflater.inflate(R.layout.view_hotel_billing_line_row, foodContainer, false);
+            ((TextView) row.findViewById(R.id.lineName)).setText(food.name);
+            TextView meta = row.findViewById(R.id.lineMeta);
+            meta.setText("Qty " + qty + " · " + formatCurrency(unitPrice));
+            meta.setVisibility(View.VISIBLE);
+            ((TextView) row.findViewById(R.id.linePrice)).setText(formatCurrency(subtotal));
+            foodContainer.addView(row);
+        }
+        foodCard.setVisibility(foodTotal > 0 ? View.VISIBLE : View.GONE);
+
+        bindLine(v.findViewById(R.id.billingRowRoomCharges), R.string.label_ktv_charges, ktvTotal);
+        bindLine(v.findViewById(R.id.billingRowAmenitiesTotal), R.string.label_amenities_total, amenitiesTotal);
+        bindLine(v.findViewById(R.id.billingRowFoodTotal), R.string.label_food_total, foodTotal);
+
+        int grandTotal = ktvTotal + amenitiesTotal + foodTotal;
+        ((TextView) v.findViewById(R.id.billingGrandTotal)).setText(formatCurrency(grandTotal));
+
+        View fullCard = v.findViewById(R.id.paymentOptionFullCard);
+        View partialCard = v.findViewById(R.id.paymentOptionPartialCard);
+        ((TextView) v.findViewById(R.id.paymentOptionFullPrice)).setText(formatCurrency(grandTotal));
+        int partialAmount = computePartialAmount(grandTotal);
+        ((TextView) v.findViewById(R.id.paymentOptionPartialPrice)).setText(formatCurrency(partialAmount));
+        ((TextView) v.findViewById(R.id.paymentOptionPartialRemaining)).setText(
+                activity.getString(R.string.label_remaining_balance) + ": "
+                        + formatCurrency(grandTotal - partialAmount));
+        updatePaymentOptionCards(fullCard, partialCard);
+        fullCard.setOnClickListener(view -> {
+            paymentOption = PAYMENT_FULL;
+            updatePaymentOptionCards(fullCard, partialCard);
+        });
+        partialCard.setOnClickListener(view -> {
+            paymentOption = PAYMENT_PARTIAL;
+            updatePaymentOptionCards(fullCard, partialCard);
+        });
+
+        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
+        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
+        termsBox.setChecked(termsChecked);
+        cancellationBox.setChecked(cancellationChecked);
+        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
+        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+
+        v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(view -> {
+            if (paymentOption == PAYMENT_NONE) {
+                Toast.makeText(activity, R.string.toast_select_payment_option, Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (!termsChecked || !cancellationChecked) {
+                Toast.makeText(activity, R.string.toast_agree_terms_required, Toast.LENGTH_LONG).show();
+                return;
+            }
+            showScreen(SCREEN_KTV_PAYMENT);
+        });
+    }
+
+    /**
+     * KTV flow's own Payment screen — reuses view_hotel_payment.xml. Amount Paid/Reference
+     * Number/screenshot validation is identical to bindPayment, but Complete Booking is a
+     * placeholder for now: reserve() has no field for a KTV session's rate type/date/time, so
+     * wiring a real submission here would either silently drop that data or need a backend
+     * change first (flagged, not assumed).
+     */
+    private void bindKtvPayment(View v) {
+        bindHeader(v, R.id.hotelPaymentHeaderBar, R.string.hotel_payment_title, () -> showScreen(SCREEN_KTV_BILLING));
+
+        int grandTotal = computeKtvGrandTotal();
+        int amountDue = paymentOption == PAYMENT_PARTIAL ? computePartialAmount(grandTotal) : grandTotal;
+        ((TextView) v.findViewById(R.id.paymentAmountDue)).setText(formatCurrency(amountDue));
+
+        EditText amountPaidField = v.findViewById(R.id.paymentAmountPaidField);
+        EditText referenceField = v.findViewById(R.id.paymentReferenceField);
+        amountPaidField.setFilters(new InputFilter[]{AMOUNT_INPUT_FILTER});
+        referenceField.setFilters(new InputFilter[]{DIGITS_ONLY_FILTER, new InputFilter.LengthFilter(REFERENCE_NUMBER_LENGTH)});
+        amountPaidField.setText(amountPaidText);
+        referenceField.setText(referenceNumberText);
+        AuthUiUtils.afterTextChanged(amountPaidField, () -> amountPaidText = amountPaidField.getText().toString());
+        amountPaidField.setOnFocusChangeListener((view, hasFocus) -> {
+            if (hasFocus) {
+                return;
+            }
+            String typed = amountPaidField.getText().toString().trim();
+            if (typed.isEmpty()) {
+                return;
+            }
+            try {
+                String formatted = String.format(Locale.US, "%.2f", Double.parseDouble(typed));
+                amountPaidField.setText(formatted);
+                amountPaidText = formatted;
+            } catch (NumberFormatException ignored) {
+                // Same as bindPayment: nothing further to validate here.
+            }
+        });
+        AuthUiUtils.afterTextChanged(referenceField, () -> referenceNumberText = referenceField.getText().toString());
+
+        v.findViewById(R.id.paymentScreenshotDropzone).setOnClickListener(view -> {
+            Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            activity.startActivityForResult(intent, REQUEST_PAYMENT_SCREENSHOT);
+        });
+        if (screenshotUri != null) {
+            showScreenshotPreview(v);
+        }
+
+        v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(view -> {
+            if (amountPaidText.trim().isEmpty()) {
+                Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (referenceNumberText.trim().isEmpty()) {
+                Toast.makeText(activity, R.string.toast_reference_number_required, Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (referenceNumberText.trim().length() != REFERENCE_NUMBER_LENGTH) {
+                Toast.makeText(activity, R.string.toast_reference_number_invalid_length, Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (screenshotUri == null) {
+                Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
+                return;
+            }
+            Toast.makeText(activity, R.string.toast_feature_coming_soon, Toast.LENGTH_LONG).show();
+        });
+    }
+
+    private int computeKtvGrandTotal() {
+        int total = 0;
+        for (CottageKtvOption item : ktvItems) {
+            total += (int) Math.round(item.price) * roomQuantities.get(item.group_id);
+        }
+        for (AmenityAvailability amenity : availableAmenities) {
+            total += (int) Math.round(amenity.price) * amenityQuantities.get(amenity.id);
+        }
+        for (MenuItemAvailability food : availableFood) {
+            total += (int) Math.round(food.price) * foodQuantities.get(food.id);
+        }
+        return total;
     }
 
     /**
@@ -1414,27 +2039,13 @@ final class HotelBookingFlowController {
         quantityRow.setVisibility(View.VISIBLE);
         card.setAlpha(1f);
 
-        TextView qtyValue = card.findViewById(R.id.itemQuantityValue);
+        EditText qtyValue = card.findViewById(R.id.itemQuantityValue);
         ImageView minus = card.findViewById(R.id.itemQuantityMinus);
         ImageView plus = card.findViewById(R.id.itemQuantityPlus);
         int qty = roomQuantities.containsKey(groupId) ? roomQuantities.get(groupId) : 0;
-        qtyValue.setText(String.valueOf(qty));
-        setStepperEnabled(minus, qty > 0);
-        setStepperEnabled(plus, qty < availableQty);
-
-        minus.setOnClickListener(view -> {
-            int current = roomQuantities.containsKey(groupId) ? roomQuantities.get(groupId) : 0;
-            if (current > 0) {
-                roomQuantities.put(groupId, current - 1);
-                onChanged.run();
-            }
-        });
-        plus.setOnClickListener(view -> {
-            int current = roomQuantities.containsKey(groupId) ? roomQuantities.get(groupId) : 0;
-            if (current < availableQty) {
-                roomQuantities.put(groupId, current + 1);
-                onChanged.run();
-            }
+        AuthUiUtils.bindQuantityStepper(qtyValue, minus, plus, qty, 0, availableQty, value -> {
+            roomQuantities.put(groupId, value);
+            onChanged.run();
         });
 
         return card;
@@ -1612,14 +2223,12 @@ final class HotelBookingFlowController {
         TextView cottageTimeError = v.findViewById(R.id.hotelCottageTimeError);
         RadioGroup rateGroup = v.findViewById(R.id.hotelCottageRateTypeGroup);
         TextView rateError = v.findViewById(R.id.hotelCottageRateTypeError);
-        TextView adultsValue = v.findViewById(R.id.hotelCottageAdultsValue);
-        TextView childrenValue = v.findViewById(R.id.hotelCottageChildrenValue);
+        EditText adultsValue = v.findViewById(R.id.hotelCottageAdultsValue);
+        EditText childrenValue = v.findViewById(R.id.hotelCottageChildrenValue);
         TextView totalGuestValue = v.findViewById(R.id.hotelCottageTotalGuestValue);
 
         updateCottageDateField(cottageDateText);
         updateCottageTimeField(cottageTimeText);
-        adultsValue.setText(String.valueOf(cottageAdults));
-        childrenValue.setText(String.valueOf(cottageChildren));
         totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
         if (ReservationCatalog.RATE_TYPE_DAY.equals(cottageRateType)) {
             rateGroup.check(R.id.hotelCottageRateDay);
@@ -1656,30 +2265,16 @@ final class HotelBookingFlowController {
             dialog.show();
         });
 
-        v.findViewById(R.id.hotelCottageAdultsMinus).setOnClickListener(view -> {
-            if (cottageAdults > 1) {
-                cottageAdults--;
-                adultsValue.setText(String.valueOf(cottageAdults));
-                totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-            }
-        });
-        v.findViewById(R.id.hotelCottageAdultsPlus).setOnClickListener(view -> {
-            cottageAdults++;
-            adultsValue.setText(String.valueOf(cottageAdults));
-            totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-        });
-        v.findViewById(R.id.hotelCottageChildrenMinus).setOnClickListener(view -> {
-            if (cottageChildren > 0) {
-                cottageChildren--;
-                childrenValue.setText(String.valueOf(cottageChildren));
-                totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-            }
-        });
-        v.findViewById(R.id.hotelCottageChildrenPlus).setOnClickListener(view -> {
-            cottageChildren++;
-            childrenValue.setText(String.valueOf(cottageChildren));
-            totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-        });
+        AuthUiUtils.bindQuantityStepper(adultsValue, v.findViewById(R.id.hotelCottageAdultsMinus),
+                v.findViewById(R.id.hotelCottageAdultsPlus), cottageAdults, 1, Integer.MAX_VALUE, value -> {
+                    cottageAdults = value;
+                    totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
+                });
+        AuthUiUtils.bindQuantityStepper(childrenValue, v.findViewById(R.id.hotelCottageChildrenMinus),
+                v.findViewById(R.id.hotelCottageChildrenPlus), cottageChildren, 0, Integer.MAX_VALUE, value -> {
+                    cottageChildren = value;
+                    totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
+                });
     }
 
     /** Binds the KTV tab's own rate type / date / start-end time / duration / guest count
@@ -1694,12 +2289,11 @@ final class HotelBookingFlowController {
         TextView ktvStartTimeError = v.findViewById(R.id.hotelKtvStartTimeError);
         RadioGroup rateGroup = v.findViewById(R.id.hotelKtvRateTypeGroup);
         TextView rateError = v.findViewById(R.id.hotelKtvRateTypeError);
-        TextView guestCountValue = v.findViewById(R.id.hotelKtvGuestCountValue);
+        EditText guestCountValue = v.findViewById(R.id.hotelKtvGuestCountValue);
 
         updateKtvDateField(ktvDateText);
         updateKtvStartTimeField(ktvStartTimeText);
         updateKtvEndTimeAndDuration(v);
-        guestCountValue.setText(String.valueOf(ktvGuestCount));
         if (ReservationCatalog.RATE_TYPE_REGULAR.equals(ktvRateType)) {
             rateGroup.check(R.id.hotelKtvRateRegular);
         } else if (ReservationCatalog.RATE_TYPE_CONSUMABLE.equals(ktvRateType)) {
@@ -1737,16 +2331,8 @@ final class HotelBookingFlowController {
             dialog.show();
         });
 
-        v.findViewById(R.id.hotelKtvGuestCountMinus).setOnClickListener(view -> {
-            if (ktvGuestCount > 1) {
-                ktvGuestCount--;
-                guestCountValue.setText(String.valueOf(ktvGuestCount));
-            }
-        });
-        v.findViewById(R.id.hotelKtvGuestCountPlus).setOnClickListener(view -> {
-            ktvGuestCount++;
-            guestCountValue.setText(String.valueOf(ktvGuestCount));
-        });
+        AuthUiUtils.bindQuantityStepper(guestCountValue, v.findViewById(R.id.hotelKtvGuestCountMinus),
+                v.findViewById(R.id.hotelKtvGuestCountPlus), ktvGuestCount, 1, Integer.MAX_VALUE, value -> ktvGuestCount = value);
     }
 
     // ---- Search panel collapse/drag mechanics ------------------------------
@@ -2398,22 +2984,11 @@ final class HotelBookingFlowController {
         selectButton.setVisibility(View.GONE);
         reserveButton.setVisibility(View.VISIBLE);
 
-        TextView qtyValue = card.findViewById(R.id.accommodationQuantityValue);
+        EditText qtyValue = card.findViewById(R.id.accommodationQuantityValue);
         ImageView minus = card.findViewById(R.id.accommodationQuantityMinus);
         ImageView plus = card.findViewById(R.id.accommodationQuantityPlus);
-        qtyValue.setText(String.valueOf(qty));
-        setStepperEnabled(plus, qty < item.available_quantity);
-
-        minus.setOnClickListener(view -> {
-            int current = roomQuantities.get(item.group_id);
-            if (current > 0) {
-                roomQuantities.put(item.group_id, current - 1);
-                renderAvailabilityResults(v);
-            }
-        });
-        plus.setOnClickListener(view -> {
-            int current = roomQuantities.get(item.group_id);
-            if (current < item.available_quantity) {
+        AuthUiUtils.bindQuantityStepper(qtyValue, minus, plus, qty, 0, item.available_quantity, value -> {
+            if (value > 0) {
                 // Several cottage types may carry a quantity at once while browsing (see the
                 // class-level selection model note) — but a reservation is still one category
                 // at a time, so clear anything picked on the Hotel Rooms/KTV tabs.
@@ -2422,9 +2997,9 @@ final class HotelBookingFlowController {
                         roomQuantities.put(key, 0);
                     }
                 }
-                roomQuantities.put(item.group_id, current + 1);
-                renderAvailabilityResults(v);
             }
+            roomQuantities.put(item.group_id, value);
+            renderAvailabilityResults(v);
         });
 
         reserveButton.setEnabled(qty > 0);
@@ -2697,7 +3272,10 @@ final class HotelBookingFlowController {
         AuthUiUtils.afterTextChanged(specialRequestField,
                 () -> specialRequest = specialRequestField.getText().toString());
 
-        v.findViewById(R.id.hotelReviewNextButton).setOnClickListener(view -> fetchAmenities(v));
+        v.findViewById(R.id.hotelReviewNextButton).setOnClickListener(view -> {
+            activeContinuation = CONTINUATION_NONE;
+            fetchAmenities(v);
+        });
     }
 
     /** Loads real add-on amenities from the shared backend, then advances to Choose Amenity. */
@@ -2750,7 +3328,8 @@ final class HotelBookingFlowController {
     // ---- Screen 4: Choose Amenity ------------------------------------------
 
     private void bindAmenity(View v) {
-        bindHeader(v, R.id.hotelAmenityHeaderBar, R.string.hotel_amenity_title, () -> showScreen(SCREEN_REVIEW));
+        bindHeader(v, R.id.hotelAmenityHeaderBar, R.string.hotel_amenity_title,
+                () -> showScreen(reviewScreenForContinuation()));
 
         LinearLayout container = v.findViewById(R.id.hotelAmenityContainer);
         container.removeAllViews();
@@ -2764,9 +3343,10 @@ final class HotelBookingFlowController {
             ((TextView) card.findViewById(R.id.stepperItemPrice))
                     .setText(activity.getString(R.string.format_currency, formatMoney(unitPrice)));
 
-            TextView qtyValue = card.findViewById(R.id.stepperItemQtyValue);
+            EditText qtyValue = card.findViewById(R.id.stepperItemQtyValue);
             ImageView minus = card.findViewById(R.id.stepperItemMinus);
             ImageView plus = card.findViewById(R.id.stepperItemPlus);
+            disableManualQuantityEntry(qtyValue);
             qtyValue.setText(String.valueOf(amenityQuantities.get(amenity.id)));
             setStepperEnabled(plus, amenityCanIncrement(amenity, amenityQuantities.get(amenity.id)));
 
@@ -2808,6 +3388,25 @@ final class HotelBookingFlowController {
 
     private boolean amenityCanIncrement(AmenityAvailability amenity, int currentQty) {
         return amenity.unlimited || amenity.available_quantity == null || currentQty < amenity.available_quantity;
+    }
+
+    private void setStepperEnabled(ImageView button, boolean enabled) {
+        button.setEnabled(enabled);
+        button.setAlpha(enabled ? 1f : 0.35f);
+    }
+
+    /**
+     * Amenity/Food quantities are +/- only, not manually typed (per explicit instruction — every
+     * other quantity stepper in the app does support typing, see AuthUiUtils#bindQuantityStepper,
+     * but these two were carved out). stepperItemQtyValue is an EditText only because it's the
+     * same view_hotel_stepper_item.xml layout the Reserve tab's own room card reuses (which does
+     * support typing) — disabling focus here keeps it a plain read-only label.
+     */
+    private void disableManualQuantityEntry(EditText valueField) {
+        valueField.setFocusable(false);
+        valueField.setFocusableInTouchMode(false);
+        valueField.setClickable(false);
+        valueField.setLongClickable(false);
     }
 
     /** Loads the real food/beverage menu from the shared backend, then advances to Order Food. */
@@ -2892,7 +3491,8 @@ final class HotelBookingFlowController {
             ((TextView) card.findViewById(R.id.stepperItemPrice))
                     .setText(activity.getString(R.string.format_currency, formatMoney(unitPrice)));
 
-            TextView qtyValue = card.findViewById(R.id.stepperItemQtyValue);
+            EditText qtyValue = card.findViewById(R.id.stepperItemQtyValue);
+            disableManualQuantityEntry(qtyValue);
             qtyValue.setText(String.valueOf(foodQuantities.get(food.id)));
 
             card.findViewById(R.id.stepperItemMinus).setOnClickListener(view -> {
@@ -2911,7 +3511,7 @@ final class HotelBookingFlowController {
             container.addView(card);
         }
 
-        v.findViewById(R.id.hotelFoodSkipButton).setOnClickListener(view -> showScreen(SCREEN_BILLING));
+        v.findViewById(R.id.hotelFoodSkipButton).setOnClickListener(view -> showScreen(billingScreenForContinuation()));
         v.findViewById(R.id.hotelFoodNextButton).setOnClickListener(view -> {
             if (totalFromMap(foodQuantities) == 0) {
                 AlertDialog dialog = new AlertDialog.Builder(activity)
@@ -2923,7 +3523,7 @@ final class HotelBookingFlowController {
                 dialog.show();
                 return;
             }
-            showScreen(SCREEN_BILLING);
+            showScreen(billingScreenForContinuation());
         });
     }
 
@@ -3508,6 +4108,7 @@ final class HotelBookingFlowController {
         selectionOriginVariantId = -1;
         selectionShowOthers = false;
         onBackToOverview = null;
+        activeContinuation = CONTINUATION_NONE;
         cottageRateType = "";
         cottageDateMillis = -1;
         cottageTimeHour = -1;
@@ -3566,11 +4167,6 @@ final class HotelBookingFlowController {
     private void showError(TextView errorView, int messageRes) {
         errorView.setText(messageRes);
         errorView.setVisibility(View.VISIBLE);
-    }
-
-    private void setStepperEnabled(ImageView button, boolean enabled) {
-        button.setEnabled(enabled);
-        button.setAlpha(enabled ? 1f : 0.35f);
     }
 
     private int totalFromMap(Map<?, Integer> map) {

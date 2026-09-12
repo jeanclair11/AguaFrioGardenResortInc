@@ -13,6 +13,7 @@ import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
@@ -941,44 +942,34 @@ public class LandingActivity extends Activity {
         View bookButton = card.findViewById(R.id.roomTypeCardBookButton);
         bookButton.setVisibility(bookable ? View.VISIBLE : View.GONE);
         if (bookable) {
-            bookButton.setOnClickListener(v -> handleBookTap(origin, roomTypeName, categoryName,
-                    capacity, description, pricePerNight, variantId, imagePathForStorage));
+            bookButton.setOnClickListener(v -> handleCardTap(origin, roomTypeName, categoryName,
+                    capacity, description, pricePerNight, variantId, imagePathForStorage,
+                    PendingRoomSelection.PURPOSE_BOOK));
         }
 
         View reserveButton = card.findViewById(R.id.roomTypeCardReserveButton);
         reserveButton.setVisibility(bookable ? View.VISIBLE : View.GONE);
         if (bookable) {
-            reserveButton.setOnClickListener(v -> handleReserveTap());
+            reserveButton.setOnClickListener(v -> handleCardTap(origin, roomTypeName, categoryName,
+                    capacity, description, pricePerNight, variantId, imagePathForStorage,
+                    PendingRoomSelection.PURPOSE_RESERVE));
         }
     }
 
     /**
-     * RESERVE hands off to the existing Reserve tab wizard (see ReservationFlowController) —
-     * same "not logged in: open Login first" gate as BOOK, but generic rather than scoped to the
-     * tapped card, matching how Cottage/KTV detail screens already hand off to this same tab
-     * elsewhere in the app (see BookingCatalogController's onBookNow callback) instead of
-     * duplicating that flow here.
+     * BOOK and RESERVE share the same Room/Cottage/KTV Overview screen (see #showRoomOverview) —
+     * only its CTA button's label and destination differ, driven by purpose (PURPOSE_BOOK/
+     * PURPOSE_RESERVE). Not logged in: remembers the selection and opens Login; once logged in,
+     * {@link #onCreate} restores it via showRoomOverview. Logged in: goes straight there.
      */
-    private void handleReserveTap() {
-        if (!loggedIn) {
-            openLogin();
-            return;
-        }
-        showModule(Section.RESERVE);
-    }
-
-    /**
-     * Not logged in: BOOK remembers the room selection and opens Login; once logged in,
-     * {@link #onCreate} restores it via {@link #showRoomOverview}. Logged in: BOOK goes straight
-     * to that same Room/Cottage/KTV Overview screen, so the flow is identical either way.
-     */
-    private void handleBookTap(Section origin, String roomTypeName, String categoryName,
-                              int capacity, String description, String pricePerNight, int variantId, String imagePath) {
+    private void handleCardTap(Section origin, String roomTypeName, String categoryName,
+                              int capacity, String description, String pricePerNight, int variantId,
+                              String imagePath, int purpose) {
         int type = origin == Section.COTTAGES ? PendingRoomSelection.TYPE_COTTAGE
                 : origin == Section.KTV ? PendingRoomSelection.TYPE_KTV
                 : PendingRoomSelection.TYPE_ROOM;
         PendingRoomSelection.set(imagePath, roomTypeName, categoryName,
-                capacity, description, pricePerNight, variantId, type);
+                capacity, description, pricePerNight, variantId, type, purpose);
         if (!loggedIn) {
             openLogin();
             return;
@@ -1052,20 +1043,29 @@ public class LandingActivity extends Activity {
         ((TextView) v.findViewById(R.id.roomOverviewDescription)).setText(room.description);
         ((TextView) v.findViewById(R.id.roomOverviewPrice)).setText(room.pricePerNight);
 
-        // Book Now button: Hotel Rooms, Cottages and KTV each get their own focused gate screen
+        // CTA button: BOOK sends Hotel Rooms/Cottages/KTV each to their own focused gate screen
         // (see BookingCatalogController#showHotelFlowFromRoomOverview /
-        // #showHotelFlowFromCottageOverview / #showHotelFlowFromKtvOverview).
-        v.findViewById(R.id.roomOverviewBookNowButton).setOnClickListener(view -> {
-            Runnable backToThisOverview = () -> showRoomOverview(room);
-            if (room.type == PendingRoomSelection.TYPE_ROOM) {
-                bookingCatalog.showHotelFlowFromRoomOverview(room.variantId, backToThisOverview);
-            } else if (room.type == PendingRoomSelection.TYPE_COTTAGE) {
-                bookingCatalog.showHotelFlowFromCottageOverview(room.variantId, backToThisOverview);
-            } else if (room.type == PendingRoomSelection.TYPE_KTV) {
-                bookingCatalog.showHotelFlowFromKtvOverview(room.variantId, backToThisOverview);
-            }
-            showModule(Section.BOOK);
-        });
+        // #showHotelFlowFromCottageOverview / #showHotelFlowFromKtvOverview); RESERVE just hands
+        // off to the existing Reserve tab (see ReservationFlowController) — same screen either
+        // way, only the label and destination change with room.purpose.
+        Button ctaButton = v.findViewById(R.id.roomOverviewBookNowButton);
+        if (room.purpose == PendingRoomSelection.PURPOSE_RESERVE) {
+            ctaButton.setText(R.string.button_reserve_now);
+            ctaButton.setOnClickListener(view -> showModule(Section.RESERVE));
+        } else {
+            ctaButton.setText(R.string.button_book_now);
+            ctaButton.setOnClickListener(view -> {
+                Runnable backToThisOverview = () -> showRoomOverview(room);
+                if (room.type == PendingRoomSelection.TYPE_ROOM) {
+                    bookingCatalog.showHotelFlowFromRoomOverview(room.variantId, backToThisOverview);
+                } else if (room.type == PendingRoomSelection.TYPE_COTTAGE) {
+                    bookingCatalog.showHotelFlowFromCottageOverview(room.variantId, backToThisOverview);
+                } else if (room.type == PendingRoomSelection.TYPE_KTV) {
+                    bookingCatalog.showHotelFlowFromKtvOverview(room.variantId, backToThisOverview);
+                }
+                showModule(Section.BOOK);
+            });
+        }
 
         swapContent(v, true);
     }

@@ -12,6 +12,8 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import java.util.function.IntConsumer;
+
 /**
  * Small helpers shared across the authentication screens.
  */
@@ -126,6 +128,71 @@ final class AuthUiUtils {
             strengthLabel.setText(R.string.strength_strong);
             strengthLabel.setTextColor(Color.parseColor("#2E7D32")); // Green
         }
+    }
+
+    /**
+     * Wires a quantity stepper's +/- buttons and lets the guest type the quantity directly into
+     * valueField instead of only tapping the buttons, keeping both in sync — including graying
+     * out minus/plus once the value hits min/max, same as tapping alone already did. A typed
+     * value is committed (clamped to [min, max], reformatted, and passed to onChanged) only once
+     * the field loses focus — same "commit on blur" pattern as the Payment screen's Amount Paid
+     * field — rather than on every keystroke: several callers rebuild their whole card/list from
+     * onChanged (see bindRoomSelection et al.), which would tear down and refocus this very
+     * EditText mid-keystroke if triggered live. Tapping +/- still updates and commits instantly,
+     * since a tap isn't a typing session that can be interrupted mid-way.
+     */
+    static void bindQuantityStepper(EditText valueField, ImageView minusButton, ImageView plusButton,
+            int initial, int min, int max, IntConsumer onChanged) {
+        valueField.setText(String.valueOf(initial));
+        setStepperButtonsEnabled(minusButton, plusButton, initial, min, max);
+
+        valueField.setOnFocusChangeListener((view, hasFocus) -> {
+            if (hasFocus) {
+                return;
+            }
+            int clamped = clampQuantity(parseQuantityOrDefault(valueField.getText().toString(), min), min, max);
+            valueField.setText(String.valueOf(clamped));
+            setStepperButtonsEnabled(minusButton, plusButton, clamped, min, max);
+            onChanged.accept(clamped);
+        });
+        minusButton.setOnClickListener(view -> {
+            int current = parseQuantityOrDefault(valueField.getText().toString(), min);
+            int clamped = clampQuantity(current - 1, min, max);
+            valueField.setText(String.valueOf(clamped));
+            valueField.setSelection(valueField.getText().length());
+            setStepperButtonsEnabled(minusButton, plusButton, clamped, min, max);
+        });
+        plusButton.setOnClickListener(view -> {
+            int current = parseQuantityOrDefault(valueField.getText().toString(), min);
+            int clamped = clampQuantity(current + 1, min, max);
+            valueField.setText(String.valueOf(clamped));
+            valueField.setSelection(valueField.getText().length());
+            setStepperButtonsEnabled(minusButton, plusButton, clamped, min, max);
+        });
+    }
+
+    private static void setStepperButtonsEnabled(ImageView minusButton, ImageView plusButton, int value, int min, int max) {
+        minusButton.setEnabled(value > min);
+        minusButton.setAlpha(value > min ? 1f : 0.35f);
+        plusButton.setEnabled(value < max);
+        plusButton.setAlpha(value < max ? 1f : 0.35f);
+    }
+
+    private static Integer parseQuantity(String text) {
+        try {
+            return Integer.parseInt(text.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static int parseQuantityOrDefault(String text, int fallback) {
+        Integer parsed = parseQuantity(text);
+        return parsed != null ? parsed : fallback;
+    }
+
+    private static int clampQuantity(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     /**

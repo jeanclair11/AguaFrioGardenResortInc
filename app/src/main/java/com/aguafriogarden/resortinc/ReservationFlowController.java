@@ -278,13 +278,11 @@ final class ReservationFlowController {
         TextView checkInError = v.findViewById(R.id.reservationCheckInError);
         TextView checkOutError = v.findViewById(R.id.reservationCheckOutError);
 
-        TextView adultsValue = v.findViewById(R.id.reservationAdultsValue);
-        TextView childrenValue = v.findViewById(R.id.reservationChildrenValue);
+        EditText adultsValue = v.findViewById(R.id.reservationAdultsValue);
+        EditText childrenValue = v.findViewById(R.id.reservationChildrenValue);
 
         updateDateField(checkInDateText, checkInDayText, checkInMillis);
         updateDateField(checkOutDateText, checkOutDayText, checkOutMillis);
-        adultsValue.setText(String.valueOf(adults));
-        childrenValue.setText(String.valueOf(children));
 
         View.OnClickListener openDatePicker = view -> GlassDatePicker.showRangePicker(activity, checkInMillis, checkOutMillis,
                 System.currentTimeMillis() - 1000L, (start, end) -> {
@@ -298,26 +296,10 @@ final class ReservationFlowController {
         checkIn.setOnClickListener(openDatePicker);
         checkOut.setOnClickListener(openDatePicker);
 
-        v.findViewById(R.id.reservationAdultsMinus).setOnClickListener(view -> {
-            if (adults > 1) {
-                adults--;
-                adultsValue.setText(String.valueOf(adults));
-            }
-        });
-        v.findViewById(R.id.reservationAdultsPlus).setOnClickListener(view -> {
-            adults++;
-            adultsValue.setText(String.valueOf(adults));
-        });
-        v.findViewById(R.id.reservationChildrenMinus).setOnClickListener(view -> {
-            if (children > 0) {
-                children--;
-                childrenValue.setText(String.valueOf(children));
-            }
-        });
-        v.findViewById(R.id.reservationChildrenPlus).setOnClickListener(view -> {
-            children++;
-            childrenValue.setText(String.valueOf(children));
-        });
+        AuthUiUtils.bindQuantityStepper(adultsValue, v.findViewById(R.id.reservationAdultsMinus),
+                v.findViewById(R.id.reservationAdultsPlus), adults, 1, Integer.MAX_VALUE, value -> adults = value);
+        AuthUiUtils.bindQuantityStepper(childrenValue, v.findViewById(R.id.reservationChildrenMinus),
+                v.findViewById(R.id.reservationChildrenPlus), children, 0, Integer.MAX_VALUE, value -> children = value);
 
         LinearLayout container = v.findViewById(R.id.reservationRoomsContainer);
 
@@ -399,14 +381,12 @@ final class ReservationFlowController {
         TextView cottageTimeError = v.findViewById(R.id.reservationCottageTimeError);
         RadioGroup rateGroup = v.findViewById(R.id.reservationCottageRateTypeGroup);
         TextView rateError = v.findViewById(R.id.reservationCottageRateTypeError);
-        TextView adultsValue = v.findViewById(R.id.reservationCottageAdultsValue);
-        TextView childrenValue = v.findViewById(R.id.reservationCottageChildrenValue);
+        EditText adultsValue = v.findViewById(R.id.reservationCottageAdultsValue);
+        EditText childrenValue = v.findViewById(R.id.reservationCottageChildrenValue);
         TextView totalGuestValue = v.findViewById(R.id.reservationCottageTotalGuestValue);
 
         updateCottageDateField(cottageDateText);
         updateCottageTimeField(cottageTimeText);
-        adultsValue.setText(String.valueOf(cottageAdults));
-        childrenValue.setText(String.valueOf(cottageChildren));
         totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
         if (ReservationCatalog.RATE_TYPE_DAY.equals(cottageRateType)) {
             rateGroup.check(R.id.reservationCottageRateDay);
@@ -443,30 +423,16 @@ final class ReservationFlowController {
             dialog.show();
         });
 
-        v.findViewById(R.id.reservationCottageAdultsMinus).setOnClickListener(view -> {
-            if (cottageAdults > 1) {
-                cottageAdults--;
-                adultsValue.setText(String.valueOf(cottageAdults));
-                totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-            }
-        });
-        v.findViewById(R.id.reservationCottageAdultsPlus).setOnClickListener(view -> {
-            cottageAdults++;
-            adultsValue.setText(String.valueOf(cottageAdults));
-            totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-        });
-        v.findViewById(R.id.reservationCottageChildrenMinus).setOnClickListener(view -> {
-            if (cottageChildren > 0) {
-                cottageChildren--;
-                childrenValue.setText(String.valueOf(cottageChildren));
-                totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-            }
-        });
-        v.findViewById(R.id.reservationCottageChildrenPlus).setOnClickListener(view -> {
-            cottageChildren++;
-            childrenValue.setText(String.valueOf(cottageChildren));
-            totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-        });
+        AuthUiUtils.bindQuantityStepper(adultsValue, v.findViewById(R.id.reservationCottageAdultsMinus),
+                v.findViewById(R.id.reservationCottageAdultsPlus), cottageAdults, 1, Integer.MAX_VALUE, value -> {
+                    cottageAdults = value;
+                    totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
+                });
+        AuthUiUtils.bindQuantityStepper(childrenValue, v.findViewById(R.id.reservationCottageChildrenMinus),
+                v.findViewById(R.id.reservationCottageChildrenPlus), cottageChildren, 0, Integer.MAX_VALUE, value -> {
+                    cottageChildren = value;
+                    totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
+                });
     }
 
     /** Binds the KTV tab's own rate type / date / start-end time / duration / guest count
@@ -481,12 +447,11 @@ final class ReservationFlowController {
         TextView ktvStartTimeError = v.findViewById(R.id.reservationKtvStartTimeError);
         RadioGroup rateGroup = v.findViewById(R.id.reservationKtvRateTypeGroup);
         TextView rateError = v.findViewById(R.id.reservationKtvRateTypeError);
-        TextView guestCountValue = v.findViewById(R.id.reservationKtvGuestCountValue);
+        EditText guestCountValue = v.findViewById(R.id.reservationKtvGuestCountValue);
 
         updateKtvDateField(ktvDateText);
         updateKtvStartTimeField(ktvStartTimeText);
         updateKtvEndTimeAndDuration(v);
-        guestCountValue.setText(String.valueOf(ktvGuestCount));
         if (ReservationCatalog.RATE_TYPE_REGULAR.equals(ktvRateType)) {
             rateGroup.check(R.id.reservationKtvRateRegular);
         } else if (ReservationCatalog.RATE_TYPE_CONSUMABLE.equals(ktvRateType)) {
@@ -524,16 +489,8 @@ final class ReservationFlowController {
             dialog.show();
         });
 
-        v.findViewById(R.id.reservationKtvGuestCountMinus).setOnClickListener(view -> {
-            if (ktvGuestCount > 1) {
-                ktvGuestCount--;
-                guestCountValue.setText(String.valueOf(ktvGuestCount));
-            }
-        });
-        v.findViewById(R.id.reservationKtvGuestCountPlus).setOnClickListener(view -> {
-            ktvGuestCount++;
-            guestCountValue.setText(String.valueOf(ktvGuestCount));
-        });
+        AuthUiUtils.bindQuantityStepper(guestCountValue, v.findViewById(R.id.reservationKtvGuestCountMinus),
+                v.findViewById(R.id.reservationKtvGuestCountPlus), ktvGuestCount, 1, Integer.MAX_VALUE, value -> ktvGuestCount = value);
     }
 
     /** Loads the Cottages & KTV Type/Category catalog from the Admin Web's Cottage Management /
@@ -1159,32 +1116,21 @@ final class ReservationFlowController {
         // One Reserve action for the whole tab now (reservationHotelReserveButton), not per card.
         card.findViewById(R.id.stepperItemReserveButton).setVisibility(View.GONE);
 
-        TextView qtyValue = card.findViewById(R.id.stepperItemQtyValue);
+        EditText qtyValue = card.findViewById(R.id.stepperItemQtyValue);
         ImageView minus = card.findViewById(R.id.stepperItemMinus);
         ImageView plus = card.findViewById(R.id.stepperItemPlus);
         int qty = roomQuantities.get(option.id);
-        qtyValue.setText(String.valueOf(qty));
-        setStepperEnabled(plus, qty < option.maxQuantity);
-
-        minus.setOnClickListener(view -> {
-            int current = roomQuantities.get(option.id);
-            if (current > 0) {
-                roomQuantities.put(option.id, current - 1);
-                renderRoomOptions(v, container);
-            }
-        });
-        plus.setOnClickListener(view -> {
-            int current = roomQuantities.get(option.id);
-            if (current < option.maxQuantity) {
+        AuthUiUtils.bindQuantityStepper(qtyValue, minus, plus, qty, 0, option.maxQuantity, value -> {
+            if (value > 0) {
                 // Hotel Rooms: only one accommodation may be selected at a time.
                 for (Integer key : roomQuantities.keySet()) {
                     if (!key.equals(option.id)) {
                         roomQuantities.put(key, 0);
                     }
                 }
-                roomQuantities.put(option.id, current + 1);
-                renderRoomOptions(v, container);
             }
+            roomQuantities.put(option.id, value);
+            renderRoomOptions(v, container);
         });
 
         return card;
@@ -1245,22 +1191,11 @@ final class ReservationFlowController {
         selectButton.setVisibility(View.GONE);
         reserveButton.setVisibility(View.VISIBLE);
 
-        TextView qtyValue = card.findViewById(R.id.accommodationQuantityValue);
+        EditText qtyValue = card.findViewById(R.id.accommodationQuantityValue);
         ImageView minus = card.findViewById(R.id.accommodationQuantityMinus);
         ImageView plus = card.findViewById(R.id.accommodationQuantityPlus);
-        qtyValue.setText(String.valueOf(qty));
-        setStepperEnabled(plus, qty < option.maxQuantity);
-
-        minus.setOnClickListener(view -> {
-            int current = roomQuantities.get(option.id);
-            if (current > 0) {
-                roomQuantities.put(option.id, current - 1);
-                renderRoomOptions(v, container);
-            }
-        });
-        plus.setOnClickListener(view -> {
-            int current = roomQuantities.get(option.id);
-            if (current < option.maxQuantity) {
+        AuthUiUtils.bindQuantityStepper(qtyValue, minus, plus, qty, 0, option.maxQuantity, value -> {
+            if (value > 0) {
                 // Several cottage types may carry a quantity at once while browsing (see the
                 // class-level selection model note) — but a reservation is still one category
                 // at a time, so clear anything picked on the Hotel Rooms/KTV tabs.
@@ -1269,9 +1204,9 @@ final class ReservationFlowController {
                         roomQuantities.put(key, 0);
                     }
                 }
-                roomQuantities.put(option.id, current + 1);
-                renderRoomOptions(v, container);
             }
+            roomQuantities.put(option.id, value);
+            renderRoomOptions(v, container);
         });
 
         // Reserve: enabled once this card is the selected one (qty > 0). Validates the Cottage
@@ -2051,11 +1986,6 @@ final class ReservationFlowController {
             cottageTimeText.setText(new SimpleDateFormat("h:mm a", Locale.US).format(calendar.getTime()));
             cottageTimeText.setAlpha(1f);
         }
-    }
-
-    private void setStepperEnabled(ImageView button, boolean enabled) {
-        button.setEnabled(enabled);
-        button.setAlpha(enabled ? 1f : 0.35f);
     }
 
     private int nights() {

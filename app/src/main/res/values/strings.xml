@@ -450,6 +450,7 @@
     <string name="button_browse">BROWSE</string>
     <string name="button_view_details">VIEW DETAILS</string>
     <string name="button_book_now">BOOK NOW</string>
+    <string name="button_reserve_now">RESERVE NOW</string>
 
     <!-- Room overview screen (shown after login if room was selected before login) -->
     <string name="room_image">Room image</string>
@@ -560,6 +561,7 @@
 
     <!-- Cottage / KTV reservation-details tabs (Reserve tab) -->
     <string name="label_rate_type">Select Rate Type</string>
+    <string name="label_selected_rate_type">Selected Rate Type</string>
     <string name="rate_type_day">Day Rate</string>
     <string name="rate_type_night">Night Rate</string>
     <string name="label_total_guest">Total Guest</string>
@@ -642,6 +644,8 @@
     <string name="hotel_review_subtitle">Here\'s what you\'ve picked for your stay.</string>
     <string name="section_stay_details">STAY DETAILS</string>
     <string name="section_selected_rooms">SELECTED ROOMS</string>
+    <string name="section_selected_cottage">SELECTED COTTAGE</string>
+    <string name="section_selected_ktv_rooms">SELECTED KTV ROOMS</string>
     <string name="section_special_request">SPECIAL REQUEST</string>
     <string name="hint_special_request_flow">Tell us if you have any special requests…</string>
     <string name="helper_special_request_flow">Special requests are subject to availability and are not guaranteed.</string>
@@ -670,6 +674,8 @@
     <string name="hotel_billing_subtitle">Please review your details before proceeding.</string>
     <string name="section_guest_information">GUEST INFORMATION</string>
     <string name="section_accommodation">ACCOMMODATION</string>
+    <string name="section_cottage">COTTAGE</string>
+    <string name="section_ktv_rooms">KTV ROOMS</string>
     <string name="section_amenities">AMENITIES</string>
     <string name="section_food_orders">FOOD ORDERS</string>
     <string name="section_payment_summary">PAYMENT SUMMARY</string>
@@ -683,6 +689,8 @@
     <string name="label_billing_children">Children</string>
     <string name="label_total_guests">Total Guests</string>
     <string name="label_room_charges">Room Charges</string>
+    <string name="label_cottage_charges">Cottage Charges</string>
+    <string name="label_ktv_charges">KTV Charges</string>
     <string name="label_amenities_total">Amenities</string>
     <string name="label_food_total">Food Orders</string>
     <string name="label_grand_total">Grand Total</string>

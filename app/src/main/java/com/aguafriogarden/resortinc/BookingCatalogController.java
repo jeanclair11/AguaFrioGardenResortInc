@@ -411,50 +411,26 @@ final class BookingCatalogController {
         });
 
         if (cottage) {
-            TextView adultsValue = v.findViewById(R.id.detailCottageAdultsValue);
-            TextView childrenValue = v.findViewById(R.id.detailCottageChildrenValue);
+            EditText adultsValue = v.findViewById(R.id.detailCottageAdultsValue);
+            EditText childrenValue = v.findViewById(R.id.detailCottageChildrenValue);
             TextView totalGuestValue = v.findViewById(R.id.detailCottageTotalGuestValue);
-            adultsValue.setText(String.valueOf(detailAdults));
-            childrenValue.setText(String.valueOf(detailChildren));
             totalGuestValue.setText(String.valueOf(detailAdults + detailChildren));
 
-            v.findViewById(R.id.detailCottageAdultsMinus).setOnClickListener(view -> {
-                if (detailAdults > 1) {
-                    detailAdults--;
-                    adultsValue.setText(String.valueOf(detailAdults));
-                    totalGuestValue.setText(String.valueOf(detailAdults + detailChildren));
-                }
-            });
-            v.findViewById(R.id.detailCottageAdultsPlus).setOnClickListener(view -> {
-                detailAdults++;
-                adultsValue.setText(String.valueOf(detailAdults));
-                totalGuestValue.setText(String.valueOf(detailAdults + detailChildren));
-            });
-            v.findViewById(R.id.detailCottageChildrenMinus).setOnClickListener(view -> {
-                if (detailChildren > 0) {
-                    detailChildren--;
-                    childrenValue.setText(String.valueOf(detailChildren));
-                    totalGuestValue.setText(String.valueOf(detailAdults + detailChildren));
-                }
-            });
-            v.findViewById(R.id.detailCottageChildrenPlus).setOnClickListener(view -> {
-                detailChildren++;
-                childrenValue.setText(String.valueOf(detailChildren));
-                totalGuestValue.setText(String.valueOf(detailAdults + detailChildren));
-            });
+            AuthUiUtils.bindQuantityStepper(adultsValue, v.findViewById(R.id.detailCottageAdultsMinus),
+                    v.findViewById(R.id.detailCottageAdultsPlus), detailAdults, 1, Integer.MAX_VALUE, value -> {
+                        detailAdults = value;
+                        totalGuestValue.setText(String.valueOf(detailAdults + detailChildren));
+                    });
+            AuthUiUtils.bindQuantityStepper(childrenValue, v.findViewById(R.id.detailCottageChildrenMinus),
+                    v.findViewById(R.id.detailCottageChildrenPlus), detailChildren, 0, Integer.MAX_VALUE, value -> {
+                        detailChildren = value;
+                        totalGuestValue.setText(String.valueOf(detailAdults + detailChildren));
+                    });
         } else {
-            TextView guestCountValue = v.findViewById(R.id.detailKtvGuestCountValue);
-            guestCountValue.setText(String.valueOf(detailGuestCount));
-            v.findViewById(R.id.detailKtvGuestCountMinus).setOnClickListener(view -> {
-                if (detailGuestCount > 1) {
-                    detailGuestCount--;
-                    guestCountValue.setText(String.valueOf(detailGuestCount));
-                }
-            });
-            v.findViewById(R.id.detailKtvGuestCountPlus).setOnClickListener(view -> {
-                detailGuestCount++;
-                guestCountValue.setText(String.valueOf(detailGuestCount));
-            });
+            EditText guestCountValue = v.findViewById(R.id.detailKtvGuestCountValue);
+            AuthUiUtils.bindQuantityStepper(guestCountValue, v.findViewById(R.id.detailKtvGuestCountMinus),
+                    v.findViewById(R.id.detailKtvGuestCountPlus), detailGuestCount, 1, Integer.MAX_VALUE,
+                    value -> detailGuestCount = value);
         }
     }
 

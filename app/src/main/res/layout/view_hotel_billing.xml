@@ -84,6 +84,7 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/billingAccommodationLabel"
                     style="@style/BillingSectionLabel"
                     android:text="@string/section_accommodation" />
 

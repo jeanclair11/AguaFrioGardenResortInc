@@ -763,7 +763,7 @@
                             android:src="@drawable/ic_minus"
                             android:background="@drawable/bg_stepper_button" />
 
-                        <TextView
+                        <EditText
                             android:id="@+id/hotelCottageAdultsValue"
                             android:layout_width="44dp"
                             android:layout_height="wrap_content"
@@ -771,7 +771,15 @@
                             android:text="1"
                             android:textColor="?attr/textPrimary"
                             android:textSize="16sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:background="@null"
+                            android:padding="0dp"
+                            android:minHeight="0dp"
+                            android:inputType="number"
+                            android:maxLength="2"
+                            android:selectAllOnFocus="true"
+                            android:imeOptions="actionDone"
+                            android:singleLine="true" />
 
                         <ImageView
                             android:id="@+id/hotelCottageAdultsPlus"
@@ -812,7 +820,7 @@
                             android:src="@drawable/ic_minus"
                             android:background="@drawable/bg_stepper_button" />
 
-                        <TextView
+                        <EditText
                             android:id="@+id/hotelCottageChildrenValue"
                             android:layout_width="44dp"
                             android:layout_height="wrap_content"
@@ -820,7 +828,15 @@
                             android:text="0"
                             android:textColor="?attr/textPrimary"
                             android:textSize="16sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:background="@null"
+                            android:padding="0dp"
+                            android:minHeight="0dp"
+                            android:inputType="number"
+                            android:maxLength="2"
+                            android:selectAllOnFocus="true"
+                            android:imeOptions="actionDone"
+                            android:singleLine="true" />
 
                         <ImageView
                             android:id="@+id/hotelCottageChildrenPlus"
@@ -1114,7 +1130,7 @@
                         android:src="@drawable/ic_minus"
                         android:background="@drawable/bg_stepper_button" />
 
-                    <TextView
+                    <EditText
                         android:id="@+id/hotelKtvGuestCountValue"
                         android:layout_width="44dp"
                         android:layout_height="wrap_content"
@@ -1122,7 +1138,15 @@
                         android:text="1"
                         android:textColor="?attr/textPrimary"
                         android:textSize="16sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:background="@null"
+                        android:padding="0dp"
+                        android:minHeight="0dp"
+                        android:inputType="number"
+                        android:maxLength="2"
+                        android:selectAllOnFocus="true"
+                        android:imeOptions="actionDone"
+                        android:singleLine="true" />
 
                     <ImageView
                         android:id="@+id/hotelKtvGuestCountPlus"

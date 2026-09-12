@@ -775,7 +775,7 @@
                             android:src="@drawable/ic_minus"
                             android:background="@drawable/bg_stepper_button" />
 
-                        <TextView
+                        <EditText
                             android:id="@+id/reservationCottageAdultsValue"
                             android:layout_width="44dp"
                             android:layout_height="wrap_content"
@@ -783,7 +783,15 @@
                             android:text="1"
                             android:textColor="?attr/textPrimary"
                             android:textSize="16sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:background="@null"
+                            android:padding="0dp"
+                            android:minHeight="0dp"
+                            android:inputType="number"
+                            android:maxLength="2"
+                            android:selectAllOnFocus="true"
+                            android:imeOptions="actionDone"
+                            android:singleLine="true" />
 
                         <ImageView
                             android:id="@+id/reservationCottageAdultsPlus"
@@ -824,7 +832,7 @@
                             android:src="@drawable/ic_minus"
                             android:background="@drawable/bg_stepper_button" />
 
-                        <TextView
+                        <EditText
                             android:id="@+id/reservationCottageChildrenValue"
                             android:layout_width="44dp"
                             android:layout_height="wrap_content"
@@ -832,7 +840,15 @@
                             android:text="0"
                             android:textColor="?attr/textPrimary"
                             android:textSize="16sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:background="@null"
+                            android:padding="0dp"
+                            android:minHeight="0dp"
+                            android:inputType="number"
+                            android:maxLength="2"
+                            android:selectAllOnFocus="true"
+                            android:imeOptions="actionDone"
+                            android:singleLine="true" />
 
                         <ImageView
                             android:id="@+id/reservationCottageChildrenPlus"
@@ -1128,7 +1144,7 @@
                         android:src="@drawable/ic_minus"
                         android:background="@drawable/bg_stepper_button" />
 
-                    <TextView
+                    <EditText
                         android:id="@+id/reservationKtvGuestCountValue"
                         android:layout_width="44dp"
                         android:layout_height="wrap_content"
@@ -1136,7 +1152,15 @@
                         android:text="1"
                         android:textColor="?attr/textPrimary"
                         android:textSize="16sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:background="@null"
+                        android:padding="0dp"
+                        android:minHeight="0dp"
+                        android:inputType="number"
+                        android:maxLength="2"
+                        android:selectAllOnFocus="true"
+                        android:imeOptions="actionDone"
+                        android:singleLine="true" />
 
                     <ImageView
                         android:id="@+id/reservationKtvGuestCountPlus"
@@ -1192,7 +1216,7 @@
                             android:src="@drawable/ic_minus"
                             android:background="@drawable/bg_stepper_button" />
 
-                        <TextView
+                        <EditText
                             android:id="@+id/reservationAdultsValue"
                             android:layout_width="44dp"
                             android:layout_height="wrap_content"
@@ -1200,7 +1224,15 @@
                             android:text="1"
                             android:textColor="?attr/textPrimary"
                             android:textSize="16sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:background="@null"
+                            android:padding="0dp"
+                            android:minHeight="0dp"
+                            android:inputType="number"
+                            android:maxLength="2"
+                            android:selectAllOnFocus="true"
+                            android:imeOptions="actionDone"
+                            android:singleLine="true" />
 
                         <ImageView
                             android:id="@+id/reservationAdultsPlus"
@@ -1241,7 +1273,7 @@
                             android:src="@drawable/ic_minus"
                             android:background="@drawable/bg_stepper_button" />
 
-                        <TextView
+                        <EditText
                             android:id="@+id/reservationChildrenValue"
                             android:layout_width="44dp"
                             android:layout_height="wrap_content"
@@ -1249,7 +1281,15 @@
                             android:text="0"
                             android:textColor="?attr/textPrimary"
                             android:textSize="16sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:background="@null"
+                            android:padding="0dp"
+                            android:minHeight="0dp"
+                            android:inputType="number"
+                            android:maxLength="2"
+                            android:selectAllOnFocus="true"
+                            android:imeOptions="actionDone"
+                            android:singleLine="true" />
 
                         <ImageView
                             android:id="@+id/reservationChildrenPlus"
