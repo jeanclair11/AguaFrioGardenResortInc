@@ -55,9 +55,6 @@ public interface BookingApi {
     @GET("booking/food")
     Call<FoodListResponse> getFood(@Header("Authorization") String bearerToken);
 
-    @GET("booking/my-bookings")
-    Call<MyBookingsResponse> getMyBookings(@Header("Authorization") String bearerToken);
-
     /**
      * Creates a real reservation in one call — the mobile client has no server-side
      * session to spread this across multiple requests the way the website's wizard

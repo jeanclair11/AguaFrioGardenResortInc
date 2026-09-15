@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Book tab: a catalog of the resort's four bookable service categories.
-     Tapping a card or its Browse button opens that category's item list
-     (see BookingCatalogController#showBrowse). -->
+<!-- Shared "What do you want to book/reserve?" entry gate (Hotel Room/Cottage/KTV Room) for both
+     the Book and Reserve tabs — see ReserveCatalogController#showPicker and
+     BookingCatalogController#showPicker. Picking one hands off to HotelBookingFlowController's
+     flow at that category's own focused dates-entry screen (reserveOnly true for Reserve, false
+     for Book). reservePickerTitleText's text is set in Java per tab since the two need different
+     wording ("book" vs "reserve"). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -22,33 +25,17 @@
             android:paddingBottom="24dp">
 
             <TextView
+                android:id="@+id/reservePickerTitleText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:letterSpacing="0.04"
-                android:text="@string/booking_catalog_title"
+                android:letterSpacing="0.02"
+                android:text="@string/reserve_picker_title"
                 android:textColor="?attr/textOnScreen"
-                android:textSize="24sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="@string/booking_catalog_welcome"
-                android:textColor="?attr/accentPrimary"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="@string/booking_catalog_subtitle"
-                android:textColor="?attr/textOnScreenMuted"
-                android:textSize="13sp" />
 
             <LinearLayout
-                android:id="@+id/bookingCategoryContainer"
+                android:id="@+id/reservePickerContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"

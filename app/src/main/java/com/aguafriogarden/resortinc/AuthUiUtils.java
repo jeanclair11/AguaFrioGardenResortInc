@@ -161,6 +161,7 @@ final class AuthUiUtils {
             valueField.setText(String.valueOf(clamped));
             valueField.setSelection(valueField.getText().length());
             setStepperButtonsEnabled(minusButton, plusButton, clamped, min, max);
+            onChanged.accept(clamped);
         });
         plusButton.setOnClickListener(view -> {
             int current = parseQuantityOrDefault(valueField.getText().toString(), min);
@@ -168,6 +169,7 @@ final class AuthUiUtils {
             valueField.setText(String.valueOf(clamped));
             valueField.setSelection(valueField.getText().length());
             setStepperButtonsEnabled(minusButton, plusButton, clamped, min, max);
+            onChanged.accept(clamped);
         });
     }
 

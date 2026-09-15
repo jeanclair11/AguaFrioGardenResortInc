@@ -254,34 +254,74 @@
             </LinearLayout>
 
             <HorizontalScrollView
+                android:id="@+id/landingGalleryScroll"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:clipToPadding="false"
+                android:overScrollMode="never"
                 android:scrollbars="none">
 
+                <!-- Three back-to-back copies of the same 5 images (see
+                     LandingActivity#setupInfiniteGallery) — the gallery silently jumps by one
+                     copy-width whenever scroll strays into copy A or C, so as far as the guest
+                     can tell it just loops forever in either direction. No androidx dependency
+                     (ViewPager2/RecyclerView) needed for this since the project stays on plain
+                     framework widgets throughout. -->
                 <LinearLayout
+                    android:id="@+id/landingGalleryContent"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:paddingStart="20dp"
                     android:paddingEnd="8dp">
 
+                    <!-- Copy A -->
                     <FrameLayout style="@style/LandingGalleryTile">
                         <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode" />
                     </FrameLayout>
-
                     <FrameLayout style="@style/LandingGalleryTile">
                         <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode2" />
                     </FrameLayout>
-
                     <FrameLayout style="@style/LandingGalleryTile">
                         <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_frio_bgimg" />
                     </FrameLayout>
-
                     <FrameLayout style="@style/LandingGalleryTile">
                         <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_night_mode" />
                     </FrameLayout>
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_night_mode2" />
+                    </FrameLayout>
 
+                    <!-- Copy B (the guest starts here, see setupInfiniteGallery) -->
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode" />
+                    </FrameLayout>
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode2" />
+                    </FrameLayout>
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_frio_bgimg" />
+                    </FrameLayout>
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_night_mode" />
+                    </FrameLayout>
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_night_mode2" />
+                    </FrameLayout>
+
+                    <!-- Copy C -->
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode" />
+                    </FrameLayout>
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode2" />
+                    </FrameLayout>
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_frio_bgimg" />
+                    </FrameLayout>
+                    <FrameLayout style="@style/LandingGalleryTile">
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_night_mode" />
+                    </FrameLayout>
                     <FrameLayout
                         style="@style/LandingGalleryTile"
                         android:layout_marginEnd="0dp">
@@ -342,6 +382,89 @@
                     android:text="@string/landing_about_owners_body"
                     android:textColor="?attr/textOnScreenMuted"
                     android:textSize="13sp" />
+
+            </LinearLayout>
+
+            <!-- Share the App -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="30dp">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginBottom="24dp"
+                    android:background="?attr/dividerColor" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.04"
+                    android:text="@string/landing_share_app_title"
+                    android:textColor="?attr/textOnScreen"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:lineSpacingExtra="4dp"
+                    android:text="@string/landing_share_app_body"
+                    android:textColor="?attr/textOnScreenMuted"
+                    android:textSize="13sp" />
+
+                <FrameLayout
+                    android:layout_width="220dp"
+                    android:layout_height="220dp"
+                    android:layout_marginTop="20dp"
+                    android:background="@drawable/bg_qr_container"
+                    android:padding="10dp">
+
+                    <TextView
+                        android:id="@+id/shareAppQrPlaceholder"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="?attr/dividerColor"
+                        android:gravity="center"
+                        android:text="@string/label_qr_code_placeholder"
+                        android:textColor="#000000"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.06" />
+
+                </FrameLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="@string/label_scan_to_download"
+                    android:textColor="?attr/textOnScreenMuted"
+                    android:textSize="13sp" />
+
+                <Button
+                    android:id="@+id/shareAppButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="16dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:paddingStart="28dp"
+                    android:paddingEnd="28dp"
+                    android:background="@drawable/bg_button_outline_accent"
+                    android:text="@string/button_share_app"
+                    android:textColor="?attr/accentPrimary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.04"
+                    android:stateListAnimator="@null" />
 
             </LinearLayout>
 

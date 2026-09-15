@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Plain (unrounded) image-placeholder tile. Left as a flat rectangle so
-     the rounded corners come only from the ancestor card's own clipToOutline
-     + bg_card background — see view_booking_category_card.xml. -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="@color/catalog_tile_hotel" />
-</shape>

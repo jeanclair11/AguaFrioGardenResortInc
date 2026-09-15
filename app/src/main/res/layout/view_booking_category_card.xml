@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One booking category card; inflated per entry from
-     BookingCatalogStore#getCategories() into bookingCategoryContainer.
-     Minimalist by design: only the title, a chevron and a Browse button —
-     no image, icon, descriptions or feature lists. Those live on the
-     browse/detail screens. -->
+<!-- One option card on the Book/Reserve tabs' "What do you want to book/reserve?" gate screen
+     (see BookingCatalogController#buildOption / ReserveCatalogController#buildOption). Minimalist
+     by design: only the title and a chevron. -->
+
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"

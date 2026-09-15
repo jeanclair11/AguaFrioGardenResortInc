@@ -56,10 +56,13 @@
         android:paddingEnd="20dp"
         android:paddingBottom="16dp">
 
+        <!-- This adds whatever quantities were picked here back into "Your Selected .../s"
+             (see HotelBookingFlowController#bindRoomBrowse/bindCottageBrowse/bindKtvBrowse) — an
+             "Add" action, not a forward-navigation "Next". -->
         <Button
             android:id="@+id/itemBrowseNextButton"
             style="@style/PrimaryButton"
-            android:text="@string/button_next" />
+            android:text="@string/button_add" />
 
     </LinearLayout>
 

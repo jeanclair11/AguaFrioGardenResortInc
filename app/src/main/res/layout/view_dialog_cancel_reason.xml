@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Reservation Details' Cancel confirmation flow, second step: the reason input shown after the
+     guest confirms "Yes" on the "Do you want to cancel this reservation?" dialog. See
+     HotelBookingFlowController#showCancelReasonDialog. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="24dp"
+    android:paddingBottom="8dp">
+
+    <EditText
+        android:id="@+id/cancelReasonField"
+        android:layout_width="match_parent"
+        android:layout_height="110dp"
+        android:background="@drawable/bg_input"
+        android:gravity="top|start"
+        android:hint="@string/hint_cancellation_reason"
+        android:inputType="textMultiLine"
+        android:padding="14dp"
+        android:textColor="?attr/textPrimary"
+        android:textColorHint="?attr/textHint"
+        android:textSize="14sp" />
+
+</LinearLayout>

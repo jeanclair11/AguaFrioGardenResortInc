@@ -1,11 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Hotel booking flow, Room Overview entry only: a focused "Choose Your Stay Dates" gate screen
-     (check-in, check-out, adults, children, Next) shown only when "Book Now" is tapped from the
-     Room Overview screen (LandingActivity#showRoomOverview) for a Hotel Room specifically —
-     distinct from the Book tab's own tabbed Rooms/Cottage/KTV dates+search screen
-     (view_hotel_dates.xml). See HotelBookingFlowController#bindRoomDates. Tapping Next feeds the
-     same checkInMillis/checkOutMillis/adults/children fields into that shared screen and runs
-     its availability search, so downstream room-selection logic isn't duplicated. -->
+<!-- Hotel booking flow's own focused "Choose Your Stay Dates" gate screen (check-in, check-out,
+     adults, children, Next) — the Book/Reserve tabs' shared entry point for Hotel Room, reached
+     either from their "What do you want to book/reserve?" picker or from a Room Overview's "Book
+     Now"/"Reserve Now". See HotelBookingFlowController#bindRoomDates. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"

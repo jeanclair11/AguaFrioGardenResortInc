@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Small white pill button — Reservation Details' Cancel action, top-right below the header
+     (see view_hotel_reservation_details.xml), meant to read as a light, low-emphasis action
+     against the screen's own background. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#33000000">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/white" />
+            <corners android:radius="18dp" />
+        </shape>
+    </item>
+</ripple>

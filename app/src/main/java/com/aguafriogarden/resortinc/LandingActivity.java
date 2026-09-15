@@ -27,7 +27,6 @@ import com.aguafriogarden.resortinc.network.CottageKtvOption;
 import com.aguafriogarden.resortinc.network.CottageTypeListResponse;
 import com.aguafriogarden.resortinc.network.HallTypeListResponse;
 import com.aguafriogarden.resortinc.network.KtvTypeListResponse;
-import com.aguafriogarden.resortinc.network.ReservationSummary;
 import com.aguafriogarden.resortinc.network.RoomTypeAvailability;
 import com.aguafriogarden.resortinc.network.RoomTypeListResponse;
 import com.bumptech.glide.Glide;
@@ -48,13 +47,13 @@ import retrofit2.Response;
  * (via MainActivity, which is pushed without finishing this Activity — see openLogin()) flips
  * this same screen into a shell for Reserve/Book/Chat/Feedback/Profile/Alerts, replacing the
  * former separate DashboardActivity, while keeping the marketing content and top nav intact
- * underneath a Greeting+Booking Progress block that replaces the Hero card's logo.
+ * underneath a Greeting block that replaces the Hero card's logo.
  */
 public class LandingActivity extends Activity {
 
     private enum Section {
         HOME, ROOMS, COTTAGES, KTV, HALLS,
-        RESERVE, BOOK, CHAT, FEEDBACK, PROFILE, ALERTS, BOOKING_DETAILS, ROOM_OVERVIEW
+        RESERVE, BOOK, CHAT, FEEDBACK, PROFILE, ALERTS, ROOM_OVERVIEW
     }
 
     /** Bottom-nav order; index into this array lines up with bottomNavItems. */
@@ -93,7 +92,7 @@ public class LandingActivity extends Activity {
     private boolean loggedIn = false;
     private int activeThemeMode;
 
-    private ReservationFlowController reservationFlow;
+    private ReserveCatalogController reserveCatalog;
     private BookingCatalogController bookingCatalog;
     private DashboardHomeController dashboardHome;
     private ProfileController profileController;
@@ -124,6 +123,11 @@ public class LandingActivity extends Activity {
         bottomNavDivider = findViewById(R.id.bottomNavDivider);
         bottomNav = findViewById(R.id.bottomNav);
         configureScrollableContent(landingHomeScroll);
+        // The gallery strip is its own horizontal swipe region — a swipe that starts on it must
+        // only scroll the gallery, never step the top-nav tabs (see setSwipeExclusionZone).
+        HorizontalScrollView galleryScroll = findViewById(R.id.landingGalleryScroll);
+        landingContentContainer.setSwipeExclusionZone(galleryScroll);
+        setupInfiniteGallery(galleryScroll, findViewById(R.id.landingGalleryContent));
 
         topNavItems[0] = findViewById(R.id.navTabHome);
         topNavItems[1] = findViewById(R.id.navTabRooms);
@@ -138,6 +142,7 @@ public class LandingActivity extends Activity {
         landingLogInButton.setOnClickListener(v -> openLogin());
         landingBellCluster.setOnClickListener(v -> showModule(Section.ALERTS));
         profileButton.setOnClickListener(v -> showModule(Section.PROFILE));
+        findViewById(R.id.shareAppButton).setOnClickListener(v -> shareApp());
 
         landingContentContainer.setOnSwipeListener(new SwipeNavigationContainer.OnSwipeListener() {
             @Override
@@ -186,8 +191,8 @@ public class LandingActivity extends Activity {
      * Profile's dark mode switch) recreates whichever Activity is currently on screen — returns
      * to whichever tab/category was showing instead of resetting to Home, which is what a bare
      * recreate() would otherwise do since currentSection has no other persistence. ROOM_OVERVIEW
-     * and BOOKING_DETAILS aren't restorable this way (their backing data isn't saved here), so
-     * those fall back to Home same as before.
+     * isn't restorable this way (its backing data isn't saved here), so that falls back to Home
+     * same as before.
      */
     private void restoreSection(Bundle savedInstanceState) {
         if (savedInstanceState == null) {
@@ -199,7 +204,7 @@ public class LandingActivity extends Activity {
         } catch (IllegalArgumentException e) {
             return;
         }
-        if (section == Section.HOME || section == Section.ROOM_OVERVIEW || section == Section.BOOKING_DETAILS) {
+        if (section == Section.HOME || section == Section.ROOM_OVERVIEW) {
             return;
         }
         if (indexOfTopNavSection(section) >= 0) {
@@ -245,6 +250,7 @@ public class LandingActivity extends Activity {
         if (loggedIn) {
             profileController.onActivityResult(requestCode, resultCode, data);
             bookingCatalog.onActivityResult(requestCode, resultCode, data);
+            reserveCatalog.onActivityResult(requestCode, resultCode, data);
         }
     }
 
@@ -257,10 +263,6 @@ public class LandingActivity extends Activity {
 
     /** Steps back through whichever sub-screen is showing before falling through to the default (exit) behavior. */
     private boolean consumeBackPress() {
-        if (currentSection == Section.BOOKING_DETAILS) {
-            showHome();
-            return true;
-        }
         if (currentSection == Section.ROOM_OVERVIEW) {
             showCategory(roomOverviewOrigin);
             return true;
@@ -275,7 +277,7 @@ public class LandingActivity extends Activity {
             if (currentSection == Section.BOOK && bookingCatalog.handleBackPressed()) {
                 return true;
             }
-            if (currentSection == Section.RESERVE && reservationFlow.handleBackPressed()) {
+            if (currentSection == Section.RESERVE && reserveCatalog.handleBackPressed()) {
                 return true;
             }
         }
@@ -295,6 +297,15 @@ public class LandingActivity extends Activity {
         startActivity(new Intent(this, MainActivity.class));
     }
 
+    /** "Share the App" section's Share App button: hands off to the system share sheet with a
+     *  plain invite message (no app-store link exists yet to include). */
+    private void shareApp() {
+        Intent shareIntent = new Intent(Intent.ACTION_SEND);
+        shareIntent.setType("text/plain");
+        shareIntent.putExtra(Intent.EXTRA_TEXT, getString(R.string.share_app_invite_text));
+        startActivity(Intent.createChooser(shareIntent, getString(R.string.button_share_app)));
+    }
+
     // ---- Login / logout -----------------------------------------------------
 
     /**
@@ -308,14 +319,10 @@ public class LandingActivity extends Activity {
         }
         loggedIn = true;
 
-        // Forces ReservationStore's static seeding (and the notifications it pushes) to run
-        // immediately, so the Alerts screen isn't empty for a guest who taps the bell before
-        // ever opening Reserve (Java only runs a class's static initializer on first use).
-        ReservationStore.all();
-        reservationFlow = new ReservationFlowController(this, this::showHome);
+        reserveCatalog = new ReserveCatalogController(this, this::showHome);
         bookingCatalog = new BookingCatalogController(this,
                 () -> showModule(Section.RESERVE), this::showHome);
-        dashboardHome = new DashboardHomeController(this, this::showBookingDetails);
+        dashboardHome = new DashboardHomeController(this);
         profileController = new ProfileController(this, this::showHome, this::logout, this::bindHeaderAvatar);
         feedbackController = new FeedbackController(this);
         chatController = new ChatController(this);
@@ -323,8 +330,10 @@ public class LandingActivity extends Activity {
             if (n.type == NotificationStore.Type.CHAT) {
                 showModule(Section.CHAT);
             } else {
+                // ReservationStore-backed reservation details no longer exist (the Reserve tab's
+                // old ReservationFlowController module was fully replaced by ReserveCatalogController
+                // — see that class) — a notification tap can only land back on Reserve's own gate.
                 showModule(Section.RESERVE);
-                reservationFlow.openDetails(n.targetReference);
             }
         });
 
@@ -382,7 +391,7 @@ public class LandingActivity extends Activity {
         badgeHandler.removeCallbacks(badgeTick);
         loggedIn = false;
 
-        reservationFlow = null;
+        reserveCatalog = null;
         bookingCatalog = null;
         dashboardHome = null;
         profileController = null;
@@ -516,12 +525,13 @@ public class LandingActivity extends Activity {
         }
         leavingChat();
         currentSection = section;
+        setBottomNavHidden(false);
         retintBottomNav();
         updateSwipeChrome();
 
         View content;
         if (section == Section.RESERVE) {
-            content = reservationFlow.getRootView();
+            content = reserveCatalog.getRootView();
         } else if (section == Section.BOOK) {
             content = bookingCatalog.getRootView();
         } else if (section == Section.CHAT) {
@@ -538,14 +548,6 @@ public class LandingActivity extends Activity {
 
         swapContent(content, false);
         refreshBadges();
-    }
-
-    private void showBookingDetails(ReservationSummary booking) {
-        leavingChat();
-        currentSection = Section.BOOKING_DETAILS;
-        retintBottomNav();
-        updateSwipeChrome();
-        swapContent(dashboardHome.buildDetailsView(booking, this::showHome), false);
     }
 
     private void leavingChat() {
@@ -590,6 +592,7 @@ public class LandingActivity extends Activity {
         leavingChat();
         swapContent(landingHomeScroll, true, slideDirection);
         currentSection = Section.HOME;
+        setBottomNavHidden(false);
         retintBottomNav();
         updateSwipeChrome();
         if (loggedIn) {
@@ -637,6 +640,7 @@ public class LandingActivity extends Activity {
 
         swapContent(browse, true, slideDirection);
         currentSection = section;
+        setBottomNavHidden(false);
         retintBottomNav();
         updateSwipeChrome();
     }
@@ -755,6 +759,39 @@ public class LandingActivity extends Activity {
     }
 
     /**
+     * Makes the home page's photo gallery feel endlessly loopable in both directions without a
+     * ViewPager2/RecyclerView dependency (this project stays on plain framework widgets — see
+     * SwipeNavigationContainer). content actually holds three back-to-back copies of the same 5
+     * tiles (copy A/B/C, see activity_landing.xml), each exactly copyWidth wide, so shifting
+     * scrollX by exactly one copyWidth always lands on pixel-identical content one copy over —
+     * regardless of where that shift happens to occur. The guest starts on copy B (one
+     * copyWidth of buffer on either side); once scrollX actually hits the real floor (0, out of
+     * left-side buffer) or ceiling (out of right-side buffer), this silently shifts by one
+     * copyWidth to restore a full buffer in that direction, so a true edge is never reached in
+     * ordinary use and the strip just appears to keep going forever either way.
+     */
+    private void setupInfiniteGallery(HorizontalScrollView galleryScroll, LinearLayout content) {
+        content.post(() -> {
+            // content's own paddingStart/paddingEnd only appear once, before copy A and after
+            // copy C — excluded here so copyWidth is exactly one copy's pixel width (the true
+            // repeat period), not skewed by that one-time lead-in/trail-off space.
+            int copyWidth = (content.getWidth() - content.getPaddingLeft() - content.getPaddingRight()) / 3;
+            if (copyWidth <= 0) {
+                return;
+            }
+            galleryScroll.scrollTo(content.getPaddingLeft() + copyWidth, 0);
+            galleryScroll.setOnScrollChangeListener((View.OnScrollChangeListener) (v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+                int maxScrollX = content.getWidth() - galleryScroll.getWidth();
+                if (scrollX <= 0) {
+                    galleryScroll.scrollTo(scrollX + copyWidth, 0);
+                } else if (scrollX >= maxScrollX) {
+                    galleryScroll.scrollTo(scrollX - copyWidth, 0);
+                }
+            });
+        });
+    }
+
+    /**
      * Per the user's explicit choice: scrolling toward the top of the page hides the nav bar,
      * scrolling further down shows it again — the opposite of the usual collapsing-toolbar
      * convention. navBar overlays the content (see activity_landing.xml) rather than sharing
@@ -789,6 +826,20 @@ public class LandingActivity extends Activity {
         if (loggedIn) {
             headerBar.setVisibility(present ? View.VISIBLE : View.GONE);
         }
+    }
+
+    /**
+     * Hides the bottom nav for the duration of the focused Hotel Rooms/Cottage/KTV booking or
+     * reservation wizard (see HotelBookingFlowController), which has its own per-screen header
+     * and back button and isn't meant to be left via the bottom tabs mid-flow. Only meaningful
+     * while logged in — logout() already forces the bar GONE and removes its items outright.
+     */
+    private void setBottomNavHidden(boolean hidden) {
+        if (!loggedIn) {
+            return;
+        }
+        bottomNavDivider.setVisibility(hidden ? View.GONE : View.VISIBLE);
+        bottomNav.setVisibility(hidden ? View.GONE : View.VISIBLE);
     }
 
     private void fetchRoomTypes(LinearLayout container, TextView emptyState) {
@@ -1043,30 +1094,31 @@ public class LandingActivity extends Activity {
         ((TextView) v.findViewById(R.id.roomOverviewDescription)).setText(room.description);
         ((TextView) v.findViewById(R.id.roomOverviewPrice)).setText(room.pricePerNight);
 
-        // CTA button: BOOK sends Hotel Rooms/Cottages/KTV each to their own focused gate screen
-        // (see BookingCatalogController#showHotelFlowFromRoomOverview /
-        // #showHotelFlowFromCottageOverview / #showHotelFlowFromKtvOverview); RESERVE just hands
-        // off to the existing Reserve tab (see ReservationFlowController) — same screen either
-        // way, only the label and destination change with room.purpose.
+        // CTA button: both BOOK and RESERVE send Hotel Rooms/Cottages/KTV each to their own
+        // focused gate screen (see BookingCatalogController#showHotelFlowFromRoomOverview /
+        // #showHotelFlowFromCottageOverview / #showHotelFlowFromKtvOverview) — identical flow
+        // either way, except RESERVE ends at the dedicated Reservation Summary screen instead of
+        // that category's own Billing/Payment (see HotelBookingFlowController's reserveMode).
         Button ctaButton = v.findViewById(R.id.roomOverviewBookNowButton);
-        if (room.purpose == PendingRoomSelection.PURPOSE_RESERVE) {
-            ctaButton.setText(R.string.button_reserve_now);
-            ctaButton.setOnClickListener(view -> showModule(Section.RESERVE));
-        } else {
-            ctaButton.setText(R.string.button_book_now);
-            ctaButton.setOnClickListener(view -> {
-                Runnable backToThisOverview = () -> showRoomOverview(room);
-                if (room.type == PendingRoomSelection.TYPE_ROOM) {
-                    bookingCatalog.showHotelFlowFromRoomOverview(room.variantId, backToThisOverview);
-                } else if (room.type == PendingRoomSelection.TYPE_COTTAGE) {
-                    bookingCatalog.showHotelFlowFromCottageOverview(room.variantId, backToThisOverview);
-                } else if (room.type == PendingRoomSelection.TYPE_KTV) {
-                    bookingCatalog.showHotelFlowFromKtvOverview(room.variantId, backToThisOverview);
-                }
-                showModule(Section.BOOK);
-            });
-        }
+        boolean reserve = room.purpose == PendingRoomSelection.PURPOSE_RESERVE;
+        ctaButton.setText(reserve ? R.string.button_reserve_now : R.string.button_book_now);
+        ctaButton.setOnClickListener(view -> {
+            Runnable backToThisOverview = () -> showRoomOverview(room);
+            if (room.type == PendingRoomSelection.TYPE_ROOM) {
+                bookingCatalog.showHotelFlowFromRoomOverview(room.variantId, backToThisOverview, reserve);
+            } else if (room.type == PendingRoomSelection.TYPE_COTTAGE) {
+                bookingCatalog.showHotelFlowFromCottageOverview(room.variantId, backToThisOverview, reserve);
+            } else if (room.type == PendingRoomSelection.TYPE_KTV) {
+                bookingCatalog.showHotelFlowFromKtvOverview(room.variantId, backToThisOverview, reserve);
+            }
+            showModule(Section.BOOK);
+            // The wizard that just opened has its own per-screen header/back button, not the
+            // bottom tabs — hidden until the guest backs out to this Overview or all the way
+            // home (see setBottomNavHidden, showRoomOverview, showHome).
+            setBottomNavHidden(true);
+        });
 
+        setBottomNavHidden(false);
         swapContent(v, true);
     }
 }

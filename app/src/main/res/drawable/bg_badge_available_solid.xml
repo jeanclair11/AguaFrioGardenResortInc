@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Solid "Available" pill badge overlaid on an accommodation card photo;
-     dedicated to that card so it reads clearly against any photo, unlike
-     the translucent bg_badge_success used on plain card backgrounds. -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="#2E7D32" />
-    <corners android:radius="20dp" />
-</shape>

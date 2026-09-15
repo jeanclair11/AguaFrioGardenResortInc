@@ -1,14 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Hotel booking flow, KTV Overview entry only: a focused "Plan Your KTV Session" gate screen
-     (rate type, date, start time, read-only end time/duration, guest count, Next) shown only
-     when "Book Now" is tapped from the Room/Cottage/KTV Overview screen
-     (LandingActivity#showRoomOverview) for a KTV room specifically — deliberately distinct from
-     the hotel-room (view_room_booking_dates.xml) and cottage (view_cottage_booking_dates.xml)
-     gate screens, and from the Book tab's own tabbed dates+search screen (view_hotel_dates.xml).
-     See HotelBookingFlowController#bindKtvDatesEntry. Tapping Next feeds the same
-     ktvRateType/ktvDateMillis/ktvStartHour/ktvStartMinute/ktvGuestCount fields the tabbed
-     screen's KTV tab uses, then reveals that screen's already-loaded KTV catalog — reusing its
-     browse/select logic rather than duplicating it here. -->
+<!-- Hotel booking flow's own focused "Plan Your KTV Session" gate screen (rate type, date, start
+     time, read-only end time/duration, guest count, Next) for KTV Rooms — the Book/Reserve tabs'
+     shared entry point, reached either from their "What do you want to book/reserve?" picker or
+     from a KTV Overview's "Book Now"/"Reserve Now" — deliberately distinct from the hotel-room
+     (view_room_booking_dates.xml) and cottage (view_cottage_booking_dates.xml) gate screens. See
+     HotelBookingFlowController#bindKtvDatesEntry. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"

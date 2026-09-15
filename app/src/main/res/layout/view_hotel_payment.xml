@@ -26,6 +26,7 @@
                 layout="@layout/view_screen_header" />
 
             <TextView
+                android:id="@+id/hotelPaymentSubtitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
@@ -55,6 +56,19 @@
                     android:textColor="?attr/textPrimary"
                     android:textSize="26sp"
                     android:textStyle="bold" />
+
+                <!-- Reservation Payment only (see HotelBookingFlowController#bindReservationPayment)
+                     — shows both the full amount and the 30% down payment instead of the single
+                     paymentAmountDue figure above, which stays GONE in that context. -->
+                <include
+                    android:id="@+id/paymentAmountDueFullRow"
+                    layout="@layout/view_hotel_label_value_row"
+                    android:visibility="gone" />
+
+                <include
+                    android:id="@+id/paymentAmountDueDownRow"
+                    layout="@layout/view_hotel_label_value_row"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <!-- Scan to Pay via GCash -->

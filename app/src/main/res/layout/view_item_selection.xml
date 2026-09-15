@@ -37,23 +37,11 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp" />
 
-            <TextView
-                android:id="@+id/itemSelectionOtherLabel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:layout_marginBottom="10dp"
-                android:letterSpacing="0.04"
-                android:textAllCaps="true"
-                android:textColor="?attr/textOnScreen"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-
             <LinearLayout
                 android:id="@+id/itemSelectionOtherContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
                 android:orientation="vertical" />
 
         </LinearLayout>
