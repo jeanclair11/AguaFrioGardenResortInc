@@ -395,6 +395,14 @@
     <string name="chat_new_message_body_one">You have a new message from the resort.</string>
     <string name="chat_new_message_body_many">You have %1$d new messages from the resort.</string>
     <string name="notif_button_view_chat">VIEW MESSAGE</string>
+    <string name="reservation_updates_channel_name">Reservation updates</string>
+    <string name="reservation_updates_channel_desc">Alerts when your reservation status changes (e.g. cancelled or confirmed).</string>
+    <string name="reservation_cancelled_notification_title">Reservation Cancelled</string>
+    <string name="reservation_cancelled_notification_body_with_reason">Your reservation was cancelled by the resort. Reason: %1$s</string>
+    <string name="reservation_cancelled_notification_body_no_reason">Your reservation was cancelled by the resort.</string>
+    <string name="reservation_booked_notification_title">Reservation Confirmed</string>
+    <string name="reservation_booked_notification_body">Your reservation has been confirmed and is now booked.</string>
+    <string name="notif_button_view_reservation">VIEW RESERVATION</string>
     <string name="badge_count_overflow">9+</string>
 
     <string name="chip_room_availability">Check Room Availability</string>
@@ -494,6 +502,18 @@
          the Book/Reserve tabs' shared focused, Room-only gate screen. -->
     <string name="room_dates_title">Choose Your Stay Dates</string>
     <string name="room_dates_subtitle">To help us find the best available accommodation for your preferred schedule, please select your check-in and check-out dates before exploring our rooms.</string>
+    <string name="button_my_reservations">My Reservations</string>
+    <string name="button_my_bookings">My Bookings</string>
+    <string name="label_no_reservation_message">You have no reservation yet.</string>
+    <string name="label_no_booking_message">You have no booking yet.</string>
+    <string name="my_reservations_title">My Reservations</string>
+    <string name="reservation_cancelled_by_guest">You cancelled this Reservation.</string>
+    <string name="reservation_cancelled_by_staff">The Reservation has been cancelled by our staff.</string>
+    <string name="format_reservation_cancelled_reason_suffix"> Reason: %1$s</string>
+    <string name="label_reservations_current">Current</string>
+    <string name="label_reservations_past">Past</string>
+    <string name="label_no_current_reservations">You have no active reservations.</string>
+    <string name="label_no_past_reservations">You have no past reservations.</string>
 
     <!-- Cottage Overview's "Book Now" entry only (see HotelBookingFlowController#bindCottageDatesEntry) —
          the Book/Reserve tabs' shared focused, Cottage-only gate screen. -->

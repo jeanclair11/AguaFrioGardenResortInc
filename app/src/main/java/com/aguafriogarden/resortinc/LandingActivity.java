@@ -59,6 +59,7 @@ public class LandingActivity extends Activity {
     /** Bottom-nav order; index into this array lines up with bottomNavItems. */
     private static final Section[] BOTTOM_NAV_SECTIONS =
             {Section.HOME, Section.RESERVE, Section.BOOK, Section.CHAT, Section.FEEDBACK};
+    private static final int BOTTOM_NAV_RESERVE_INDEX = 1;
     private static final int BOTTOM_NAV_CHAT_INDEX = 3;
 
     /** Top-nav order; index into this array lines up with topNavItems. Swiping left/right over
@@ -161,9 +162,11 @@ public class LandingActivity extends Activity {
             enterLoggedInState();
         }
         restoreSection(savedInstanceState);
-        if (loggedIn && ChatPollingService.EXTRA_VALUE_CHAT.equals(
-                getIntent().getStringExtra(ChatPollingService.EXTRA_OPEN_MODULE))) {
+        String openModule = getIntent().getStringExtra(ChatPollingService.EXTRA_OPEN_MODULE);
+        if (loggedIn && ChatPollingService.EXTRA_VALUE_CHAT.equals(openModule)) {
             showModule(Section.CHAT);
+        } else if (loggedIn && ChatPollingService.EXTRA_VALUE_RESERVE.equals(openModule)) {
+            showModule(Section.RESERVE);
         }
 
         // Predictive back (API 33+, on by targetSdk here) never calls onBackPressed() below
@@ -388,6 +391,7 @@ public class LandingActivity extends Activity {
     private void logout() {
         stopService(new Intent(this, ChatPollingService.class));
         ProfileStore.clearAuthToken(this);
+        ProfileStore.clearActiveReservation(this);
         badgeHandler.removeCallbacks(badgeTick);
         loggedIn = false;
 
@@ -447,8 +451,25 @@ public class LandingActivity extends Activity {
             ((TextView) item.findViewById(R.id.navLabel)).setText(labels[i]);
             Section section = BOTTOM_NAV_SECTIONS[i];
             // Home isn't one of showModule()'s swappable sections — it's the same
-            // showHome() the top AGUA FRIO tab uses, so both stay in sync.
-            item.setOnClickListener(section == Section.HOME ? v -> showHome() : v -> showModule(section));
+            // showHome() the top AGUA FRIO tab uses, so both stay in sync. Reserve always resets
+            // to its "What do you want to reserve?" picker on tap — showModule() alone doesn't
+            // touch reserveCatalog's own internal screen, so without this, tapping Reserve after
+            // leaving it mid-flow (or after finishing one) would just resume wherever it was left
+            // instead of landing on the tab's actual main screen.
+            if (section == Section.HOME) {
+                item.setOnClickListener(v -> showHome());
+            } else if (section == Section.RESERVE) {
+                item.setOnClickListener(v -> {
+                    reserveCatalog.showPicker();
+                    // Opening Reserve itself clears its own badge, same as Chat already does via
+                    // onShown()/UnreadChatStore.markSeen() — no need to detour through Alerts.
+                    NotificationStore.markReadByType(NotificationStore.Type.RESERVATION);
+                    refreshBadges();
+                    showModule(section);
+                });
+            } else {
+                item.setOnClickListener(v -> showModule(section));
+            }
             bottomNav.addView(item);
             bottomNavItems[i] = item;
         }
@@ -556,9 +577,12 @@ public class LandingActivity extends Activity {
         }
     }
 
-    /** Reflects NotificationStore/UnreadChatStore unread counts onto the bell icon and Chat's nav badge. */
+    /** Reflects NotificationStore/UnreadChatStore unread counts onto the bell icon and the
+     *  Reserve/Chat nav badges. */
     private void refreshBadges() {
         updateBadge(findViewById(R.id.bellBadge), NotificationStore.unreadCount());
+        updateBadge(bottomNavItems[BOTTOM_NAV_RESERVE_INDEX].findViewById(R.id.navBadge),
+                NotificationStore.unreadCountByType(NotificationStore.Type.RESERVATION));
         updateBadge(bottomNavItems[BOTTOM_NAV_CHAT_INDEX].findViewById(R.id.navBadge), UnreadChatStore.unreadCount());
     }
 
@@ -1094,24 +1118,40 @@ public class LandingActivity extends Activity {
         ((TextView) v.findViewById(R.id.roomOverviewDescription)).setText(room.description);
         ((TextView) v.findViewById(R.id.roomOverviewPrice)).setText(room.pricePerNight);
 
-        // CTA button: both BOOK and RESERVE send Hotel Rooms/Cottages/KTV each to their own
-        // focused gate screen (see BookingCatalogController#showHotelFlowFromRoomOverview /
-        // #showHotelFlowFromCottageOverview / #showHotelFlowFromKtvOverview) — identical flow
-        // either way, except RESERVE ends at the dedicated Reservation Summary screen instead of
-        // that category's own Billing/Payment (see HotelBookingFlowController's reserveMode).
+        // CTA button: BOOK sends Hotel Rooms/Cottages/KTV to bookingCatalog's own focused gate
+        // screen (see BookingCatalogController#showHotelFlowFromRoomOverview /
+        // #showHotelFlowFromCottageOverview / #showHotelFlowFromKtvOverview); RESERVE sends them
+        // to reserveCatalog's equivalent instead (see ReserveCatalogController's own versions of
+        // those same methods) — sharing the Reserve tab's own instance/state, not bookingCatalog's,
+        // so a reservation started here and one started from the Reserve tab's own picker are the
+        // same reservation, visible from either entry point's Reservation Details screen. Same
+        // underlying flow either way, except RESERVE ends at the dedicated Reservation Summary
+        // screen instead of that category's own Billing/Payment (see HotelBookingFlowController's
+        // reserveMode).
         Button ctaButton = v.findViewById(R.id.roomOverviewBookNowButton);
         boolean reserve = room.purpose == PendingRoomSelection.PURPOSE_RESERVE;
         ctaButton.setText(reserve ? R.string.button_reserve_now : R.string.button_book_now);
         ctaButton.setOnClickListener(view -> {
             Runnable backToThisOverview = () -> showRoomOverview(room);
-            if (room.type == PendingRoomSelection.TYPE_ROOM) {
-                bookingCatalog.showHotelFlowFromRoomOverview(room.variantId, backToThisOverview, reserve);
-            } else if (room.type == PendingRoomSelection.TYPE_COTTAGE) {
-                bookingCatalog.showHotelFlowFromCottageOverview(room.variantId, backToThisOverview, reserve);
-            } else if (room.type == PendingRoomSelection.TYPE_KTV) {
-                bookingCatalog.showHotelFlowFromKtvOverview(room.variantId, backToThisOverview, reserve);
+            if (reserve) {
+                if (room.type == PendingRoomSelection.TYPE_ROOM) {
+                    reserveCatalog.showHotelFlowFromRoomOverview(room.variantId, backToThisOverview);
+                } else if (room.type == PendingRoomSelection.TYPE_COTTAGE) {
+                    reserveCatalog.showHotelFlowFromCottageOverview(room.variantId, backToThisOverview);
+                } else if (room.type == PendingRoomSelection.TYPE_KTV) {
+                    reserveCatalog.showHotelFlowFromKtvOverview(room.variantId, backToThisOverview);
+                }
+                showModule(Section.RESERVE);
+            } else {
+                if (room.type == PendingRoomSelection.TYPE_ROOM) {
+                    bookingCatalog.showHotelFlowFromRoomOverview(room.variantId, backToThisOverview);
+                } else if (room.type == PendingRoomSelection.TYPE_COTTAGE) {
+                    bookingCatalog.showHotelFlowFromCottageOverview(room.variantId, backToThisOverview);
+                } else if (room.type == PendingRoomSelection.TYPE_KTV) {
+                    bookingCatalog.showHotelFlowFromKtvOverview(room.variantId, backToThisOverview);
+                }
+                showModule(Section.BOOK);
             }
-            showModule(Section.BOOK);
             // The wizard that just opened has its own per-screen header/back button, not the
             // bottom tabs — hidden until the guest backs out to this Overview or all the way
             // home (see setBottomNavHidden, showRoomOverview, showHome).

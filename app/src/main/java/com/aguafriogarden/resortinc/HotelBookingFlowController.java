@@ -13,6 +13,7 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.provider.MediaStore;
 import android.text.InputFilter;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -33,11 +34,16 @@ import com.aguafriogarden.resortinc.network.AmenityAvailability;
 import com.aguafriogarden.resortinc.network.AmenityListResponse;
 import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.AvailabilityResponse;
+import com.aguafriogarden.resortinc.network.CancelReservationResponse;
 import com.aguafriogarden.resortinc.network.CottageKtvListResponse;
 import com.aguafriogarden.resortinc.network.CottageKtvOption;
 import com.aguafriogarden.resortinc.network.ErrorResponse;
 import com.aguafriogarden.resortinc.network.FoodListResponse;
 import com.aguafriogarden.resortinc.network.MenuItemAvailability;
+import com.aguafriogarden.resortinc.network.MyBookingsResponse;
+import com.aguafriogarden.resortinc.network.ReservationRequestResponse;
+import com.aguafriogarden.resortinc.network.ReservationStatusResponse;
+import com.aguafriogarden.resortinc.network.ReservationSummary;
 import com.aguafriogarden.resortinc.network.ReserveResponse;
 import com.aguafriogarden.resortinc.network.RoomListResponse;
 import com.aguafriogarden.resortinc.network.RoomSummary;
@@ -50,6 +56,7 @@ import java.io.InputStream;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -127,6 +134,14 @@ final class HotelBookingFlowController {
     // Reservation Payment's Complete Payment button — a terminal, mock "payment submitted"
     // screen, matching SCREEN_RESERVATION_CONFIRMED's own point-of-no-return pattern.
     private static final int SCREEN_RESERVATION_PAYMENT_CONFIRMED = 29;
+    // My Reservations/My Bookings on Choose Your Stay Dates, when there's nothing to show yet
+    // (see bindRoomDates) — one shared layout/bind method (bindNoReservation) branching on
+    // reserveMode for its title/message, same reuse pattern as the Billing screens.
+    private static final int SCREEN_NO_RESERVATION = 30;
+    // My Reservations on the Reserve side of Choose Your Stay Dates — a real, server-backed list
+    // (see bindMyReservationsList), always re-fetched on entry so it survives app restarts and
+    // re-logins. Tapping a row loads that reservation into SCREEN_RESERVATION_DETAILS.
+    private static final int SCREEN_MY_RESERVATIONS_LIST = 31;
 
     private static final int PAYMENT_NONE = 0;
     private static final int PAYMENT_FULL = 1;
@@ -273,6 +288,10 @@ final class HotelBookingFlowController {
     private Uri screenshotUri;
     private String bookingReference = "";
     private String reservationReferenceNo = "";
+    // Server id of the Pending AdvanceReservation created by submitReservationRequest() — targets
+    // the payReservation() call. Hotel Rooms only (see activeContinuation guard at both call
+    // sites); Cottage/KTV Reserve has no backend endpoint yet so this stays -1 for them.
+    private int reservationAdvanceReservationId = -1;
     // Reservation lifecycle state (see resolveReservationStatus) — reservationStatus only ever
     // becomes RES_STATUS_PENDING in this app today (no receptionist system to move it to
     // BOOKED/CANCELLED yet); reservationCancelReason is likewise unused until that exists.
@@ -283,6 +302,31 @@ final class HotelBookingFlowController {
     private long reservationBookedAtMillis = -1;
     private long reservationCancelledAtMillis = -1;
     private String reservationCancelReason = "";
+    /** "guest" or "receptionist" — drives which of reservation_cancelled_by_guest/_staff shows
+     *  on Reservation Details; empty means unknown (falls back to a generic statement). */
+    private String reservationCancelledBy = "";
+    // Frozen at submission time (see snapshotReservationDisplayData) rather than recomputed live
+    // from checkInMillis/roomQuantities/activeContinuation/etc. — resetFlow() (run by every
+    // "Return Home" after submitting) clears those same fields to let the guest start a fresh
+    // attempt, but the guest should still be able to open My Reservations/View Reservation and see
+    // the reservation they already made, not garbage from a since-cleared form.
+    private String reservationSnapshotAccommodation = "";
+    private String reservationSnapshotDateRange = "";
+    private boolean reservationSnapshotShowNights = false;
+    private int reservationSnapshotNights = 0;
+    private String reservationSnapshotGuestSummary = "";
+    private int reservationSnapshotGrandTotal = 0;
+    // My Reservations list state — myReservationsData is re-fetched from the server every time
+    // the screen is entered (see bindMyReservationsList), never persisted locally, so the list
+    // always reflects the guest's real current state regardless of what happened to the app in
+    // between (killed process, re-login, switching tabs).
+    private boolean myReservationsShowingPast = false;
+    private List<ReservationSummary> myReservationsData = new ArrayList<>();
+    // Reservation Details now has two distinct entry points — "View Reservation" right after
+    // reserving (see bindReservationConfirmed), and tapping a card in My Reservations (see
+    // buildReservationListCard) — so its back target can no longer be a single hardcoded screen;
+    // whichever entry point navigates in sets this first.
+    private int reservationDetailsBackTarget = SCREEN_ROOM_DATES;
 
     HotelBookingFlowController(Activity activity, Runnable onBookNowOtherCategory, Runnable onBackToHome) {
         this.activity = activity;
@@ -421,10 +465,14 @@ final class HotelBookingFlowController {
                 onBackToHome.run();
                 return true;
             case SCREEN_RESERVATION_DETAILS:
-                showScreen(SCREEN_RESERVATION_CONFIRMED);
+                showScreen(reservationDetailsBackTarget);
                 return true;
             case SCREEN_RESERVATION_PAYMENT:
                 showScreen(SCREEN_RESERVATION_DETAILS);
+                return true;
+            case SCREEN_NO_RESERVATION:
+            case SCREEN_MY_RESERVATIONS_LIST:
+                showScreen(SCREEN_ROOM_DATES);
                 return true;
             default:
                 return true;
@@ -440,6 +488,20 @@ final class HotelBookingFlowController {
                 return SCREEN_KTV_REVIEW;
             default:
                 return SCREEN_REVIEW;
+        }
+    }
+
+    /** Which Dates screen Reservation Details' back button returns to — matches whichever
+     *  category's flow reached it, whether that's right after reserving (View Reservation on
+     *  Reservation Confirmed) or via My Reservations on that category's own Dates screen. */
+    private int datesScreenForContinuation() {
+        switch (activeContinuation) {
+            case CONTINUATION_COTTAGE:
+                return SCREEN_COTTAGE_DATES;
+            case CONTINUATION_KTV:
+                return SCREEN_KTV_DATES;
+            default:
+                return SCREEN_ROOM_DATES;
         }
     }
 
@@ -524,6 +586,10 @@ final class HotelBookingFlowController {
                 return R.layout.view_hotel_payment;
             case SCREEN_RESERVATION_PAYMENT_CONFIRMED:
                 return R.layout.view_reservation_payment_confirmed;
+            case SCREEN_NO_RESERVATION:
+                return R.layout.view_no_reservation;
+            case SCREEN_MY_RESERVATIONS_LIST:
+                return R.layout.view_my_reservations_list;
             case SCREEN_ROOM_BROWSE:
             case SCREEN_COTTAGE_BROWSE:
             case SCREEN_KTV_BROWSE:
@@ -613,6 +679,12 @@ final class HotelBookingFlowController {
             case SCREEN_RESERVATION_PAYMENT_CONFIRMED:
                 bindReservationPaymentConfirmed(v);
                 break;
+            case SCREEN_NO_RESERVATION:
+                bindNoReservation(v);
+                break;
+            case SCREEN_MY_RESERVATIONS_LIST:
+                bindMyReservationsList(v);
+                break;
             default:
                 throw new IllegalStateException("Unknown screen: " + screen);
         }
@@ -629,6 +701,27 @@ final class HotelBookingFlowController {
      */
     private void bindRoomDates(View v) {
         bindHeader(v, R.id.roomDatesHeaderBar, R.string.room_dates_title, onBackToOverview);
+
+        // Shortcut to whichever "view what I already submitted" screen matches this run — Reserve
+        // opens the same Reservation Details screen "View Reservation" opens (see
+        // bindReservationConfirmed); Book mirrors Success's own "View Booking" (see bindSuccess —
+        // still a placeholder, no real Booking Details screen exists yet). Neither is a real
+        // persisted multi-item list (see reservationSubmittedAtMillis's own doc) — this just
+        // re-opens whichever single reservation/booking is already active this session, or shows
+        // the empty SCREEN_NO_RESERVATION state if there isn't one.
+        TextView myReservationsButton = v.findViewById(R.id.roomDatesMyReservationsButton);
+        myReservationsButton.setText(reserveMode ? R.string.button_my_reservations : R.string.button_my_bookings);
+        myReservationsButton.setOnClickListener(view -> {
+            if (reserveMode) {
+                // Always the real, server-backed list now (see bindMyReservationsList) — it
+                // handles its own empty state, unlike Book's still-mock single-item shortcut below.
+                showScreen(SCREEN_MY_RESERVATIONS_LIST);
+            } else if (!bookingReference.isEmpty()) {
+                Toast.makeText(activity, R.string.toast_view_booking_placeholder, Toast.LENGTH_LONG).show();
+            } else {
+                showScreen(SCREEN_NO_RESERVATION);
+            }
+        });
 
         TextView checkInDateText = v.findViewById(R.id.roomDatesCheckInDateText);
         TextView checkInDayText = v.findViewById(R.id.roomDatesCheckInDayText);
@@ -683,6 +776,261 @@ final class HotelBookingFlowController {
                 fetchAvailabilityForRoomSelection(v);
             }
         });
+    }
+
+    /** My Reservations/My Bookings on Choose Your Stay Dates, when there's nothing to show yet
+     *  (see bindRoomDates) — title/message swap based on reserveMode, back returns to the Dates
+     *  screen this is only ever reached from. */
+    private void bindNoReservation(View v) {
+        bindHeader(v, R.id.noReservationHeaderBar,
+                reserveMode ? R.string.button_my_reservations : R.string.button_my_bookings,
+                () -> showScreen(SCREEN_ROOM_DATES));
+        ((TextView) v.findViewById(R.id.noReservationMessage)).setText(
+                reserveMode ? R.string.label_no_reservation_message : R.string.label_no_booking_message);
+    }
+
+    /**
+     * Real, server-backed My Reservations list — always re-fetched here (not cached in a field
+     * that survives across screen visits) so it reflects the guest's actual current state no
+     * matter what happened to the app in between (process killed, re-login, switching tabs).
+     * Hotel Rooms only for real submissions, but any category the guest reserved through the
+     * website under the same account will still show up here too, best-effort rendered (see
+     * loadReservationFromSummary's own note on this).
+     */
+    private void bindMyReservationsList(View v) {
+        bindHeader(v, R.id.myReservationsHeaderBar, R.string.my_reservations_title,
+                () -> showScreen(SCREEN_ROOM_DATES));
+        myReservationsShowingPast = false;
+
+        v.findViewById(R.id.myReservationsCurrentTab).setOnClickListener(view -> {
+            myReservationsShowingPast = false;
+            renderMyReservationsList(v);
+        });
+        v.findViewById(R.id.myReservationsPastTab).setOnClickListener(view -> {
+            myReservationsShowingPast = true;
+            renderMyReservationsList(v);
+        });
+
+        // Colors the tabs and shows the empty state immediately (myReservationsData is whatever
+        // was left over from the last visit, or empty on a first-ever visit) rather than leaving
+        // the tabs uncolored until the fetch below completes.
+        renderMyReservationsList(v);
+        fetchMyReservationsList(v);
+    }
+
+    private void fetchMyReservationsList(View v) {
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            myReservationsData = new ArrayList<>();
+            renderMyReservationsList(v);
+            return;
+        }
+        ApiClient.bookingApi().getMyBookings("Bearer " + token).enqueue(new Callback<MyBookingsResponse>() {
+            @Override
+            public void onResponse(Call<MyBookingsResponse> call, Response<MyBookingsResponse> response) {
+                if (currentScreen != SCREEN_MY_RESERVATIONS_LIST) {
+                    return;
+                }
+                myReservationsData = response.isSuccessful() && response.body() != null
+                        && response.body().reservations != null
+                        ? response.body().reservations : new ArrayList<>();
+                sortMyReservationsNewestFirst();
+                renderMyReservationsList(v);
+            }
+
+            @Override
+            public void onFailure(Call<MyBookingsResponse> call, Throwable t) {
+                if (currentScreen != SCREEN_MY_RESERVATIONS_LIST) {
+                    return;
+                }
+                myReservationsData = new ArrayList<>();
+                Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+                renderMyReservationsList(v);
+            }
+        });
+    }
+
+    /** Newest-first (both Current and Past) — the backend already sorts this way, but that's a
+     *  string comparison over ISO8601 timestamps server-side; sorting again here from parsed
+     *  millis guarantees the order regardless of that. */
+    private void sortMyReservationsNewestFirst() {
+        Collections.sort(myReservationsData, (a, b) ->
+                Long.compare(parseIsoMillis(b.created_at), parseIsoMillis(a.created_at)));
+    }
+
+    /** Redraws the tab highlight + card list from myReservationsData — does not touch the
+     *  network, so switching Current/Past never re-fetches. */
+    private void renderMyReservationsList(View v) {
+        TextView currentTab = v.findViewById(R.id.myReservationsCurrentTab);
+        TextView pastTab = v.findViewById(R.id.myReservationsPastTab);
+        currentTab.setTextColor(ThemeManager.color(activity,
+                myReservationsShowingPast ? R.attr.textMuted : R.attr.accentPrimary));
+        pastTab.setTextColor(ThemeManager.color(activity,
+                myReservationsShowingPast ? R.attr.accentPrimary : R.attr.textMuted));
+
+        List<ReservationSummary> bucket = new ArrayList<>();
+        for (ReservationSummary summary : myReservationsData) {
+            if (isPastReservation(summary) == myReservationsShowingPast) {
+                bucket.add(summary);
+            }
+        }
+
+        LinearLayout container = v.findViewById(R.id.myReservationsContainer);
+        container.removeAllViews();
+        TextView emptyState = v.findViewById(R.id.myReservationsEmptyState);
+        emptyState.setVisibility(bucket.isEmpty() ? View.VISIBLE : View.GONE);
+        emptyState.setText(myReservationsShowingPast
+                ? R.string.label_no_past_reservations : R.string.label_no_current_reservations);
+
+        LayoutInflater inflater = LayoutInflater.from(activity);
+        for (ReservationSummary summary : bucket) {
+            container.addView(buildReservationListCard(inflater, container, summary));
+        }
+    }
+
+    /**
+     * Current = still Pending/Confirmed/Ongoing and not cancelled/expired; everything else
+     * (Cancelled, expired-while-still-Pending, or Checked Out) is Past. Expiry for a still-Pending
+     * advance reservation prefers the real payment_deadline column; falls back to the same 7-day
+     * heuristic isReservationExpired() uses if the server ever omits it.
+     */
+    private boolean isPastReservation(ReservationSummary summary) {
+        if (summary.cancelled) {
+            return true;
+        }
+        if (summary.current_step >= 3) {
+            return true;
+        }
+        if ("advance_reservation".equals(summary.kind)) {
+            // parseIsoMillis falls back to "now" for a null/malformed string (fine for its
+            // original cancelled_at caller, where the field should always be present) — checked
+            // explicitly here first instead, since "field absent" must NOT be treated as "deadline
+            // is right now" (that would mark every still-pending reservation expired immediately).
+            if (summary.payment_deadline != null && !summary.payment_deadline.isEmpty()) {
+                return System.currentTimeMillis() > parseIsoMillis(summary.payment_deadline);
+            }
+            if (summary.created_at != null && !summary.created_at.isEmpty()) {
+                return System.currentTimeMillis() - parseIsoMillis(summary.created_at) > RESERVATION_PAYMENT_WINDOW_MS;
+            }
+        }
+        return false;
+    }
+
+    private StatusPresentation resolveSummaryStatus(ReservationSummary summary) {
+        if (summary.cancelled) {
+            return new StatusPresentation(R.attr.errorText, R.string.reservation_status_cancelled,
+                    R.string.reservation_desc_cancelled_default);
+        }
+        if ("advance_reservation".equals(summary.kind) && isPastReservation(summary)) {
+            return new StatusPresentation(R.attr.textMuted, R.string.reservation_status_expired,
+                    R.string.reservation_desc_expired);
+        }
+        if ("reservation".equals(summary.kind)) {
+            return new StatusPresentation(R.attr.successText, R.string.reservation_status_booked,
+                    R.string.reservation_desc_booked);
+        }
+        return new StatusPresentation(R.attr.accentPrimary, R.string.reservation_status_pending,
+                R.string.reservation_desc_awaiting_payment);
+    }
+
+    private View buildReservationListCard(LayoutInflater inflater, ViewGroup parent, ReservationSummary summary) {
+        View card = inflater.inflate(R.layout.view_my_reservation_list_card, parent, false);
+
+        String title = summary.room_type_name != null && !summary.room_type_name.isEmpty()
+                ? formatShowcaseName(summary.room_type_name, summary.item_name) : summary.item_name;
+        ((TextView) card.findViewById(R.id.reservationCardTitle)).setText(title);
+
+        StatusPresentation status = resolveSummaryStatus(summary);
+        card.findViewById(R.id.reservationCardStatusDot).setBackgroundTintList(
+                ColorStateList.valueOf(ThemeManager.color(activity, status.colorAttr)));
+        TextView statusLabel = card.findViewById(R.id.reservationCardStatusLabel);
+        statusLabel.setText(status.labelRes);
+        statusLabel.setTextColor(ThemeManager.color(activity, status.colorAttr));
+
+        long checkInMillisLocal = parseDateOnlyMillis(summary.check_in);
+        long checkOutMillisLocal = parseDateOnlyMillis(summary.check_out);
+        ((TextView) card.findViewById(R.id.reservationCardDates)).setText(
+                formatDate(checkInMillisLocal) + " – " + formatDate(checkOutMillisLocal));
+
+        ((TextView) card.findViewById(R.id.reservationCardReference)).setText(summary.booking_reference);
+        ((TextView) card.findViewById(R.id.reservationCardTotal)).setText(
+                formatCurrency((int) Math.round(summary.subtotal)));
+
+        card.setOnClickListener(view -> {
+            loadReservationFromSummary(summary);
+            reservationDetailsBackTarget = SCREEN_MY_RESERVATIONS_LIST;
+            showScreen(SCREEN_RESERVATION_DETAILS);
+        });
+        return card;
+    }
+
+    /**
+     * Populates the same fields bindReservationDetails/bindReservationPayment already read
+     * (normally set live by submitReservationRequest/snapshotReservationDisplayData) directly
+     * from a My Reservations list item, so tapping any past or current reservation reuses the
+     * existing Details screen, its live status-refresh polling, Pay Now, and Cancel unchanged.
+     *
+     * <p>service_type only distinguishes hotel/cottage/hall from cottage today (see
+     * Api\BookingController::summarizeAdvanceReservation on the backend, which maps KTV to
+     * "hotel" too) — Cottage/KTV/Function Hall rows only reach this list at all if the same guest
+     * reserved one through the website (mobile's own real Reserve submission is Hotel Rooms
+     * only), and render with Hotel Rooms' date-range/nights shape as a best-effort fallback since
+     * Reservation Details never had dedicated history rendering for those categories.
+     */
+    private void loadReservationFromSummary(ReservationSummary summary) {
+        boolean isRealReservation = "reservation".equals(summary.kind);
+
+        // A real Reservation's id is an online_bookingID, a different id space than what Pay
+        // Now/Cancel/status-refresh expect (they operate on AdvanceReservation ids) — and none of
+        // those actions apply to an already-booked reservation anyway.
+        reservationAdvanceReservationId = isRealReservation ? -1 : summary.id;
+        reservationReferenceNo = summary.booking_reference != null ? summary.booking_reference : "";
+        reservationCancelReason = summary.cancel_reason != null ? summary.cancel_reason : "";
+        reservationCancelledAtMillis = summary.cancelled ? parseIsoMillis(summary.cancelled_at) : -1;
+        reservationCancelledBy = summary.cancelled_by != null ? summary.cancelled_by : "";
+
+        long createdAtMillis = parseIsoMillis(summary.created_at);
+        reservationSubmittedAtMillis = createdAtMillis > 0 ? createdAtMillis : System.currentTimeMillis();
+        reservationPaymentSubmitted = isRealReservation;
+        reservationBookedAtMillis = isRealReservation ? reservationSubmittedAtMillis : -1;
+
+        if (summary.cancelled) {
+            reservationStatus = RES_STATUS_CANCELLED;
+        } else if (isRealReservation) {
+            reservationStatus = RES_STATUS_BOOKED;
+        } else {
+            reservationStatus = RES_STATUS_PENDING;
+        }
+
+        activeContinuation = "cottage".equals(summary.service_type) ? CONTINUATION_COTTAGE
+                : "ktv".equals(summary.service_type) ? CONTINUATION_KTV : CONTINUATION_NONE;
+
+        long checkInMillisLocal = parseDateOnlyMillis(summary.check_in);
+        long checkOutMillisLocal = parseDateOnlyMillis(summary.check_out);
+
+        reservationSnapshotAccommodation = summary.service_lines != null && !summary.service_lines.isEmpty()
+                ? TextUtils.join(", ", summary.service_lines)
+                : (summary.item_name != null ? summary.item_name : "");
+        reservationSnapshotDateRange = formatDate(checkInMillisLocal) + " – " + formatDate(checkOutMillisLocal);
+        reservationSnapshotShowNights = "hotel".equals(summary.service_type);
+        reservationSnapshotNights = checkInMillisLocal > 0 && checkOutMillisLocal > checkInMillisLocal
+                ? (int) ((checkOutMillisLocal - checkInMillisLocal) / ONE_DAY_MS) : 0;
+        reservationSnapshotGuestSummary = formatGuestsCount(summary.adults, summary.children);
+        reservationSnapshotGrandTotal = (int) Math.round(summary.subtotal);
+    }
+
+    /** "yyyy-MM-dd" (check_in/check_out from the my-bookings response) — decode counterpart of
+     *  the "yyyy-MM-dd" strings this file encodes elsewhere (e.g. submitReservationRequest). */
+    private long parseDateOnlyMillis(String yyyyMmDd) {
+        if (yyyyMmDd == null || yyyyMmDd.isEmpty()) {
+            return -1;
+        }
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(yyyyMmDd).getTime();
+        } catch (java.text.ParseException e) {
+            return -1;
+        }
     }
 
     /**
@@ -2198,23 +2546,98 @@ final class HotelBookingFlowController {
         termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
         cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
 
-        // No backend endpoint yet for actually submitting a Reserve-shaped request — this just
-        // shows the same mock "request submitted" confirmation as SCREEN_SUCCESS does for Book.
+        // Hotel Rooms submits a real reservation request to the shared backend (see
+        // submitReservationRequest) — Cottage/KTV have no such endpoint yet, so they keep the
+        // mock "request submitted" confirmation this whole screen originally shipped with.
         v.findViewById(R.id.reservationSummaryReserveButton).setOnClickListener(view -> {
-            reservationReferenceNo = generateReservationReference();
-            reservationStatus = RES_STATUS_PENDING;
-            reservationPaymentSubmitted = false;
-            reservationSubmittedAtMillis = System.currentTimeMillis();
-            reservationPaymentSubmittedAtMillis = -1;
-            reservationBookedAtMillis = -1;
-            reservationCancelledAtMillis = -1;
-            reservationCancelReason = "";
-            showScreen(SCREEN_RESERVATION_CONFIRMED);
+            if (activeContinuation != CONTINUATION_NONE) {
+                reservationReferenceNo = generateReservationReference();
+                reservationStatus = RES_STATUS_PENDING;
+                reservationPaymentSubmitted = false;
+                reservationSubmittedAtMillis = System.currentTimeMillis();
+                reservationPaymentSubmittedAtMillis = -1;
+                reservationBookedAtMillis = -1;
+                reservationCancelledAtMillis = -1;
+                reservationCancelReason = "";
+                snapshotReservationDisplayData();
+                showScreen(SCREEN_RESERVATION_CONFIRMED);
+                return;
+            }
+            submitReservationRequest(v);
+        });
+    }
+
+    /**
+     * Hotel Rooms only (see reservationAdvanceReservationId) — creates the real Pending
+     * reservation on the shared backend (same tables the website's own guest submission writes
+     * to), so it shows up in the receptionist's Reservation List immediately.
+     */
+    private void submitReservationRequest(View summaryView) {
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        Button reserveButton = summaryView.findViewById(R.id.reservationSummaryReserveButton);
+        reserveButton.setEnabled(false);
+
+        String checkInStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(checkInMillis));
+        String checkOutStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(checkOutMillis));
+
+        ApiClient.bookingApi().createReservation(
+                "Bearer " + token,
+                checkInStr,
+                checkOutStr,
+                adults,
+                children,
+                specialRequest,
+                quantityFieldMap("room_quantities", roomQuantities)
+        ).enqueue(new Callback<ReservationRequestResponse>() {
+            @Override
+            public void onResponse(Call<ReservationRequestResponse> call, Response<ReservationRequestResponse> response) {
+                reserveButton.setEnabled(true);
+                if (response.isSuccessful() && response.body() != null) {
+                    reservationAdvanceReservationId = response.body().advance_reservation_id;
+                    reservationReferenceNo = response.body().booking_reference;
+                    reservationStatus = RES_STATUS_PENDING;
+                    // Persisted so ChatPollingService (a separate component with no reference to
+                    // this in-memory instance) can keep checking on it in the background and
+                    // notify the guest of a receptionist-side change — see
+                    // ProfileStore#getActiveReservationId.
+                    ProfileStore.setActiveReservationId(activity, reservationAdvanceReservationId);
+                    ProfileStore.setActiveReservationStatus(activity, "pending");
+                    reservationPaymentSubmitted = false;
+                    reservationSubmittedAtMillis = System.currentTimeMillis();
+                    reservationPaymentSubmittedAtMillis = -1;
+                    reservationBookedAtMillis = -1;
+                    reservationCancelledAtMillis = -1;
+                    reservationCancelReason = "";
+                    snapshotReservationDisplayData();
+                    showScreen(SCREEN_RESERVATION_CONFIRMED);
+                } else if (response.code() == 401) {
+                    Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+                } else {
+                    ErrorResponse error = ApiClient.parseError(response.errorBody());
+                    String message = error.firstMessage() != null
+                            ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                    Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ReservationRequestResponse> call, Throwable t) {
+                reserveButton.setEnabled(true);
+                Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+            }
         });
     }
 
     private void bindReservationConfirmed(View v) {
-        v.findViewById(R.id.reservationConfirmedViewButton).setOnClickListener(view -> showScreen(SCREEN_RESERVATION_DETAILS));
+        v.findViewById(R.id.reservationConfirmedViewButton).setOnClickListener(view -> {
+            reservationDetailsBackTarget = datesScreenForContinuation();
+            showScreen(SCREEN_RESERVATION_DETAILS);
+        });
         v.findViewById(R.id.reservationConfirmedHomeButton).setOnClickListener(view -> {
             resetFlow();
             onBackToHome.run();
@@ -2268,12 +2691,33 @@ final class HotelBookingFlowController {
                 && System.currentTimeMillis() - reservationSubmittedAtMillis > RESERVATION_PAYMENT_WINDOW_MS;
     }
 
+    /** "You cancelled this Reservation."/"The Reservation has been cancelled by our staff."
+     *  depending on reservationCancelledBy (falls back to the old generic statement if that's
+     *  ever unknown — e.g. a cancellation that predates this field existing), with the specific
+     *  typed reason appended when one was given. */
+    private String cancelledStatement() {
+        String base;
+        if ("guest".equals(reservationCancelledBy)) {
+            base = activity.getString(R.string.reservation_cancelled_by_guest);
+        } else if ("receptionist".equals(reservationCancelledBy)) {
+            base = activity.getString(R.string.reservation_cancelled_by_staff);
+        } else {
+            base = activity.getString(R.string.reservation_desc_cancelled_default);
+        }
+        if (reservationCancelReason != null && !reservationCancelReason.isEmpty()) {
+            base += activity.getString(R.string.format_reservation_cancelled_reason_suffix, reservationCancelReason);
+        }
+        return base;
+    }
+
     /** Reservation Confirmed's "View Reservation" — a standalone status screen for the reservation
      *  just submitted (see SCREEN_RESERVATION_DETAILS). Reuses the same category-branching data
      *  already gathered for the Reservation Summary screen (see bindReservationSummary). */
     private void bindReservationDetails(View v) {
         bindHeader(v, R.id.reservationDetailsHeaderBar, R.string.reservation_details_title,
-                () -> showScreen(SCREEN_RESERVATION_CONFIRMED));
+                () -> showScreen(reservationDetailsBackTarget));
+
+        refreshReservationStatus(v);
 
         StatusPresentation status = resolveReservationStatus();
         v.findViewById(R.id.reservationDetailsStatusDot).setBackgroundTintList(
@@ -2287,24 +2731,23 @@ final class HotelBookingFlowController {
                 reservationStatus == RES_STATUS_CANCELLED ? View.VISIBLE : View.GONE);
         if (reservationStatus == RES_STATUS_CANCELLED) {
             ((TextView) v.findViewById(R.id.reservationDetailsCancelledReason)).setText(
-                    reservationCancelReason != null && !reservationCancelReason.isEmpty()
-                            ? reservationCancelReason : activity.getString(R.string.reservation_desc_cancelled_default));
+                    cancelledStatement());
         }
         v.findViewById(R.id.reservationDetailsExpiredContainer).setVisibility(
                 isReservationExpired() ? View.VISIBLE : View.GONE);
 
         bindRow(v.findViewById(R.id.reservationDetailsRowReference), R.string.label_reference_no, reservationReferenceNo);
-        bindRow(v.findViewById(R.id.reservationDetailsRowAccommodation), R.string.label_accommodation, reservationAccommodationSummary());
-        bindRow(v.findViewById(R.id.reservationDetailsRowDate), R.string.label_date, reservationDateSummary());
+        bindRow(v.findViewById(R.id.reservationDetailsRowAccommodation), R.string.label_accommodation, reservationSnapshotAccommodation);
+        bindRow(v.findViewById(R.id.reservationDetailsRowDate), R.string.label_date, reservationSnapshotDateRange);
         View nightsRow = v.findViewById(R.id.reservationDetailsRowNights);
-        if (activeContinuation == CONTINUATION_NONE) {
-            bindRow(nightsRow, R.string.label_nights_short, String.valueOf(nights()));
+        if (reservationSnapshotShowNights) {
+            bindRow(nightsRow, R.string.label_nights_short, String.valueOf(reservationSnapshotNights));
             nightsRow.setVisibility(View.VISIBLE);
         } else {
             nightsRow.setVisibility(View.GONE);
         }
-        bindRow(v.findViewById(R.id.reservationDetailsRowGuests), R.string.label_stay_guests, reservationGuestSummary());
-        int reservationGrandTotal = reservationGrandTotal();
+        bindRow(v.findViewById(R.id.reservationDetailsRowGuests), R.string.label_stay_guests, reservationSnapshotGuestSummary);
+        int reservationGrandTotal = reservationSnapshotGrandTotal;
         bindRow(v.findViewById(R.id.reservationDetailsRowFullPayment), R.string.label_full_payment,
                 formatCurrency(reservationGrandTotal));
         bindRow(v.findViewById(R.id.reservationDetailsRowDownPayment), R.string.label_down_payment_30,
@@ -2333,6 +2776,80 @@ final class HotelBookingFlowController {
         Button cancelButton = v.findViewById(R.id.reservationDetailsCancelButton);
         cancelButton.setVisibility(canCancel ? View.VISIBLE : View.GONE);
         cancelButton.setOnClickListener(view -> showCancelConfirmDialog());
+    }
+
+    /**
+     * Hotel Rooms only (see reservationAdvanceReservationId) — there's no push notification
+     * system, so this is what lets a receptionist-side change (Reservation Management's own
+     * Cancel) actually reach the guest's device: every time Reservation Details is opened, it
+     * asks the server for the real current status and re-renders if anything changed. Silently
+     * no-ops on failure — the screen just keeps showing whatever it already had.
+     */
+    private void refreshReservationStatus(View v) {
+        if (reservationAdvanceReservationId <= 0) {
+            return;
+        }
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            return;
+        }
+        ApiClient.bookingApi().getReservationStatus("Bearer " + token, reservationAdvanceReservationId)
+                .enqueue(new Callback<ReservationStatusResponse>() {
+                    @Override
+                    public void onResponse(Call<ReservationStatusResponse> call, Response<ReservationStatusResponse> response) {
+                        if (currentScreen != SCREEN_RESERVATION_DETAILS || !response.isSuccessful() || response.body() == null) {
+                            return;
+                        }
+                        ReservationStatusResponse body = response.body();
+                        int newStatus = mapServerReservationStatus(body.status);
+                        boolean changed = newStatus != reservationStatus;
+                        reservationStatus = newStatus;
+                        // Keeps ChatPollingService's own background check from re-notifying about
+                        // something the guest already just saw here in the foreground.
+                        ProfileStore.setActiveReservationStatus(activity, body.status);
+                        if (newStatus == RES_STATUS_CANCELLED) {
+                            reservationCancelReason = body.cancel_reason != null ? body.cancel_reason : "";
+                            reservationCancelledBy = body.cancelled_by != null ? body.cancelled_by : "";
+                            if (reservationCancelledAtMillis <= 0) {
+                                reservationCancelledAtMillis = parseIsoMillis(body.cancelled_at);
+                            }
+                        } else if (newStatus == RES_STATUS_BOOKED && reservationBookedAtMillis <= 0) {
+                            reservationBookedAtMillis = System.currentTimeMillis();
+                        }
+                        if (changed) {
+                            bindReservationDetails(v);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ReservationStatusResponse> call, Throwable t) {
+                        // Silently ignore — the screen just keeps showing its last known state.
+                    }
+                });
+    }
+
+    private static int mapServerReservationStatus(String status) {
+        if ("cancelled".equals(status)) {
+            return RES_STATUS_CANCELLED;
+        }
+        if ("booked".equals(status)) {
+            return RES_STATUS_BOOKED;
+        }
+        return RES_STATUS_PENDING;
+    }
+
+    /** Best-effort ISO8601 parse (Laravel's toIso8601String, e.g. "2026-09-16T07:38:34+08:00") —
+     *  falls back to now on anything unexpected, since this only feeds a timeline timestamp, not
+     *  the status itself. */
+    private long parseIsoMillis(String iso) {
+        if (iso == null || iso.isEmpty()) {
+            return System.currentTimeMillis();
+        }
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).parse(iso).getTime();
+        } catch (java.text.ParseException e) {
+            return System.currentTimeMillis();
+        }
     }
 
     /** Cancel button, step 1: a plain Yes/No confirmation before asking for a reason. */
@@ -2372,13 +2889,74 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.toast_cancellation_reason_required, Toast.LENGTH_LONG).show();
                 return;
             }
+            if (reservationAdvanceReservationId > 0) {
+                // Hotel Rooms real reservation — cancel it on the shared backend so it actually
+                // takes effect (Reservation Management's own list, and a re-fetch of this same
+                // reservation's status, both need to see it), not just a local status flip that
+                // the very next refreshReservationStatus() call would overwrite right back to
+                // Pending.
+                submitReservationCancellation(dialog, reason);
+                return;
+            }
+            // Cottage/KTV Reserve is still local-mock (see submitReservationRequest's own class
+            // doc) — nothing real exists server-side to cancel.
             reservationStatus = RES_STATUS_CANCELLED;
             reservationCancelReason = reason;
             reservationCancelledAtMillis = System.currentTimeMillis();
+            reservationCancelledBy = "guest";
             dialog.dismiss();
             showScreen(SCREEN_RESERVATION_DETAILS);
         }));
         dialog.show();
+    }
+
+    /**
+     * Hotel Rooms only (see reservationAdvanceReservationId) — submits the guest's own
+     * cancellation to the shared backend (same cancelReservation() endpoint the website's guest
+     * self-serve cancel uses), so it's reflected everywhere: Reservation Management's list, and
+     * any later status refresh of this same reservation.
+     */
+    private void submitReservationCancellation(AlertDialog dialog, String reason) {
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        Button positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        positiveButton.setEnabled(false);
+
+        ApiClient.bookingApi().cancelReservation("Bearer " + token, reservationAdvanceReservationId, reason)
+                .enqueue(new Callback<CancelReservationResponse>() {
+                    @Override
+                    public void onResponse(Call<CancelReservationResponse> call, Response<CancelReservationResponse> response) {
+                        positiveButton.setEnabled(true);
+                        if (response.isSuccessful()) {
+                            reservationStatus = RES_STATUS_CANCELLED;
+                            reservationCancelReason = reason;
+                            reservationCancelledAtMillis = System.currentTimeMillis();
+                            reservationCancelledBy = "guest";
+                            // Keeps ChatPollingService's own background check from re-notifying
+                            // about a cancellation the guest just made themselves.
+                            ProfileStore.setActiveReservationStatus(activity, "cancelled");
+                            dialog.dismiss();
+                            showScreen(SCREEN_RESERVATION_DETAILS);
+                        } else if (response.code() == 401) {
+                            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+                        } else {
+                            ErrorResponse error = ApiClient.parseError(response.errorBody());
+                            String message = error.firstMessage() != null
+                                    ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                            Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<CancelReservationResponse> call, Throwable t) {
+                        positiveButton.setEnabled(true);
+                        Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+                    }
+                });
     }
 
     /**
@@ -2507,7 +3085,7 @@ final class HotelBookingFlowController {
         // layout otherwise shows (Book flow's own Payment screens) doesn't apply to Reserve,
         // which only ever collects the 30% down payment.
         v.findViewById(R.id.paymentAmountDue).setVisibility(View.GONE);
-        int grandTotal = reservationGrandTotal();
+        int grandTotal = reservationSnapshotGrandTotal;
         View fullRow = v.findViewById(R.id.paymentAmountDueFullRow);
         View downRow = v.findViewById(R.id.paymentAmountDueDownRow);
         fullRow.setVisibility(View.VISIBLE);
@@ -2568,9 +3146,79 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
                 return;
             }
-            reservationPaymentSubmitted = true;
-            reservationPaymentSubmittedAtMillis = System.currentTimeMillis();
-            showScreen(SCREEN_RESERVATION_PAYMENT_CONFIRMED);
+            if (activeContinuation != CONTINUATION_NONE) {
+                reservationPaymentSubmitted = true;
+                reservationPaymentSubmittedAtMillis = System.currentTimeMillis();
+                showScreen(SCREEN_RESERVATION_PAYMENT_CONFIRMED);
+                return;
+            }
+            submitReservationPayment(v);
+        });
+    }
+
+    /**
+     * Hotel Rooms only (see reservationAdvanceReservationId) — submits payment for the Pending
+     * reservation submitReservationRequest() created, promoting it into a real booking on the
+     * shared backend (visible in Booking Management). Always the fixed 30% down payment, matching
+     * bindReservationPayment's own doc comment.
+     */
+    private void submitReservationPayment(View paymentView) {
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        RequestBody proofBody;
+        try {
+            proofBody = readImagePart(screenshotUri);
+        } catch (IOException e) {
+            Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (proofBody == null) {
+            Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        Button completeButton = paymentView.findViewById(R.id.hotelPaymentCompleteButton);
+        completeButton.setEnabled(false);
+
+        MultipartBody.Part proofPart = MultipartBody.Part.createFormData("proof_image", "payment_proof.jpg", proofBody);
+        Map<String, RequestBody> quantities = new LinkedHashMap<>();
+        putQuantityParts(quantities, "amenity_quantities", amenityQuantities);
+        putQuantityParts(quantities, "menu_quantities", foodQuantities);
+
+        ApiClient.bookingApi().payReservation(
+                "Bearer " + token,
+                reservationAdvanceReservationId,
+                textPart("partial"),
+                textPart(referenceNumberText),
+                proofPart,
+                quantities
+        ).enqueue(new Callback<ReserveResponse>() {
+            @Override
+            public void onResponse(Call<ReserveResponse> call, Response<ReserveResponse> response) {
+                completeButton.setEnabled(true);
+                if (response.isSuccessful() && response.body() != null) {
+                    reservationPaymentSubmitted = true;
+                    reservationPaymentSubmittedAtMillis = System.currentTimeMillis();
+                    showScreen(SCREEN_RESERVATION_PAYMENT_CONFIRMED);
+                } else if (response.code() == 401) {
+                    Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+                } else {
+                    ErrorResponse error = ApiClient.parseError(response.errorBody());
+                    String message = error.firstMessage() != null
+                            ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                    Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ReserveResponse> call, Throwable t) {
+                completeButton.setEnabled(true);
+                Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+            }
         });
     }
 
@@ -2581,6 +3229,19 @@ final class HotelBookingFlowController {
             resetFlow();
             onBackToHome.run();
         });
+    }
+
+    /** Captures the four reservationXxx() helpers' current output into the reservationSnapshotXxx
+     *  fields — called once, right when a reservation is actually submitted (see the Reserve
+     *  button handlers in bindReservationSummary), while checkInMillis/roomQuantities/
+     *  activeContinuation/etc. still hold the real values that were just submitted. */
+    private void snapshotReservationDisplayData() {
+        reservationSnapshotAccommodation = reservationAccommodationSummary();
+        reservationSnapshotDateRange = reservationDateSummary();
+        reservationSnapshotShowNights = activeContinuation == CONTINUATION_NONE;
+        reservationSnapshotNights = nights();
+        reservationSnapshotGuestSummary = reservationGuestSummary();
+        reservationSnapshotGrandTotal = reservationGrandTotal();
     }
 
     /** Comma-joined "Category · Variant (x qty)" for every item with a quantity above zero in
@@ -3438,6 +4099,18 @@ final class HotelBookingFlowController {
         }
     }
 
+    /** Same bracket-notation keys as {@link #putQuantityParts}, for a @FormUrlEncoded @FieldMap
+     *  call (submitReservationRequest) instead of a multipart one. */
+    private static Map<String, String> quantityFieldMap(String fieldName, Map<Integer, Integer> quantities) {
+        Map<String, String> result = new LinkedHashMap<>();
+        for (Map.Entry<Integer, Integer> entry : quantities.entrySet()) {
+            if (entry.getValue() != null && entry.getValue() > 0) {
+                result.put(fieldName + "[" + entry.getKey() + "]", String.valueOf(entry.getValue()));
+            }
+        }
+        return result;
+    }
+
     private static RequestBody textPart(String value) {
         return RequestBody.create(value != null ? value : "", MediaType.parse("text/plain"));
     }
@@ -3559,15 +4232,19 @@ final class HotelBookingFlowController {
         amountPaidText = "";
         referenceNumberText = "";
         screenshotUri = null;
-        bookingReference = "";
-        reservationReferenceNo = "";
-        reservationStatus = RES_STATUS_PENDING;
-        reservationPaymentSubmitted = false;
-        reservationSubmittedAtMillis = -1;
-        reservationPaymentSubmittedAtMillis = -1;
-        reservationBookedAtMillis = -1;
-        reservationCancelledAtMillis = -1;
-        reservationCancelReason = "";
+        // Deliberately NOT reset: bookingReference, reservationReferenceNo,
+        // reservationAdvanceReservationId, reservationStatus, reservationPaymentSubmitted,
+        // reservationSubmittedAtMillis, reservationPaymentSubmittedAtMillis,
+        // reservationBookedAtMillis, reservationCancelledAtMillis, reservationCancelReason,
+        // reservationCancelledBy, and the reservationSnapshotXxx fields — these describe a
+        // reservation/booking that's already been
+        // submitted (Hotel Rooms: really persisted server-side) and continues to exist regardless
+        // of the guest tapping "Return Home" to start a fresh attempt. Clearing them here was the
+        // cause of My Reservations/My Bookings wrongly reporting "you don't have one yet" right
+        // after a guest went home from the very confirmation screen for the one they just made. A
+        // genuinely new submission overwrites all of these fresh anyway (see
+        // snapshotReservationDisplayData and its two call sites), so there's nothing to leak
+        // between one reservation and the next.
         // Every caller pairs resetFlow() with onBackToHome.run() right after (which re-arms the
         // owning controller's own picker screen) — nothing here needs to render, so root is just
         // left empty rather than showing a screen no one will ever look at.
@@ -3615,6 +4292,10 @@ final class HotelBookingFlowController {
     }
 
     private String formatGuests() {
+        return formatGuestsCount(adults, children);
+    }
+
+    private static String formatGuestsCount(int adults, int children) {
         String guests = adults + (adults == 1 ? " Adult" : " Adults");
         if (children > 0) {
             guests += ", " + children + (children == 1 ? " Child" : " Children");

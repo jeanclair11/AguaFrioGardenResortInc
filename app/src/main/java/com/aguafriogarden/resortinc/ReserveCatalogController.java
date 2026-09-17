@@ -61,7 +61,9 @@ final class ReserveCatalogController {
         }
     }
 
-    private void showPicker() {
+    /** Package-private so LandingActivity's bottom-nav Reserve tab can force back to this screen
+     *  on every tap — see its own buildBottomNav() click-listener wiring. */
+    void showPicker() {
         currentScreen = SCREEN_PICKER;
         View v = LayoutInflater.from(activity).inflate(R.layout.view_reserve_picker, root, false);
 
@@ -88,31 +90,59 @@ final class ReserveCatalogController {
 
     private void showFlow(int type) {
         currentScreen = SCREEN_FLOW;
+        if (type == PendingRoomSelection.TYPE_COTTAGE) {
+            ensureHotelBookingFlow().showCottageDatesEntry(-1, this::showPicker, true);
+        } else if (type == PendingRoomSelection.TYPE_KTV) {
+            ensureHotelBookingFlow().showKtvDatesEntry(-1, this::showPicker, true);
+        } else {
+            ensureHotelBookingFlow().showRoomDatesEntry(-1, this::showPicker, true);
+        }
+        root.removeAllViews();
+        root.addView(hotelBookingFlow.getRootView());
+    }
+
+    /**
+     * Lazily creates the shared HotelBookingFlowController instance — same reasoning as
+     * BookingCatalogController's own ensureHotelBookingFlow(): resetFlow() (run by every "Return
+     * Home"/Cancel button before this callback fires) leaves hotelBookingFlow's own root empty
+     * rather than showing anything, so onBackToHome is wrapped to re-arm the picker first.
+     */
+    private HotelBookingFlowController ensureHotelBookingFlow() {
         if (hotelBookingFlow == null) {
-            // onBookNowOtherCategory only ever fired from the Book tab's own generic tabbed
-            // browse screen, which no longer exists and which this flow never reached anyway
-            // (it always enters at a focused dates-entry gate screen instead) — showPicker is a
-            // safe, never-really-invoked fallback rather than passing null.
-            //
-            // The onBackToHome wrapper below is load-bearing, not decorative: resetFlow() (run
-            // by every "Return Home"/Cancel button before this callback fires) leaves
-            // hotelBookingFlow's own root empty rather than showing anything (see resetFlow()'s
-            // own comment) — the same View instance still sitting inside this controller's root
-            // from the last showFlow() call. Without re-arming the picker here, the next tap on
-            // the Reserve tab would show that empty root instead of this gate, since nothing else
-            // ever tells this controller to go back to it.
             hotelBookingFlow = new HotelBookingFlowController(activity, this::showPicker, () -> {
                 showPicker();
                 onBackToHome.run();
             });
         }
-        if (type == PendingRoomSelection.TYPE_COTTAGE) {
-            hotelBookingFlow.showCottageDatesEntry(-1, this::showPicker, true);
-        } else if (type == PendingRoomSelection.TYPE_KTV) {
-            hotelBookingFlow.showKtvDatesEntry(-1, this::showPicker, true);
-        } else {
-            hotelBookingFlow.showRoomDatesEntry(-1, this::showPicker, true);
-        }
+        return hotelBookingFlow;
+    }
+
+    /**
+     * LandingActivity's Room Overview "Reserve Now" for a specific pre-chosen Hotel Room —
+     * mirrors BookingCatalogController#showHotelFlowFromRoomOverview, but shares THIS controller's
+     * instance/state instead, so a reservation started from the Landing Page and one started from
+     * the Reserve tab's own picker are the same reservation, visible from either entry point's
+     * Reservation Details screen (always reserve mode — this controller only ever drives Reserve).
+     */
+    void showHotelFlowFromRoomOverview(int variantId, Runnable onBackToOverview) {
+        currentScreen = SCREEN_FLOW;
+        ensureHotelBookingFlow().showRoomDatesEntry(variantId, onBackToOverview, true);
+        root.removeAllViews();
+        root.addView(hotelBookingFlow.getRootView());
+    }
+
+    /** Same as {@link #showHotelFlowFromRoomOverview}, but for Cottages. */
+    void showHotelFlowFromCottageOverview(int variantId, Runnable onBackToOverview) {
+        currentScreen = SCREEN_FLOW;
+        ensureHotelBookingFlow().showCottageDatesEntry(variantId, onBackToOverview, true);
+        root.removeAllViews();
+        root.addView(hotelBookingFlow.getRootView());
+    }
+
+    /** Same as {@link #showHotelFlowFromRoomOverview}, but for KTV Rooms. */
+    void showHotelFlowFromKtvOverview(int variantId, Runnable onBackToOverview) {
+        currentScreen = SCREEN_FLOW;
+        ensureHotelBookingFlow().showKtvDatesEntry(variantId, onBackToOverview, true);
         root.removeAllViews();
         root.addView(hotelBookingFlow.getRootView());
     }

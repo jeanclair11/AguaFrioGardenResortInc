@@ -68,11 +68,11 @@ final class BookingCatalogController {
         LinearLayout container = v.findViewById(R.id.reservePickerContainer);
         container.removeAllViews();
         container.addView(buildOption(inflater, container, R.string.service_type_hotel,
-                () -> showHotelFlowFromRoomOverview(-1, this::showPicker, false)));
+                () -> showHotelFlowFromRoomOverview(-1, this::showPicker)));
         container.addView(buildOption(inflater, container, R.string.booking_type_cottage,
-                () -> showHotelFlowFromCottageOverview(-1, this::showPicker, false)));
+                () -> showHotelFlowFromCottageOverview(-1, this::showPicker)));
         container.addView(buildOption(inflater, container, R.string.service_type_ktv,
-                () -> showHotelFlowFromKtvOverview(-1, this::showPicker, false)));
+                () -> showHotelFlowFromKtvOverview(-1, this::showPicker)));
 
         root.removeAllViews();
         root.addView(v);
@@ -108,13 +108,14 @@ final class BookingCatalogController {
     /**
      * Enters the Hotel Rooms flow at its own focused "Choose Your Stay Dates" gate screen (see
      * HotelBookingFlowController#showRoomDatesEntry). Used both by the picker above (variantId -1,
-     * no pre-chosen room) and by LandingActivity's Room Overview "Book Now"/"Reserve Now" for a
-     * specific Hotel Room selection — reserveOnly (true for Reserve, false for Book) makes the
-     * shared flow end after Order Food instead of continuing to Billing/Payment.
+     * no pre-chosen room) and by LandingActivity's Room Overview "Book Now" for a specific Hotel
+     * Room selection. Always Book mode (false) — "Reserve Now" goes through
+     * ReserveCatalogController's own equivalent instead, so a reservation shares that controller's
+     * instance/state regardless of whether it started from the Reserve tab or the Landing Page.
      */
-    void showHotelFlowFromRoomOverview(int variantId, Runnable onBackToOverview, boolean reserveOnly) {
+    void showHotelFlowFromRoomOverview(int variantId, Runnable onBackToOverview) {
         currentScreen = SCREEN_HOTEL_FLOW;
-        ensureHotelBookingFlow().showRoomDatesEntry(variantId, onBackToOverview, reserveOnly);
+        ensureHotelBookingFlow().showRoomDatesEntry(variantId, onBackToOverview, false);
         root.removeAllViews();
         root.addView(hotelBookingFlow.getRootView());
     }
@@ -123,9 +124,9 @@ final class BookingCatalogController {
      * Same as {@link #showHotelFlowFromRoomOverview}, but the focused "Choose Your Visit Date"
      * gate screen (see HotelBookingFlowController#showCottageDatesEntry) for Cottages.
      */
-    void showHotelFlowFromCottageOverview(int variantId, Runnable onBackToOverview, boolean reserveOnly) {
+    void showHotelFlowFromCottageOverview(int variantId, Runnable onBackToOverview) {
         currentScreen = SCREEN_HOTEL_FLOW;
-        ensureHotelBookingFlow().showCottageDatesEntry(variantId, onBackToOverview, reserveOnly);
+        ensureHotelBookingFlow().showCottageDatesEntry(variantId, onBackToOverview, false);
         root.removeAllViews();
         root.addView(hotelBookingFlow.getRootView());
     }
@@ -134,9 +135,9 @@ final class BookingCatalogController {
      * Same as {@link #showHotelFlowFromRoomOverview}, but the focused "Plan Your KTV Session"
      * gate screen (see HotelBookingFlowController#showKtvDatesEntry) for KTV Rooms.
      */
-    void showHotelFlowFromKtvOverview(int variantId, Runnable onBackToOverview, boolean reserveOnly) {
+    void showHotelFlowFromKtvOverview(int variantId, Runnable onBackToOverview) {
         currentScreen = SCREEN_HOTEL_FLOW;
-        ensureHotelBookingFlow().showKtvDatesEntry(variantId, onBackToOverview, reserveOnly);
+        ensureHotelBookingFlow().showKtvDatesEntry(variantId, onBackToOverview, false);
         root.removeAllViews();
         root.addView(hotelBookingFlow.getRootView());
     }

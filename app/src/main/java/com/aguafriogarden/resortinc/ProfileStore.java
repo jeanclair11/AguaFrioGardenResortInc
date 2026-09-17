@@ -38,6 +38,8 @@ final class ProfileStore {
     private static final String KEY_ID_NUMBER = "id_number";
     private static final String KEY_ID_UPLOAD_DATE = "id_upload_date";
     private static final String KEY_AUTH_TOKEN = "auth_token";
+    private static final String KEY_ACTIVE_RESERVATION_ID = "active_reservation_id";
+    private static final String KEY_ACTIVE_RESERVATION_STATUS = "active_reservation_status";
 
     private ProfileStore() {
     }
@@ -229,6 +231,33 @@ final class ProfileStore {
 
     static void clearAuthToken(Context context) {
         prefs(context).edit().remove(KEY_AUTH_TOKEN).apply();
+    }
+
+    /**
+     * The Hotel Rooms reservation ChatPollingService should keep checking on in the background,
+     * and the status it last saw for it — persisted here (not just held in
+     * HotelBookingFlowController's own in-memory field) so the polling service, a separate
+     * component with no reference to any Activity's UI objects, can still find it. Cleared on
+     * logout so a different guest signing in on the same device doesn't inherit it.
+     */
+    static int getActiveReservationId(Context context) {
+        return prefs(context).getInt(KEY_ACTIVE_RESERVATION_ID, -1);
+    }
+
+    static void setActiveReservationId(Context context, int advanceReservationId) {
+        prefs(context).edit().putInt(KEY_ACTIVE_RESERVATION_ID, advanceReservationId).apply();
+    }
+
+    static String getActiveReservationStatus(Context context) {
+        return prefs(context).getString(KEY_ACTIVE_RESERVATION_STATUS, "");
+    }
+
+    static void setActiveReservationStatus(Context context, String status) {
+        prefs(context).edit().putString(KEY_ACTIVE_RESERVATION_STATUS, status).apply();
+    }
+
+    static void clearActiveReservation(Context context) {
+        prefs(context).edit().remove(KEY_ACTIVE_RESERVATION_ID).remove(KEY_ACTIVE_RESERVATION_STATUS).apply();
     }
 
     /**

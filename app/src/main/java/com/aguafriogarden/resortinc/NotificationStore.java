@@ -63,9 +63,33 @@ final class NotificationStore {
         return count;
     }
 
+    /** Backs the Reserve tab's own bottom-nav badge — only RESERVATION-type entries (a
+     *  receptionist-side cancellation, etc. — see ChatPollingService), so an unread chat message
+     *  doesn't also light up Reserve. */
+    static int unreadCountByType(Type type) {
+        int count = 0;
+        for (Notification n : ALL) {
+            if (!n.isRead && n.type == type) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     static void markAllRead() {
         for (Notification n : ALL) {
             n.isRead = true;
+        }
+    }
+
+    /** Marks only one type's entries read — used when the guest opens the tab that type's own
+     *  badge belongs to (e.g. Reserve for RESERVATION), mirroring how opening Chat itself already
+     *  clears UnreadChatStore without needing a trip through the Alerts tab. */
+    static void markReadByType(Type type) {
+        for (Notification n : ALL) {
+            if (n.type == type) {
+                n.isRead = true;
+            }
         }
     }
 

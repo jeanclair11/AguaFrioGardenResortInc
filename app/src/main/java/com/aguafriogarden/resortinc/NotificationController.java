@@ -12,9 +12,9 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Renders the Alerts tab (previously an empty placeholder) as a list of
- * in-app notifications pushed by {@link ReservationStore}. There is no email
- * leg in this prototype — see the Reservation Module memory for why.
+ * Renders the Alerts tab as a list of in-app notifications pushed by
+ * {@link ChatPollingService} (new chat messages, and reservation status changes like a
+ * receptionist-side cancellation).
  */
 final class NotificationController {
 

@@ -14,6 +14,7 @@ import android.os.Looper;
 import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.ChatHistoryResponse;
 import com.aguafriogarden.resortinc.network.ChatMessageDto;
+import com.aguafriogarden.resortinc.network.ReservationStatusResponse;
 
 import java.util.List;
 
@@ -22,26 +23,34 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 /**
- * Keeps polling {@code chat/poll} for new staff messages while the guest is
- * logged in, independent of whether the Chat tab is on screen, so
- * {@link UnreadChatStore} and the bell/nav badges in {@link LandingActivity}
- * stay current while backgrounded. Runs as a foreground service because
- * Android kills plain background services within seconds of the app leaving
- * the foreground; started from LandingActivity#enterLoggedInState, stopped on logout.
+ * Keeps polling {@code chat/poll} for new staff messages, and separately
+ * {@code booking/reservations/{id}} for a change to the guest's active Hotel Rooms reservation
+ * (see {@link ProfileStore#getActiveReservationId}) — e.g. a receptionist cancelling it from
+ * Reservation Management, which the guest's device would otherwise have no way to ever learn
+ * about (there's no push notification system). Both run while the guest is logged in,
+ * independent of which tab is on screen, so {@link UnreadChatStore}/{@link NotificationStore}
+ * and the bell/nav badges in {@link LandingActivity} stay current while backgrounded. Runs as a
+ * foreground service because Android kills plain background services within seconds of the app
+ * leaving the foreground; started from LandingActivity#enterLoggedInState, stopped on logout.
  */
 public class ChatPollingService extends Service {
 
     private static final long POLL_INTERVAL_MS = 8000L;
+    private static final long RESERVATION_POLL_INTERVAL_MS = 15000L;
     private static final String CHANNEL_SERVICE = "chat_polling";
     private static final String CHANNEL_MESSAGES = "chat_messages";
+    private static final String CHANNEL_RESERVATIONS = "reservation_updates";
     private static final int NOTIFICATION_ID_SERVICE = 1001;
     private static final int NOTIFICATION_ID_MESSAGE = 1002;
+    private static final int NOTIFICATION_ID_RESERVATION = 1003;
 
     static final String EXTRA_OPEN_MODULE = "open_module";
     static final String EXTRA_VALUE_CHAT = "chat";
+    static final String EXTRA_VALUE_RESERVE = "reserve";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable pollRunnable = this::poll;
+    private final Runnable reservationPollRunnable = this::pollReservationStatus;
     private long cursor = 0L;
     private boolean running;
 
@@ -57,6 +66,7 @@ public class ChatPollingService extends Service {
         if (!running) {
             running = true;
             handler.post(pollRunnable);
+            handler.post(reservationPollRunnable);
         }
         return START_STICKY;
     }
@@ -66,6 +76,7 @@ public class ChatPollingService extends Service {
         super.onDestroy();
         running = false;
         handler.removeCallbacks(pollRunnable);
+        handler.removeCallbacks(reservationPollRunnable);
     }
 
     @Override
@@ -102,6 +113,100 @@ public class ChatPollingService extends Service {
         if (running) {
             handler.postDelayed(pollRunnable, POLL_INTERVAL_MS);
         }
+    }
+
+    private void pollReservationStatus() {
+        if (!running) {
+            return;
+        }
+        String token = ProfileStore.getAuthToken(this);
+        int reservationId = ProfileStore.getActiveReservationId(this);
+        if (token.isEmpty() || reservationId <= 0) {
+            scheduleReservationPoll();
+            return;
+        }
+        ApiClient.bookingApi().getReservationStatus("Bearer " + token, reservationId)
+                .enqueue(new Callback<ReservationStatusResponse>() {
+                    @Override
+                    public void onResponse(Call<ReservationStatusResponse> call, Response<ReservationStatusResponse> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            handleReservationStatus(response.body());
+                        }
+                        scheduleReservationPoll();
+                    }
+
+                    @Override
+                    public void onFailure(Call<ReservationStatusResponse> call, Throwable t) {
+                        scheduleReservationPoll();
+                    }
+                });
+    }
+
+    private void scheduleReservationPoll() {
+        if (running) {
+            handler.postDelayed(reservationPollRunnable, RESERVATION_POLL_INTERVAL_MS);
+        }
+    }
+
+    /** Only acts on an actual transition (compares against the status last persisted — by either
+     *  this same check or HotelBookingFlowController's own foreground refresh on Reservation
+     *  Details, whichever saw it first) so the guest is never notified twice for one change. */
+    private void handleReservationStatus(ReservationStatusResponse body) {
+        String lastKnown = ProfileStore.getActiveReservationStatus(this);
+        if (body.status == null || body.status.equals(lastKnown)) {
+            return;
+        }
+        ProfileStore.setActiveReservationStatus(this, body.status);
+        if ("cancelled".equals(body.status)) {
+            notifyReservationCancelled(body.cancel_reason);
+        } else if ("booked".equals(body.status)) {
+            notifyReservationBooked();
+        }
+    }
+
+    private void notifyReservationCancelled(String reason) {
+        String body = reason != null && !reason.trim().isEmpty()
+                ? getString(R.string.reservation_cancelled_notification_body_with_reason, reason)
+                : getString(R.string.reservation_cancelled_notification_body_no_reason);
+        pushReservationAlert(getString(R.string.reservation_cancelled_notification_title), body);
+    }
+
+    private void notifyReservationBooked() {
+        pushReservationAlert(getString(R.string.reservation_booked_notification_title),
+                getString(R.string.reservation_booked_notification_body));
+    }
+
+    private void pushReservationAlert(String title, String body) {
+        NotificationStore.push(new NotificationStore.Notification(
+                title, body, getString(R.string.notif_button_view_reservation), null,
+                System.currentTimeMillis(), NotificationStore.Type.RESERVATION));
+
+        if (ProfileStore.isNotificationsEnabled(this)) {
+            postSystemReservationNotification(title, body);
+        }
+    }
+
+    private void postSystemReservationNotification(String title, String body) {
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (manager == null) {
+            return;
+        }
+        Intent intent = new Intent(this, LandingActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        intent.putExtra(EXTRA_OPEN_MODULE, EXTRA_VALUE_RESERVE);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                ? new Notification.Builder(this, CHANNEL_RESERVATIONS)
+                : new Notification.Builder(this);
+        builder.setContentTitle(title)
+                .setContentText(body)
+                .setSmallIcon(R.drawable.ic_calendar)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setPriority(Notification.PRIORITY_DEFAULT);
+        manager.notify(NOTIFICATION_ID_RESERVATION, builder.build());
     }
 
     private void handleIncoming(List<ChatMessageDto> messages) {
@@ -183,6 +288,12 @@ public class ChatPollingService extends Service {
             NotificationChannel channel = new NotificationChannel(CHANNEL_MESSAGES,
                     getString(R.string.chat_messages_channel_name), NotificationManager.IMPORTANCE_DEFAULT);
             channel.setDescription(getString(R.string.chat_messages_channel_desc));
+            manager.createNotificationChannel(channel);
+        }
+        if (manager.getNotificationChannel(CHANNEL_RESERVATIONS) == null) {
+            NotificationChannel channel = new NotificationChannel(CHANNEL_RESERVATIONS,
+                    getString(R.string.reservation_updates_channel_name), NotificationManager.IMPORTANCE_DEFAULT);
+            channel.setDescription(getString(R.string.reservation_updates_channel_desc));
             manager.createNotificationChannel(channel);
         }
     }
