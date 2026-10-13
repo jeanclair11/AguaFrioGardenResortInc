@@ -989,7 +989,7 @@ public class LandingActivity extends Activity {
 
     private void fetchKtvTypes(LinearLayout container, TextView emptyState) {
         // Actual KTV units (booking/ktv-units); falls back to the Type list if that call fails.
-        ApiClient.bookingApi().getKtvUnits(null, null, null).enqueue(new Callback<KtvUnitListResponse>() {
+        ApiClient.bookingApi().getKtvUnits(new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date()), null, null).enqueue(new Callback<KtvUnitListResponse>() {
             @Override
             public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().ktv_units != null) {
@@ -1156,7 +1156,8 @@ public class LandingActivity extends Activity {
             fullyBookedView.setVisibility(View.GONE);
             pillContainer.setVisibility(View.VISIBLE);
             ((TextView) card.findViewById(R.id.roomTypeCardAvailablePillText)).setText(
-                    getString(R.string.format_available_units, availableQty, getString(unitLabelRes(origin))));
+                    origin == Section.KTV ? getString(R.string.status_available)
+                            : getString(R.string.format_available_units, availableQty, getString(unitLabelRes(origin))));
         } else {
             pillContainer.setVisibility(View.GONE);
             fullyBookedView.setVisibility(View.VISIBLE);
@@ -1268,7 +1269,8 @@ public class LandingActivity extends Activity {
             overviewFullyBookedView.setVisibility(View.GONE);
             overviewPillContainer.setVisibility(View.VISIBLE);
             ((TextView) v.findViewById(R.id.roomOverviewAvailablePillText)).setText(
-                    getString(R.string.format_available_units, room.availableQty, getString(unitLabelRes(roomOverviewOrigin))));
+                    roomOverviewOrigin == Section.KTV ? getString(R.string.status_available)
+                            : getString(R.string.format_available_units, room.availableQty, getString(unitLabelRes(roomOverviewOrigin))));
         } else {
             overviewPillContainer.setVisibility(View.GONE);
             overviewFullyBookedView.setVisibility(View.VISIBLE);

@@ -3615,6 +3615,15 @@ final class HotelBookingFlowController {
      * Available Units" chip; each caller passes its own category's label. onChanged is called
      * after every +/- tap so the caller can rebind and reflect the new count.
      */
+    private boolean isKtvUnit(int groupId) {
+        for (CottageKtvOption item : ktvItems) {
+            if (item.unit_id > 0 && item.group_id == groupId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private View buildSelectableCard(LayoutInflater inflater, ViewGroup parent, String imagePath,
                                       String typeLabel, int capacity, boolean isCottage, String description, String priceText,
                                       int groupId, int availableQty, int unitLabelRes, boolean isSelectedBadge,
@@ -3658,6 +3667,22 @@ final class HotelBookingFlowController {
                 R.string.format_available_units, availableQty, activity.getString(unitLabelRes)));
         quantityRow.setVisibility(View.VISIBLE);
         card.setAlpha(1f);
+
+        // An individual KTV unit is one physical room: a plain "Available" tag and a SELECT
+        // toggle instead of an "N available" count and a quantity stepper.
+        if (unitLabelRes == R.string.unit_label_ktv_room && isKtvUnit(groupId)) {
+            ((TextView) card.findViewById(R.id.itemAvailableBadge)).setText(R.string.status_available);
+            quantityRow.setVisibility(View.GONE);
+            Button selectButton = card.findViewById(R.id.itemSelectButton);
+            selectButton.setVisibility(View.VISIBLE);
+            boolean picked = roomQuantities.containsKey(groupId) && roomQuantities.get(groupId) > 0;
+            selectButton.setText(picked ? R.string.button_selected : R.string.button_select);
+            selectButton.setOnClickListener(view -> {
+                roomQuantities.put(groupId, picked ? 0 : 1);
+                onChanged.run();
+            });
+            return card;
+        }
 
         EditText qtyValue = card.findViewById(R.id.itemQuantityValue);
         ImageView minus = card.findViewById(R.id.itemQuantityMinus);

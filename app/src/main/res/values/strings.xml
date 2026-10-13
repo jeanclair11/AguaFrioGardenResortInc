@@ -580,6 +580,8 @@
     <string name="label_duration">Duration</string>
     <string name="label_guest_count">Guest Count</string>
     <string name="button_select">SELECT</string>
+    <string name="button_selected">SELECTED</string>
+    <string name="status_available">Available</string>
     <string name="format_duration_hours">%1$d hours</string>
     <string name="placeholder_em_dash">—</string>
     <string name="error_rate_type_required">Please select a rate type.</string>

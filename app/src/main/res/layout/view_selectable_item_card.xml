@@ -189,6 +189,18 @@
 
         </LinearLayout>
 
+        <Button
+            android:id="@+id/itemSelectButton"
+            style="@style/PrimaryButton"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:minWidth="96dp"
+            android:minHeight="0dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="@string/button_select"
+            android:visibility="gone" />
+
     </LinearLayout>
 
 </LinearLayout>
