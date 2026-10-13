@@ -584,11 +584,13 @@
     <string name="format_ktv_extra_guests">+%1$d extra guest/s: PHP %2$s</string>
     <string name="toast_ktv_over_capacity">%1$s accommodates at most %2$d guests.</string>
     <string name="toast_ktv_duration_unavailable">No KTV room offers that duration.</string>
+    <string name="label_ktv_no_rates">No KTV rates are available right now.</string>
+    <string name="toast_ktv_no_rates">KTV rates are not available right now. Please try again later.</string>
     <string name="label_guest_count">Guest Count</string>
     <string name="button_select">SELECT</string>
     <string name="button_selected">SELECTED</string>
     <string name="status_available">Available</string>
-    <string name="format_duration_hours">%1$d hours</string>
+    <string name="format_duration_hours">%1$d Hours</string>
     <string name="placeholder_em_dash">—</string>
     <string name="dialog_no_room_message">Please select at least one room before continuing.</string>
     <string name="format_capacity">Up to %1$d Guests</string>

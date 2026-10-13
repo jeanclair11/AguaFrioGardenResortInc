@@ -163,49 +163,29 @@
 
             </LinearLayout>
 
-            <!-- Duration: steps only between the session lengths configured in KTV Room Management -->
-            <LinearLayout
+            <!-- Duration: one radio option per session length configured in KTV Room Management
+                 (filled in from code — see HotelBookingFlowController#bindKtvDurationOptions) -->
+            <TextView
+                style="@style/FieldLabel"
+                android:layout_marginTop="18dp"
+                android:text="@string/label_duration" />
+
+            <RadioGroup
+                android:id="@+id/ktvDatesDurationGroup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:layout_marginTop="6dp"
+                android:orientation="vertical" />
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/label_duration"
-                    android:textColor="?attr/textPrimary"
-                    android:textSize="14sp" />
-
-                <ImageView
-                    android:id="@+id/ktvDatesDurationMinus"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:padding="4dp"
-                    android:src="@drawable/ic_minus"
-                    android:background="@drawable/bg_stepper_button" />
-
-                <TextView
-                    android:id="@+id/ktvDatesDurationValue"
-                    android:layout_width="84dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:text="@string/placeholder_em_dash"
-                    android:textColor="?attr/textPrimary"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <ImageView
-                    android:id="@+id/ktvDatesDurationPlus"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:padding="4dp"
-                    android:src="@drawable/ic_plus"
-                    android:background="@drawable/bg_stepper_button" />
-
-            </LinearLayout>
+            <TextView
+                android:id="@+id/ktvDatesDurationEmpty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="@string/label_ktv_no_rates"
+                android:textColor="?attr/textOnScreenMuted"
+                android:textSize="13sp"
+                android:visibility="gone" />
 
             <!-- Guest Count -->
             <TextView
