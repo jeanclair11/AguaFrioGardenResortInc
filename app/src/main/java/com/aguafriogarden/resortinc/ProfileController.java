@@ -440,9 +440,7 @@ final class ProfileController {
 
     private View buildHistoryCard(LayoutInflater inflater, android.view.ViewGroup parent, ReservationSummary summary) {
         View card = inflater.inflate(R.layout.view_my_reservation_list_card, parent, false);
-        String title = summary.room_type_name != null && !summary.room_type_name.isEmpty()
-                ? summary.room_type_name + " (" + summary.item_name + ")" : summary.item_name;
-        ((TextView) card.findViewById(R.id.reservationCardTitle)).setText(title);
+        ((TextView) card.findViewById(R.id.reservationCardTitle)).setText(facilityTitle(summary));
 
         int colorAttr;
         int labelRes;
@@ -479,6 +477,49 @@ final class ProfileController {
                 R.string.format_currency, NumberFormat.getInstance(Locale.US).format(Math.round(summary.subtotal))));
         card.setOnClickListener(view -> onOpenReservation.accept(summary));
         return card;
+    }
+
+    /** Card title: the facility kinds in the record ("Hotel Room", "Cottage", "KTV Room", or
+     *  several joined), never the room type name. A not-yet-paid reservation lists one line per
+     *  item ("Room"/"Cottage"/"KTV Room"/"Function Hall"), which covers multi-facility ones; a
+     *  paid booking's lines are item names, so it falls back to its single service type. */
+    private String facilityTitle(ReservationSummary summary) {
+        boolean hotel = false;
+        boolean cottage = false;
+        boolean ktv = false;
+        boolean hall = false;
+        if ("advance_reservation".equals(summary.kind) && summary.service_lines != null) {
+            for (String line : summary.service_lines) {
+                if ("Room".equals(line)) {
+                    hotel = true;
+                } else if ("Cottage".equals(line)) {
+                    cottage = true;
+                } else if ("KTV Room".equals(line)) {
+                    ktv = true;
+                } else if ("Function Hall".equals(line)) {
+                    hall = true;
+                }
+            }
+        }
+        if (!hotel && !cottage && !ktv && !hall) {
+            hotel = "hotel".equals(summary.service_type);
+            cottage = "cottage".equals(summary.service_type);
+            hall = "hall".equals(summary.service_type);
+        }
+        List<String> names = new ArrayList<>();
+        if (hotel) {
+            names.add(activity.getString(R.string.service_type_hotel));
+        }
+        if (cottage) {
+            names.add(activity.getString(R.string.booking_type_cottage));
+        }
+        if (ktv) {
+            names.add(activity.getString(R.string.service_type_ktv));
+        }
+        if (hall) {
+            names.add(activity.getString(R.string.history_facility_hall));
+        }
+        return names.isEmpty() ? activity.getString(R.string.service_type_hotel) : String.join(", ", names);
     }
 
     private void fetchHistory() {

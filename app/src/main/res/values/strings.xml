@@ -530,6 +530,7 @@
     <string name="room_dates_title">Choose Your Stay Dates</string>
     <string name="room_dates_subtitle">To help us find the best available accommodation for your preferred schedule, please select your check-in and check-out dates before exploring our rooms.</string>
     <string name="my_reservations_title">My Reservations</string>
+    <string name="history_facility_hall">Function Hall</string>
     <string name="history_view_all">View all  &gt;</string>
     <string name="history_tab_current">Current</string>
     <string name="history_tab_upcoming">Upcoming</string>
