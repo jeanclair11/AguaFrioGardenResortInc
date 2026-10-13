@@ -363,6 +363,9 @@ final class HotelBookingFlowController {
     // buildReservationListCard) — so its back target can no longer be a single hardcoded screen;
     // whichever entry point navigates in sets this first.
     private int reservationDetailsBackTarget = SCREEN_ROOM_DATES;
+    /** Set when Reservation Details was opened from the Profile page's history (see
+     *  openReservationFromHistory); Back then returns there instead of to a flow screen. */
+    private Runnable reservationDetailsExternalBack = null;
     /** My Reservations/My Bookings is reachable from more than one category's own Dates screen
      *  (Hotel Rooms' and now Cottage's — see bindRoomDates/bindCottageDatesEntry) sharing this
      *  one screen, so its back target is likewise set by whichever entry point navigates in,
@@ -570,7 +573,7 @@ final class HotelBookingFlowController {
                 onBackToHome.run();
                 return true;
             case SCREEN_RESERVATION_DETAILS:
-                showScreen(reservationDetailsBackTarget);
+                leaveReservationDetails();
                 return true;
             case SCREEN_RESERVATION_PAYMENT:
                 showScreen(SCREEN_RESERVATION_DETAILS);
@@ -1099,6 +1102,25 @@ final class HotelBookingFlowController {
      * only), and render with Hotel Rooms' date-range/nights shape as a best-effort fallback since
      * Reservation Details never had dedicated history rendering for those categories.
      */
+    /** Entry point for the Profile page's My Reservations / My Bookings lists: shows this record in
+     *  the normal Reservation Details screen (live status refresh, Pay Now and Cancel included);
+     *  Back runs onBack instead of returning into the booking flow. */
+    void openReservationFromHistory(ReservationSummary summary, Runnable onBack) {
+        loadReservationFromSummary(summary);
+        reservationDetailsExternalBack = onBack;
+        showScreen(SCREEN_RESERVATION_DETAILS);
+    }
+
+    private void leaveReservationDetails() {
+        if (reservationDetailsExternalBack != null) {
+            Runnable back = reservationDetailsExternalBack;
+            reservationDetailsExternalBack = null;
+            back.run();
+        } else {
+            showScreen(reservationDetailsBackTarget);
+        }
+    }
+
     private void loadReservationFromSummary(ReservationSummary summary) {
         boolean isRealReservation = "reservation".equals(summary.kind);
 
@@ -2967,7 +2989,7 @@ final class HotelBookingFlowController {
      *  already gathered for the Reservation Summary screen (see bindReservationSummary). */
     private void bindReservationDetails(View v) {
         bindHeader(v, R.id.reservationDetailsHeaderBar, R.string.reservation_details_title,
-                () -> showScreen(reservationDetailsBackTarget));
+                this::leaveReservationDetails);
 
         refreshReservationStatus(v);
 
@@ -4437,6 +4459,7 @@ final class HotelBookingFlowController {
     }
 
     void resetFlow() {
+        reservationDetailsExternalBack = null;
         checkInMillis = -1;
         checkOutMillis = -1;
         adults = 0;

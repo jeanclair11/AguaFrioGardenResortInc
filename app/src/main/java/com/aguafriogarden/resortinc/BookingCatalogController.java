@@ -129,6 +129,14 @@ final class BookingCatalogController {
         root.addView(flow.getRootView());
     }
 
+    /** Profile history -> Reservation Details for an already-booked (paid) record. */
+    void showReservationDetails(com.aguafriogarden.resortinc.network.ReservationSummary summary, Runnable onBack) {
+        currentScreen = SCREEN_HOTEL_FLOW;
+        ensureHotelBookingFlow().openReservationFromHistory(summary, onBack);
+        root.removeAllViews();
+        root.addView(hotelBookingFlow.getRootView());
+    }
+
     /** Called when the Book tab is activated — ensures the picker is shown. */
     void onTabShown() {
         showPicker();

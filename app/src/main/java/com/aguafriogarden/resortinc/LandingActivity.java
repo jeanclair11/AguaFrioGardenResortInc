@@ -341,7 +341,8 @@ public class LandingActivity extends Activity {
         bookingCatalog = new BookingCatalogController(this,
                 () -> showModule(Section.RESERVE), this::showHome, this::setBottomNavHidden);
         dashboardHome = new DashboardHomeController(this);
-        profileController = new ProfileController(this, this::showHome, this::logout, this::bindHeaderAvatar);
+        profileController = new ProfileController(this, this::showHome, this::logout, this::bindHeaderAvatar,
+                this::openHistoryReservation);
         feedbackController = new FeedbackController(this);
         chatController = new ChatController(this);
         notificationController = new NotificationController(this, n -> {
@@ -595,12 +596,27 @@ public class LandingActivity extends Activity {
             feedbackController.onShown();
         } else if (section == Section.PROFILE) {
             content = profileController.getRootView();
+            profileController.onShown();
         } else {
             content = notificationController.getRootView();
         }
 
         swapContent(content, false);
         refreshBadges();
+    }
+
+    /** Profile history card tapped: still-pending/cancelled reservations open in the Reserve
+     *  flow's Reservation Details, paid bookings in the Book flow's — Back returns to Profile. (Tab first, then details, so the
+     *  flow's own hide-bottom-nav isn't undone by showModule.) */
+    private void openHistoryReservation(com.aguafriogarden.resortinc.network.ReservationSummary summary) {
+        Runnable backToProfile = () -> showModule(Section.PROFILE);
+        if ("reservation".equals(summary.kind)) {
+            showModule(Section.BOOK);
+            bookingCatalog.showReservationDetails(summary, backToProfile);
+        } else {
+            showModule(Section.RESERVE);
+            reserveCatalog.showReservationDetails(summary, backToProfile);
+        }
     }
 
     private void leavingChat() {

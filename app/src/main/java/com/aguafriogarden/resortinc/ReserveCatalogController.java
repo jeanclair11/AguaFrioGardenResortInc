@@ -126,6 +126,14 @@ final class ReserveCatalogController {
         root.addView(flow.getRootView());
     }
 
+    /** Profile history -> Reservation Details for a still-pending/cancelled reservation. */
+    void showReservationDetails(com.aguafriogarden.resortinc.network.ReservationSummary summary, Runnable onBack) {
+        currentScreen = SCREEN_FLOW;
+        ensureHotelBookingFlow().openReservationFromHistory(summary, onBack);
+        root.removeAllViews();
+        root.addView(hotelBookingFlow.getRootView());
+    }
+
     /** Called when the Reserve tab is deactivated — clears in-progress form data. */
     void onTabHidden() {
         if (hotelBookingFlow != null) {

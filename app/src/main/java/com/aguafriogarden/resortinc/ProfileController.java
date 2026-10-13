@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.text.InputFilter;
 import android.util.Patterns;
@@ -15,10 +17,22 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.aguafriogarden.resortinc.network.ApiClient;
+import com.aguafriogarden.resortinc.network.MyBookingsResponse;
+import com.aguafriogarden.resortinc.network.ReservationSummary;
+
+import java.text.NumberFormat;
+import java.util.function.Consumer;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -48,6 +62,11 @@ final class ProfileController {
     private static final int SCREEN_CHANGE_PASSWORD_SUCCESS = 4;
     private static final int SCREEN_VALID_ID = 5;
     private static final int SCREEN_UPLOAD_ID = 6;
+    private static final int SCREEN_HISTORY = 7;
+
+    /** How often the open Profile/history screen re-reads the guest's records, so receptionist-side
+     *  changes show up without reopening it. */
+    private static final long HISTORY_POLL_MS = 20000;
 
     private static final int REQUEST_ID_FRONT = 3001;
     private static final int REQUEST_ID_BACK = 3002;
@@ -81,7 +100,14 @@ final class ProfileController {
     private final Runnable onBackToHome;
     private final Runnable onLogout;
     private final Runnable onAvatarChanged;
+    private final Consumer<ReservationSummary> onOpenReservation;
     private final FrameLayout root;
+    private final Handler historyHandler = new Handler(Looper.getMainLooper());
+    private boolean historyPolling = false;
+    private boolean historyLoading = false;
+    private List<ReservationSummary> historyData = new ArrayList<>();
+    private int historySection = ReservationHistory.SECTION_RESERVATIONS;
+    private int historyTab = ReservationHistory.TAB_CURRENT;
 
     private View currentScreenView;
     private int currentScreen = -1;
@@ -91,8 +117,9 @@ final class ProfileController {
     private Bitmap idBackBitmap;
 
     ProfileController(Activity activity, Runnable onBackToHome, Runnable onLogout,
-            Runnable onAvatarChanged) {
+            Runnable onAvatarChanged, Consumer<ReservationSummary> onOpenReservation) {
         this.activity = activity;
+        this.onOpenReservation = onOpenReservation;
         this.onBackToHome = onBackToHome;
         this.onLogout = onLogout;
         this.onAvatarChanged = onAvatarChanged;
@@ -116,6 +143,7 @@ final class ProfileController {
             case SCREEN_CHANGE_PASSWORD:
             case SCREEN_CHANGE_PASSWORD_SUCCESS:
             case SCREEN_VALID_ID:
+            case SCREEN_HISTORY:
                 showScreen(SCREEN_MAIN);
                 return true;
             case SCREEN_UPLOAD_ID:
@@ -184,6 +212,9 @@ final class ProfileController {
         root.removeAllViews();
         root.addView(v);
         currentScreenView = v;
+        if (screen == SCREEN_MAIN || screen == SCREEN_HISTORY) {
+            startHistoryPolling();
+        }
     }
 
     private int layoutFor(int screen) {
@@ -199,6 +230,8 @@ final class ProfileController {
                 return R.layout.view_valid_id;
             case SCREEN_UPLOAD_ID:
                 return R.layout.view_upload_new_id;
+            case SCREEN_HISTORY:
+                return R.layout.view_profile_history;
             default:
                 return R.layout.view_profile_main;
         }
@@ -225,6 +258,9 @@ final class ProfileController {
                 break;
             case SCREEN_UPLOAD_ID:
                 bindUploadId(v);
+                break;
+            case SCREEN_HISTORY:
+                bindHistory(v);
                 break;
             default:
                 bindMain(v);
@@ -260,7 +296,7 @@ final class ProfileController {
         // shadow on Dark Mode's own dark surfaces.
         int cardBg = light ? R.drawable.bg_card : R.drawable.bg_card_bordered;
         float cardElevation = light ? 3f * activity.getResources().getDisplayMetrics().density : 0f;
-        for (int cardId : new int[]{R.id.profileCard, R.id.accountCard, R.id.preferencesCard, R.id.logoutCard}) {
+        for (int cardId : new int[]{R.id.profileCard, R.id.accountCard, R.id.preferencesCard, R.id.logoutCard, R.id.historyCard}) {
             View card = v.findViewById(cardId);
             card.setBackgroundResource(cardBg);
             card.setElevation(cardElevation);
@@ -271,6 +307,9 @@ final class ProfileController {
                         activity.getResources().getColor(R.color.card_shadow_spot, activity.getTheme()));
             }
         }
+
+        bindHistoryCard(v);
+        fetchHistory();
 
         bindActionRow(v.findViewById(R.id.rowPersonalInfo), R.drawable.ic_person,
                 R.string.row_personal_information_title, R.string.row_personal_information_subtitle,
@@ -312,6 +351,187 @@ final class ProfileController {
                 activity, checked ? ThemeManager.MODE_DARK : ThemeManager.MODE_LIGHT));
 
         v.findViewById(R.id.logoutRow).setOnClickListener(view -> onLogout.run());
+    }
+
+    // ---- My Reservations / My Bookings (live from GET /api/booking/my-bookings) ---------------
+
+    /** Called when the Profile tab is (re)shown — re-reads the guest's records right away. */
+    void onShown() {
+        if (currentScreen == SCREEN_MAIN || currentScreen == SCREEN_HISTORY) {
+            fetchHistory();
+            startHistoryPolling();
+        }
+    }
+
+    private void bindHistoryCard(View v) {
+        int[][] ids = {
+                {R.id.historyReservationsCurrent, R.id.historyReservationsUpcoming, R.id.historyReservationsPast},
+                {R.id.historyBookingsCurrent, R.id.historyBookingsUpcoming, R.id.historyBookingsPast}};
+        int[] icons = {R.drawable.ic_clock, R.drawable.ic_calendar, R.drawable.ic_check_circle};
+        int[] labels = {R.string.history_tab_current, R.string.history_tab_upcoming, R.string.history_tab_past};
+        for (int section = 0; section < 2; section++) {
+            for (int tab = 0; tab < 3; tab++) {
+                final int sectionFinal = section;
+                final int tabFinal = tab;
+                View shortcut = v.findViewById(ids[section][tab]);
+                ImageView icon = shortcut.findViewById(R.id.historyShortcutIcon);
+                icon.setImageResource(icons[tab]);
+                icon.setImageTintList(android.content.res.ColorStateList.valueOf(
+                        ThemeManager.color(activity, R.attr.textPrimary)));
+                ((TextView) shortcut.findViewById(R.id.historyShortcutLabel)).setText(labels[tab]);
+                TextView badge = shortcut.findViewById(R.id.historyShortcutBadge);
+                int count = tab == ReservationHistory.TAB_PAST ? 0 : ReservationHistory.count(historyData, section, tab);
+                badge.setText(String.valueOf(count));
+                badge.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
+                shortcut.setOnClickListener(view -> openHistory(sectionFinal, tabFinal));
+            }
+        }
+        v.findViewById(R.id.historyReservationsViewAll).setOnClickListener(
+                view -> openHistory(ReservationHistory.SECTION_RESERVATIONS, ReservationHistory.TAB_CURRENT));
+        v.findViewById(R.id.historyBookingsViewAll).setOnClickListener(
+                view -> openHistory(ReservationHistory.SECTION_BOOKINGS, ReservationHistory.TAB_CURRENT));
+    }
+
+    private void openHistory(int section, int tab) {
+        historySection = section;
+        historyTab = tab;
+        showScreen(SCREEN_HISTORY);
+    }
+
+    private void bindHistory(View v) {
+        bindHeader(v, historySection == ReservationHistory.SECTION_RESERVATIONS
+                ? R.string.my_reservations_title : R.string.my_bookings_title, () -> showScreen(SCREEN_MAIN));
+        int[] tabIds = {R.id.historyTabCurrent, R.id.historyTabUpcoming, R.id.historyTabPast};
+        for (int tab = 0; tab < tabIds.length; tab++) {
+            final int tabFinal = tab;
+            v.findViewById(tabIds[tab]).setOnClickListener(view -> {
+                historyTab = tabFinal;
+                renderHistory(v);
+            });
+        }
+        renderHistory(v);
+        fetchHistory();
+    }
+
+    private void renderHistory(View v) {
+        int[] tabIds = {R.id.historyTabCurrent, R.id.historyTabUpcoming, R.id.historyTabPast};
+        for (int tab = 0; tab < tabIds.length; tab++) {
+            ((TextView) v.findViewById(tabIds[tab])).setTextColor(ThemeManager.color(activity,
+                    tab == historyTab ? R.attr.accentPrimary : R.attr.textMuted));
+        }
+
+        List<ReservationSummary> bucket = ReservationHistory.select(historyData, historySection, historyTab);
+        LinearLayout container = v.findViewById(R.id.historyContainer);
+        container.removeAllViews();
+        TextView emptyState = v.findViewById(R.id.historyEmptyState);
+        emptyState.setVisibility(bucket.isEmpty() ? View.VISIBLE : View.GONE);
+        boolean reservations = historySection == ReservationHistory.SECTION_RESERVATIONS;
+        emptyState.setText(historyTab == ReservationHistory.TAB_CURRENT
+                ? (reservations ? R.string.history_empty_reservations_current : R.string.history_empty_bookings_current)
+                : historyTab == ReservationHistory.TAB_UPCOMING
+                ? (reservations ? R.string.history_empty_reservations_upcoming : R.string.history_empty_bookings_upcoming)
+                : (reservations ? R.string.history_empty_reservations_past : R.string.history_empty_bookings_past));
+
+        LayoutInflater inflater = LayoutInflater.from(activity);
+        for (ReservationSummary summary : bucket) {
+            container.addView(buildHistoryCard(inflater, container, summary));
+        }
+    }
+
+    private View buildHistoryCard(LayoutInflater inflater, android.view.ViewGroup parent, ReservationSummary summary) {
+        View card = inflater.inflate(R.layout.view_my_reservation_list_card, parent, false);
+        String title = summary.room_type_name != null && !summary.room_type_name.isEmpty()
+                ? summary.room_type_name + " (" + summary.item_name + ")" : summary.item_name;
+        ((TextView) card.findViewById(R.id.reservationCardTitle)).setText(title);
+
+        int colorAttr;
+        int labelRes;
+        if (summary.cancelled) {
+            colorAttr = R.attr.errorText;
+            labelRes = R.string.reservation_status_cancelled;
+        } else if (ReservationHistory.isExpired(summary)) {
+            colorAttr = R.attr.textMuted;
+            labelRes = R.string.reservation_status_expired;
+        } else if ("reservation".equals(summary.kind)) {
+            colorAttr = R.attr.successText;
+            labelRes = summary.current_step >= 3 ? R.string.history_status_checked_out
+                    : summary.current_step == 2 ? R.string.history_status_checked_in
+                    : summary.current_step == 1 ? R.string.history_status_confirmed
+                    : R.string.reservation_status_booked;
+        } else {
+            colorAttr = R.attr.accentPrimary;
+            labelRes = R.string.reservation_status_pending;
+        }
+        card.findViewById(R.id.reservationCardStatusDot).setBackgroundTintList(
+                android.content.res.ColorStateList.valueOf(ThemeManager.color(activity, colorAttr)));
+        TextView statusLabel = card.findViewById(R.id.reservationCardStatusLabel);
+        statusLabel.setText(labelRes);
+        statusLabel.setTextColor(ThemeManager.color(activity, colorAttr));
+
+        SimpleDateFormat shown = new SimpleDateFormat("MMM d, yyyy", Locale.US);
+        long in = ReservationHistory.parseDate(summary.check_in);
+        long out = ReservationHistory.parseDate(summary.check_out);
+        ((TextView) card.findViewById(R.id.reservationCardDates)).setText(
+                (in > 0 ? shown.format(new java.util.Date(in)) : "") + " – "
+                        + (out > 0 ? shown.format(new java.util.Date(out)) : ""));
+        ((TextView) card.findViewById(R.id.reservationCardReference)).setText(summary.booking_reference);
+        ((TextView) card.findViewById(R.id.reservationCardTotal)).setText(activity.getString(
+                R.string.format_currency, NumberFormat.getInstance(Locale.US).format(Math.round(summary.subtotal))));
+        card.setOnClickListener(view -> onOpenReservation.accept(summary));
+        return card;
+    }
+
+    private void fetchHistory() {
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty() || historyLoading) {
+            return;
+        }
+        historyLoading = true;
+        ApiClient.bookingApi().getMyBookings("Bearer " + token).enqueue(new Callback<MyBookingsResponse>() {
+            @Override
+            public void onResponse(Call<MyBookingsResponse> call, Response<MyBookingsResponse> response) {
+                historyLoading = false;
+                if (response.isSuccessful() && response.body() != null && response.body().reservations != null) {
+                    historyData = response.body().reservations;
+                    refreshHistoryUi();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<MyBookingsResponse> call, Throwable t) {
+                // Keeps whatever was last loaded; the next poll or visit retries.
+                historyLoading = false;
+            }
+        });
+    }
+
+    private void refreshHistoryUi() {
+        if (currentScreenView == null) {
+            return;
+        }
+        if (currentScreen == SCREEN_MAIN) {
+            bindHistoryCard(currentScreenView);
+        } else if (currentScreen == SCREEN_HISTORY) {
+            renderHistory(currentScreenView);
+        }
+    }
+
+    private void startHistoryPolling() {
+        if (historyPolling) {
+            return;
+        }
+        historyPolling = true;
+        historyHandler.postDelayed(this::historyPollTick, HISTORY_POLL_MS);
+    }
+
+    private void historyPollTick() {
+        boolean onHistoryScreen = currentScreen == SCREEN_MAIN || currentScreen == SCREEN_HISTORY;
+        if (!onHistoryScreen || !root.isAttachedToWindow()) {
+            historyPolling = false;
+            return;
+        }
+        fetchHistory();
+        historyHandler.postDelayed(this::historyPollTick, HISTORY_POLL_MS);
     }
 
     /** Shows the saved avatar bitmap, or the placeholder person icon when none is set. */
