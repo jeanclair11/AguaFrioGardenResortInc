@@ -43,7 +43,6 @@ import com.aguafriogarden.resortinc.network.CottageKtvListResponse;
 import com.aguafriogarden.resortinc.network.CottageKtvOption;
 import com.aguafriogarden.resortinc.network.ErrorResponse;
 import com.aguafriogarden.resortinc.network.KtvUnitListResponse;
-import com.aguafriogarden.resortinc.network.MyBookingsResponse;
 import com.aguafriogarden.resortinc.network.PriceBreakdownEntry;
 import com.aguafriogarden.resortinc.network.ReservationRequestResponse;
 import com.aguafriogarden.resortinc.network.ReservationStatusResponse;
@@ -60,7 +59,6 @@ import java.io.InputStream;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -137,11 +135,6 @@ final class HotelBookingFlowController {
     // Reservation Payment's Complete Payment button — a terminal, mock "payment submitted"
     // screen, matching SCREEN_RESERVATION_CONFIRMED's own point-of-no-return pattern.
     private static final int SCREEN_RESERVATION_PAYMENT_CONFIRMED = 29;
-    // My Reservations/My Bookings on Choose Your Stay Dates — a real, server-backed list (see
-    // bindMyReservationsList), always re-fetched on entry so it survives app restarts and
-    // re-logins. Reserve and Book share this same screen, filtered to opposite kinds (see
-    // #matchesListMode). Tapping a row loads that entry into SCREEN_RESERVATION_DETAILS.
-    private static final int SCREEN_MY_RESERVATIONS_LIST = 31;
     // Multi-facility flow (see startMultiFlow): one combined Review/Billing/Payment (Book) or
     // Reservation Summary (Reserve) for every facility the guest picked, reached after the last
     // facility's own selection screen (and Choose Amenity, when Hotel Rooms are included).
@@ -352,31 +345,13 @@ final class HotelBookingFlowController {
     private int reservationSnapshotNights = 0;
     private String reservationSnapshotGuestSummary = "";
     private int reservationSnapshotGrandTotal = 0;
-    // My Reservations list state — myReservationsData is re-fetched from the server every time
-    // the screen is entered (see bindMyReservationsList), never persisted locally, so the list
-    // always reflects the guest's real current state regardless of what happened to the app in
-    // between (killed process, re-login, switching tabs).
-    private boolean myReservationsShowingPast = false;
-    private List<ReservationSummary> myReservationsData = new ArrayList<>();
-    // Reservation Details now has two distinct entry points — "View Reservation" right after
-    // reserving (see bindReservationConfirmed), and tapping a card in My Reservations (see
-    // buildReservationListCard) — so its back target can no longer be a single hardcoded screen;
-    // whichever entry point navigates in sets this first.
+    // Reservation Details' back target, set by whichever entry point navigates in ("View
+    // Reservation" right after reserving — see bindReservationConfirmed; the Profile history
+    // goes through reservationDetailsExternalBack instead).
     private int reservationDetailsBackTarget = SCREEN_ROOM_DATES;
     /** Set when Reservation Details was opened from the Profile page's history (see
      *  openReservationFromHistory); Back then returns there instead of to a flow screen. */
     private Runnable reservationDetailsExternalBack = null;
-    /** My Reservations/My Bookings is reachable from more than one category's own Dates screen
-     *  (Hotel Rooms' and now Cottage's — see bindRoomDates/bindCottageDatesEntry) sharing this
-     *  one screen, so its back target is likewise set by whichever entry point navigates in,
-     *  not hardcoded to one screen. */
-    private int myReservationsBackTarget = SCREEN_ROOM_DATES;
-    /** Which category's My Reservations/My Bookings is currently showing — "hotel" or "cottage",
-     *  matching ReservationSummary#service_type — set by whichever entry point navigates in (see
-     *  bindRoomDates/bindCottageDatesEntry), same idea as myReservationsBackTarget above. Hotel
-     *  Rooms and Cottages must never show each other's reservations in this shared screen. */
-    private String myReservationsServiceType = "hotel";
-
     HotelBookingFlowController(Activity activity, Runnable onBookNowOtherCategory, Runnable onBackToHome,
                                 Consumer<Boolean> setBottomNavHidden) {
         this.activity = activity;
@@ -578,9 +553,6 @@ final class HotelBookingFlowController {
             case SCREEN_RESERVATION_PAYMENT:
                 showScreen(SCREEN_RESERVATION_DETAILS);
                 return true;
-            case SCREEN_MY_RESERVATIONS_LIST:
-                showScreen(myReservationsBackTarget);
-                return true;
             default:
                 return true;
         }
@@ -704,8 +676,6 @@ final class HotelBookingFlowController {
                 return R.layout.view_hotel_payment;
             case SCREEN_RESERVATION_PAYMENT_CONFIRMED:
                 return R.layout.view_reservation_payment_confirmed;
-            case SCREEN_MY_RESERVATIONS_LIST:
-                return R.layout.view_my_reservations_list;
             case SCREEN_MULTI_REVIEW:
                 return R.layout.view_multi_review;
             case SCREEN_MULTI_BILLING:
@@ -800,9 +770,6 @@ final class HotelBookingFlowController {
             case SCREEN_RESERVATION_PAYMENT_CONFIRMED:
                 bindReservationPaymentConfirmed(v);
                 break;
-            case SCREEN_MY_RESERVATIONS_LIST:
-                bindMyReservationsList(v);
-                break;
             case SCREEN_MULTI_REVIEW:
                 bindMultiReview(v);
                 break;
@@ -831,18 +798,6 @@ final class HotelBookingFlowController {
      */
     private void bindRoomDates(View v) {
         bindHeader(v, R.id.roomDatesHeaderBar, R.string.room_dates_title, onBackToOverview);
-
-        // Real, server-backed list either way (see bindMyReservationsList) — it handles its own
-        // empty state. Reserve and Book both read the same /my-bookings response, just filtered to
-        // opposite kinds (see #matchesListMode): Reserve shows still-pending/cancelled advance
-        // reservations, Book shows already-booked/paid ones.
-        TextView myReservationsButton = v.findViewById(R.id.roomDatesMyReservationsButton);
-        myReservationsButton.setText(reserveMode ? R.string.button_my_reservations : R.string.button_my_bookings);
-        myReservationsButton.setOnClickListener(view -> {
-            myReservationsBackTarget = SCREEN_ROOM_DATES;
-            myReservationsServiceType = "hotel";
-            showScreen(SCREEN_MY_RESERVATIONS_LIST);
-        });
 
         TextView checkInDateText = v.findViewById(R.id.roomDatesCheckInDateText);
         TextView checkInDayText = v.findViewById(R.id.roomDatesCheckInDayText);
@@ -897,196 +852,6 @@ final class HotelBookingFlowController {
                 fetchAvailabilityForRoomSelection(v);
             }
         });
-    }
-
-    /**
-     * Real, server-backed My Reservations/My Bookings list — always re-fetched here (not cached
-     * in a field that survives across screen visits) so it reflects the guest's actual current
-     * state no matter what happened to the app in between (process killed, re-login, switching
-     * tabs). Hotel Rooms only for real submissions, but any category the guest reserved through
-     * the website under the same account will still show up here too, best-effort rendered (see
-     * loadReservationFromSummary's own note on this).
-     */
-    private void bindMyReservationsList(View v) {
-        bindHeader(v, R.id.myReservationsHeaderBar,
-                reserveMode ? R.string.my_reservations_title : R.string.my_bookings_title,
-                () -> showScreen(myReservationsBackTarget));
-        myReservationsShowingPast = false;
-
-        v.findViewById(R.id.myReservationsCurrentTab).setOnClickListener(view -> {
-            myReservationsShowingPast = false;
-            renderMyReservationsList(v);
-        });
-        v.findViewById(R.id.myReservationsPastTab).setOnClickListener(view -> {
-            myReservationsShowingPast = true;
-            renderMyReservationsList(v);
-        });
-
-        // Colors the tabs and shows the empty state immediately (myReservationsData is whatever
-        // was left over from the last visit, or empty on a first-ever visit) rather than leaving
-        // the tabs uncolored until the fetch below completes.
-        renderMyReservationsList(v);
-        fetchMyReservationsList(v);
-    }
-
-    private void fetchMyReservationsList(View v) {
-        String token = ProfileStore.getAuthToken(activity);
-        if (token.isEmpty()) {
-            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
-            myReservationsData = new ArrayList<>();
-            renderMyReservationsList(v);
-            return;
-        }
-        ApiClient.bookingApi().getMyBookings("Bearer " + token).enqueue(new Callback<MyBookingsResponse>() {
-            @Override
-            public void onResponse(Call<MyBookingsResponse> call, Response<MyBookingsResponse> response) {
-                if (currentScreen != SCREEN_MY_RESERVATIONS_LIST) {
-                    return;
-                }
-                myReservationsData = response.isSuccessful() && response.body() != null
-                        && response.body().reservations != null
-                        ? response.body().reservations : new ArrayList<>();
-                sortMyReservationsNewestFirst();
-                renderMyReservationsList(v);
-            }
-
-            @Override
-            public void onFailure(Call<MyBookingsResponse> call, Throwable t) {
-                if (currentScreen != SCREEN_MY_RESERVATIONS_LIST) {
-                    return;
-                }
-                myReservationsData = new ArrayList<>();
-                Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
-                renderMyReservationsList(v);
-            }
-        });
-    }
-
-    /** Newest-first (both Current and Past) — the backend already sorts this way, but that's a
-     *  string comparison over ISO8601 timestamps server-side; sorting again here from parsed
-     *  millis guarantees the order regardless of that. */
-    private void sortMyReservationsNewestFirst() {
-        Collections.sort(myReservationsData, (a, b) ->
-                Long.compare(parseIsoMillis(b.created_at), parseIsoMillis(a.created_at)));
-    }
-
-    /** Redraws the tab highlight + card list from myReservationsData — does not touch the
-     *  network, so switching Current/Past never re-fetches. */
-    private void renderMyReservationsList(View v) {
-        TextView currentTab = v.findViewById(R.id.myReservationsCurrentTab);
-        TextView pastTab = v.findViewById(R.id.myReservationsPastTab);
-        currentTab.setTextColor(ThemeManager.color(activity,
-                myReservationsShowingPast ? R.attr.textMuted : R.attr.accentPrimary));
-        pastTab.setTextColor(ThemeManager.color(activity,
-                myReservationsShowingPast ? R.attr.accentPrimary : R.attr.textMuted));
-
-        List<ReservationSummary> bucket = new ArrayList<>();
-        for (ReservationSummary summary : myReservationsData) {
-            if (matchesListMode(summary) && isPastReservation(summary) == myReservationsShowingPast) {
-                bucket.add(summary);
-            }
-        }
-
-        LinearLayout container = v.findViewById(R.id.myReservationsContainer);
-        container.removeAllViews();
-        TextView emptyState = v.findViewById(R.id.myReservationsEmptyState);
-        emptyState.setVisibility(bucket.isEmpty() ? View.VISIBLE : View.GONE);
-        emptyState.setText(reserveMode
-                ? (myReservationsShowingPast ? R.string.label_no_past_reservations : R.string.label_no_current_reservations)
-                : (myReservationsShowingPast ? R.string.label_no_past_bookings : R.string.label_no_current_bookings));
-
-        LayoutInflater inflater = LayoutInflater.from(activity);
-        for (ReservationSummary summary : bucket) {
-            container.addView(buildReservationListCard(inflater, container, summary));
-        }
-    }
-
-    /** Reserve shows still-pending/cancelled advance reservations; Book shows already-booked/paid
-     *  ones — the two kinds the shared /my-bookings response can contain (see ReservationSummary
-     *  #kind) — and, on top of that, only the category (see #myReservationsServiceType) whichever
-     *  Dates screen the guest opened this list from actually belongs to, so Hotel Rooms and
-     *  Cottages never show each other's reservations here. Applied before the Current/Past split
-     *  in renderMyReservationsList. */
-    private boolean matchesListMode(ReservationSummary summary) {
-        boolean isRealReservation = "reservation".equals(summary.kind);
-        boolean kindMatches = reserveMode ? !isRealReservation : isRealReservation;
-        return kindMatches && myReservationsServiceType.equals(summary.service_type);
-    }
-
-    /**
-     * Current = still Pending/Confirmed/Ongoing and not cancelled/expired; everything else
-     * (Cancelled, expired-while-still-Pending, or Checked Out) is Past. Expiry for a still-Pending
-     * advance reservation prefers the real payment_deadline column; falls back to the same 7-day
-     * heuristic isReservationExpired() uses if the server ever omits it.
-     */
-    private boolean isPastReservation(ReservationSummary summary) {
-        if (summary.cancelled) {
-            return true;
-        }
-        if (summary.current_step >= 3) {
-            return true;
-        }
-        if ("advance_reservation".equals(summary.kind)) {
-            // parseIsoMillis falls back to "now" for a null/malformed string (fine for its
-            // original cancelled_at caller, where the field should always be present) — checked
-            // explicitly here first instead, since "field absent" must NOT be treated as "deadline
-            // is right now" (that would mark every still-pending reservation expired immediately).
-            if (summary.payment_deadline != null && !summary.payment_deadline.isEmpty()) {
-                return System.currentTimeMillis() > parseIsoMillis(summary.payment_deadline);
-            }
-            if (summary.created_at != null && !summary.created_at.isEmpty()) {
-                return System.currentTimeMillis() - parseIsoMillis(summary.created_at) > RESERVATION_PAYMENT_WINDOW_MS;
-            }
-        }
-        return false;
-    }
-
-    private StatusPresentation resolveSummaryStatus(ReservationSummary summary) {
-        if (summary.cancelled) {
-            return new StatusPresentation(R.attr.errorText, R.string.reservation_status_cancelled,
-                    R.string.reservation_desc_cancelled_default);
-        }
-        if ("advance_reservation".equals(summary.kind) && isPastReservation(summary)) {
-            return new StatusPresentation(R.attr.textMuted, R.string.reservation_status_expired,
-                    R.string.reservation_desc_expired);
-        }
-        if ("reservation".equals(summary.kind)) {
-            return new StatusPresentation(R.attr.successText, R.string.reservation_status_booked,
-                    R.string.reservation_desc_booked);
-        }
-        return new StatusPresentation(R.attr.accentPrimary, R.string.reservation_status_pending,
-                R.string.reservation_desc_awaiting_payment);
-    }
-
-    private View buildReservationListCard(LayoutInflater inflater, ViewGroup parent, ReservationSummary summary) {
-        View card = inflater.inflate(R.layout.view_my_reservation_list_card, parent, false);
-
-        String title = summary.room_type_name != null && !summary.room_type_name.isEmpty()
-                ? formatShowcaseName(summary.room_type_name, summary.item_name) : summary.item_name;
-        ((TextView) card.findViewById(R.id.reservationCardTitle)).setText(title);
-
-        StatusPresentation status = resolveSummaryStatus(summary);
-        card.findViewById(R.id.reservationCardStatusDot).setBackgroundTintList(
-                ColorStateList.valueOf(ThemeManager.color(activity, status.colorAttr)));
-        TextView statusLabel = card.findViewById(R.id.reservationCardStatusLabel);
-        statusLabel.setText(status.labelRes);
-        statusLabel.setTextColor(ThemeManager.color(activity, status.colorAttr));
-
-        long checkInMillisLocal = parseDateOnlyMillis(summary.check_in);
-        long checkOutMillisLocal = parseDateOnlyMillis(summary.check_out);
-        ((TextView) card.findViewById(R.id.reservationCardDates)).setText(
-                formatDate(checkInMillisLocal) + " – " + formatDate(checkOutMillisLocal));
-
-        ((TextView) card.findViewById(R.id.reservationCardReference)).setText(summary.booking_reference);
-        ((TextView) card.findViewById(R.id.reservationCardTotal)).setText(
-                formatCurrency((int) Math.round(summary.subtotal)));
-
-        card.setOnClickListener(view -> {
-            loadReservationFromSummary(summary);
-            reservationDetailsBackTarget = SCREEN_MY_RESERVATIONS_LIST;
-            showScreen(SCREEN_RESERVATION_DETAILS);
-        });
-        return card;
     }
 
     /**
@@ -1268,19 +1033,6 @@ final class HotelBookingFlowController {
      */
     private void bindCottageDatesEntry(View v) {
         bindHeader(v, R.id.cottageDatesHeaderBar, R.string.cottage_dates_title, onBackToOverview);
-
-        // Real, server-backed list either way (see bindMyReservationsList) — same screen Hotel
-        // Rooms uses, reading the same /my-bookings response filtered to opposite kinds (see
-        // #matchesListMode): Reserve shows still-pending/cancelled advance reservations, Book
-        // shows already-booked/paid ones (Cottage Book submission is still local-mock, so that
-        // list is legitimately empty for now — see submitCottageReservationRequest's own doc).
-        TextView myReservationsButton = v.findViewById(R.id.cottageDatesMyReservationsButton);
-        myReservationsButton.setText(reserveMode ? R.string.button_my_reservations : R.string.button_my_bookings);
-        myReservationsButton.setOnClickListener(view -> {
-            myReservationsBackTarget = SCREEN_COTTAGE_DATES;
-            myReservationsServiceType = "cottage";
-            showScreen(SCREEN_MY_RESERVATIONS_LIST);
-        });
 
         View dateField = v.findViewById(R.id.cottageDatesDateField);
         TextView dateText = v.findViewById(R.id.cottageDatesDateText);

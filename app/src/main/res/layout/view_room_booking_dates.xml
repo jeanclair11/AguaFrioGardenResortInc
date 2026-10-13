@@ -28,18 +28,6 @@
                 layout="@layout/view_screen_header" />
 
             <TextView
-                android:id="@+id/roomDatesMyReservationsButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:padding="8dp"
-                android:text="@string/button_my_reservations"
-                android:textColor="?attr/accentPrimary"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-
-            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"

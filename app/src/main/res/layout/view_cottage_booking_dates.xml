@@ -28,21 +28,6 @@
                 android:id="@+id/cottageDatesHeaderBar"
                 layout="@layout/view_screen_header" />
 
-            <!-- Real, server-backed list — same button/screen Hotel Rooms uses (see
-                 HotelBookingFlowController#bindCottageDatesEntry/bindMyReservationsList), every
-                 current and past Cottage reservation the guest has submitted. -->
-            <TextView
-                android:id="@+id/cottageDatesMyReservationsButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:padding="8dp"
-                android:text="@string/button_my_reservations"
-                android:textColor="?attr/accentPrimary"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

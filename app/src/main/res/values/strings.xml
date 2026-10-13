@@ -529,8 +529,6 @@
          the Book/Reserve tabs' shared focused, Room-only gate screen. -->
     <string name="room_dates_title">Choose Your Stay Dates</string>
     <string name="room_dates_subtitle">To help us find the best available accommodation for your preferred schedule, please select your check-in and check-out dates before exploring our rooms.</string>
-    <string name="button_my_reservations">My Reservations</string>
-    <string name="button_my_bookings">My Bookings</string>
     <string name="my_reservations_title">My Reservations</string>
     <string name="history_view_all">View all  &gt;</string>
     <string name="history_tab_current">Current</string>
@@ -549,12 +547,6 @@
     <string name="reservation_cancelled_by_guest">You cancelled this Reservation.</string>
     <string name="reservation_cancelled_by_staff">The Reservation has been cancelled by our staff.</string>
     <string name="format_reservation_cancelled_reason_suffix"> Reason: %1$s</string>
-    <string name="label_reservations_current">Current</string>
-    <string name="label_reservations_past">Past</string>
-    <string name="label_no_current_reservations">You have no active reservations.</string>
-    <string name="label_no_past_reservations">You have no past reservations.</string>
-    <string name="label_no_current_bookings">You have no active bookings.</string>
-    <string name="label_no_past_bookings">You have no past bookings.</string>
 
     <!-- Cottage Overview's "Book Now" entry only (see HotelBookingFlowController#bindCottageDatesEntry) —
          the Book/Reserve tabs' shared focused, Cottage-only gate screen. -->
