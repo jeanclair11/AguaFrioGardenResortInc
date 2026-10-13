@@ -10,11 +10,11 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/screenGradientEnd"
+    android:background="?attr/browsePageBackground"
     android:fillViewport="true"
     android:clipToPadding="false"
-    android:paddingStart="20dp"
-    android:paddingEnd="20dp"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
     android:paddingTop="20dp"
     android:paddingBottom="24dp"
     android:scrollbars="none">
@@ -28,9 +28,8 @@
             android:id="@+id/categoryBrowseTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:letterSpacing="0.04"
-            android:textColor="?attr/textOnScreen"
-            android:textSize="15sp"
+            android:textColor="?attr/textPrimary"
+            android:textSize="22sp"
             android:textStyle="bold" />
 
         <TextView
@@ -46,7 +45,7 @@
             android:id="@+id/categoryBrowseContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="16dp"
             android:orientation="vertical" />
 
     </LinearLayout>

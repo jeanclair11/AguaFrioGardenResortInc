@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pill-shaped primary button matching bg_button_outline_accent's 20dp corners, for the
+     RESERVE / BOOK pair on browse cards. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?attr/rippleAccent">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="?attr/buttonGradientStart"
+                android:endColor="?attr/buttonGradientEnd"
+                android:type="linear" />
+            <corners android:radius="20dp" />
+        </shape>
+    </item>
+</ripple>

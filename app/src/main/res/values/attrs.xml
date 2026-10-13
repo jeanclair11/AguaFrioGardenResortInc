@@ -7,6 +7,8 @@
     <attr name="screenGradientStart" format="color|reference" />
     <attr name="screenGradientEnd" format="color|reference" />
 
+    <!-- Hotel Rooms/Cottages/KTV browse page: light gray in Light Mode so white cards stand out. -->
+    <attr name="browsePageBackground" format="color|reference" />
     <attr name="surfaceCard" format="color|reference" />
     <attr name="surfaceRaised" format="color|reference" />
 

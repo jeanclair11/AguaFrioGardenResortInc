@@ -13,7 +13,7 @@
     <string name="landing_welcome_title">Welcome to Agua Frio Garden Resort Inc.</string>
     <string name="landing_welcome_subtitle">— Venue for Great Events —</string>
 
-    <string name="landing_rooms_section_title">EXPLORE OUR HOTEL ROOMS</string>
+    <string name="landing_rooms_section_title">Explore Our Hotel Rooms</string>
     <string name="landing_rooms_empty_state">No room types are available right now. Please check back soon.</string>
     <string name="landing_room_description_fallback">Comfortable accommodations for your stay.</string>
     <string name="landing_room_capacity_format">Up to %1$d Guests</string>
@@ -41,8 +41,8 @@
 
     <string name="landing_button_book">BOOK</string>
     <string name="landing_button_reserve">RESERVE</string>
-    <string name="landing_cottages_section_title">EXPLORE OUR COTTAGES</string>
-    <string name="landing_ktv_section_title">EXPLORE OUR KTV ROOMS</string>
+    <string name="landing_cottages_section_title">Explore Our Cottages</string>
+    <string name="landing_ktv_section_title">Explore Our KTV Rooms</string>
     <string name="landing_category_empty_state">No options are available right now. Please check back soon.</string>
     <string name="format_price_with_unit">PHP %1$s / %2$s</string>
     <string name="format_price_breakdown_line">%1$s: PHP %2$s</string>

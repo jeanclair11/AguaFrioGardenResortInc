@@ -33,6 +33,7 @@
 
         <item name="screenGradientStart">@color/light_gradient_start</item>
         <item name="screenGradientEnd">@color/light_gradient_end</item>
+        <item name="browsePageBackground">@color/browse_page_light</item>
         <item name="surfaceCard">@color/light_card</item>
         <item name="surfaceRaised">@color/light_raised</item>
         <item name="topBarGradientStart">@color/light_top_bar_start</item>
@@ -76,6 +77,7 @@
 
         <item name="screenGradientStart">@color/dark_gradient_start</item>
         <item name="screenGradientEnd">@color/dark_gradient_end</item>
+        <item name="browsePageBackground">@color/dark_gradient_end</item>
         <item name="surfaceCard">@color/dark_card</item>
         <item name="surfaceRaised">@color/dark_raised</item>
         <item name="topBarGradientStart">@color/dark_top_bar_start</item>
