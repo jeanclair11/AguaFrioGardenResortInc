@@ -38,41 +38,6 @@
                 android:textColor="?attr/textOnScreenMuted"
                 android:textSize="13sp" />
 
-            <!-- Rate Type -->
-            <TextView
-                style="@style/FieldLabel"
-                android:layout_marginTop="22dp"
-                android:text="@string/label_rate_type" />
-
-            <RadioGroup
-                android:id="@+id/ktvDatesRateTypeGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:orientation="vertical">
-
-                <RadioButton
-                    android:id="@+id/ktvDatesRateRegular"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:buttonTint="?attr/accentPrimary"
-                    android:text="@string/ktv_rate_type_regular"
-                    android:textColor="?attr/textPrimary"
-                    android:textSize="13sp" />
-
-                <RadioButton
-                    android:id="@+id/ktvDatesRateConsumable"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:buttonTint="?attr/accentPrimary"
-                    android:text="@string/ktv_rate_type_consumable"
-                    android:textColor="?attr/textPrimary"
-                    android:textSize="13sp" />
-
-            </RadioGroup>
-            <TextView android:id="@+id/ktvDatesRateTypeError" style="@style/FieldError" />
-
             <!-- Date -->
             <TextView
                 style="@style/FieldLabel"
@@ -169,7 +134,7 @@
             </LinearLayout>
             <TextView android:id="@+id/ktvDatesStartTimeError" style="@style/FieldError" />
 
-            <!-- End Time (read-only, computed from rate type + start time) -->
+            <!-- End Time (read-only, start time + chosen duration) -->
             <TextView
                 style="@style/FieldLabel"
                 android:layout_marginTop="18dp"
@@ -198,7 +163,7 @@
 
             </LinearLayout>
 
-            <!-- Duration (read-only, computed) -->
+            <!-- Duration: steps only between the session lengths configured in KTV Room Management -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -214,13 +179,31 @@
                     android:textColor="?attr/textPrimary"
                     android:textSize="14sp" />
 
+                <ImageView
+                    android:id="@+id/ktvDatesDurationMinus"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:padding="4dp"
+                    android:src="@drawable/ic_minus"
+                    android:background="@drawable/bg_stepper_button" />
+
                 <TextView
                     android:id="@+id/ktvDatesDurationValue"
-                    android:layout_width="wrap_content"
+                    android:layout_width="84dp"
                     android:layout_height="wrap_content"
+                    android:gravity="center"
                     android:text="@string/placeholder_em_dash"
-                    android:textColor="?attr/textMuted"
-                    android:textSize="14sp" />
+                    android:textColor="?attr/textPrimary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/ktvDatesDurationPlus"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:padding="4dp"
+                    android:src="@drawable/ic_plus"
+                    android:background="@drawable/bg_stepper_button" />
 
             </LinearLayout>
 

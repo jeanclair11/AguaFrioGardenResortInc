@@ -1009,7 +1009,7 @@ public class LandingActivity extends Activity {
             @Override
             public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().ktv_units != null) {
-                    bindCottageKtvOptions(container, emptyState, response.body().toOptions(),
+                    bindCottageKtvOptions(container, emptyState, response.body().toOptions(0),
                             getString(R.string.service_type_ktv), true, Section.KTV);
                 } else {
                     fetchKtvTypesFallback(container, emptyState);

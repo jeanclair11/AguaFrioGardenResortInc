@@ -567,7 +567,6 @@
     <string name="label_quantity">Quantity</string>
 
     <!-- Cottage / KTV reservation-details tabs (Reserve tab) -->
-    <string name="label_rate_type">Select Rate Type</string>
     <string name="label_selected_rate_type">Selected Rate Type</string>
     <string name="rate_type_day">Day Use</string>
     <string name="rate_type_night">Night Use</string>
@@ -579,18 +578,18 @@
         <item>@string/rate_type_overnight</item>
     </string-array>
     <string name="label_total_guest">Total Guest</string>
-    <string name="ktv_rate_type_regular">Regular KTV – 5 Hours</string>
-    <string name="ktv_rate_type_consumable">Consumable KTV – 3 Hours</string>
     <string name="label_start_time">Start Time</string>
     <string name="label_end_time">End Time</string>
     <string name="label_duration">Duration</string>
+    <string name="format_ktv_extra_guests">+%1$d extra guest/s: PHP %2$s</string>
+    <string name="toast_ktv_over_capacity">%1$s accommodates at most %2$d guests.</string>
+    <string name="toast_ktv_duration_unavailable">No KTV room offers that duration.</string>
     <string name="label_guest_count">Guest Count</string>
     <string name="button_select">SELECT</string>
     <string name="button_selected">SELECTED</string>
     <string name="status_available">Available</string>
     <string name="format_duration_hours">%1$d hours</string>
     <string name="placeholder_em_dash">—</string>
-    <string name="error_rate_type_required">Please select a rate type.</string>
     <string name="dialog_no_room_message">Please select at least one room before continuing.</string>
     <string name="format_capacity">Up to %1$d Guests</string>
     <string name="button_checking_availability">Searching…</string>

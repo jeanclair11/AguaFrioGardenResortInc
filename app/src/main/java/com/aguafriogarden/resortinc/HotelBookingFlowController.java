@@ -208,8 +208,9 @@ final class HotelBookingFlowController {
 
     // Client-side placeholder durations for the KTV rate types, matching the Reserve tab's
     // ReservationFlowController — no backend field for this exists yet.
-    private static final int KTV_REGULAR_HOURS = 5;
-    private static final int KTV_CONSUMABLE_HOURS = 3;
+    /** KTV sessions default to 3 hours; the guest can step to any length a KTV price package is
+     *  configured for (see ktvDurationOptions). */
+    private static final int KTV_DEFAULT_HOURS = 3;
 
     private final Activity activity;
     private final Runnable onBookNowOtherCategory;
@@ -288,7 +289,6 @@ final class HotelBookingFlowController {
     private int cottageChildren = 0;
 
     // ---- Rate type / date / time / guests (KTV tab) -----------------------
-    private String ktvRateType = "";
     private long ktvDateMillis = -1;
     private int ktvStartHour = -1;
     private int ktvStartMinute = -1;
@@ -296,6 +296,8 @@ final class HotelBookingFlowController {
 
     private List<CottageKtvOption> cottageItems = new ArrayList<>();
     private List<CottageKtvOption> ktvItems = new ArrayList<>();
+    private int ktvDurationHours = KTV_DEFAULT_HOURS;
+    private List<Integer> ktvDurationOptions = new ArrayList<>(java.util.Collections.singletonList(KTV_DEFAULT_HOURS));
     private boolean isLoadingCottageKtv = false;
     private boolean cottageKtvLoaded = false;
     /** Guards fetchCottageAvailability() (Cottage's own live, date+Cottage Use-scoped check —
@@ -1224,7 +1226,7 @@ final class HotelBookingFlowController {
      * Focused rate-type/date/start-time/guest-count/Next form for KTV Overview's "Book Now"
      * (see #showKtvDatesEntry). End Time and Duration are read-only, recomputed whenever the
      * rate type or start time changes, mirroring the tabbed screen's KTV tab. Feeds the same
-     * shared ktvRateType/ktvDateMillis/ktvStartHour/ktvStartMinute/ktvGuestCount fields that tab
+     * shared ktvDateMillis/ktvStartHour/ktvStartMinute/ktvGuestCount fields that tab
      * uses, so tapping Next just switches to that screen (with the KTV tab forced active) and
      * collapses its search panel to reveal the already-loaded KTV catalog below — reusing its
      * browse/select logic rather than duplicating it here.
@@ -1238,28 +1240,12 @@ final class HotelBookingFlowController {
         View startTimeField = v.findViewById(R.id.ktvDatesStartTimeField);
         TextView startTimeText = v.findViewById(R.id.ktvDatesStartTimeText);
         TextView startTimeError = v.findViewById(R.id.ktvDatesStartTimeError);
-        RadioGroup rateGroup = v.findViewById(R.id.ktvDatesRateTypeGroup);
-        TextView rateError = v.findViewById(R.id.ktvDatesRateTypeError);
         EditText guestCountValue = v.findViewById(R.id.ktvDatesGuestCountValue);
 
         updateKtvDateField(dateText);
         updateKtvStartTimeField(startTimeText);
         updateKtvDatesEndTimeAndDuration(v);
-        if (ReservationCatalog.RATE_TYPE_REGULAR.equals(ktvRateType)) {
-            rateGroup.check(R.id.ktvDatesRateRegular);
-        } else if (ReservationCatalog.RATE_TYPE_CONSUMABLE.equals(ktvRateType)) {
-            rateGroup.check(R.id.ktvDatesRateConsumable);
-        } else {
-            rateGroup.clearCheck();
-        }
-
-        rateGroup.setOnCheckedChangeListener((group, checkedId) -> {
-            ktvRateType = checkedId == R.id.ktvDatesRateRegular
-                    ? ReservationCatalog.RATE_TYPE_REGULAR : ReservationCatalog.RATE_TYPE_CONSUMABLE;
-            rateError.setVisibility(View.GONE);
-            updateKtvDatesEndTimeAndDuration(v);
-        });
-
+        bindKtvDurationStepper(v);
         // In the multi-facility flow the date is carried over from the first facility and isn't
         // asked for again — only the session details (rate type, start time, guests) are.
         if (multiMode && multiIndex > 0) {
@@ -1293,12 +1279,6 @@ final class HotelBookingFlowController {
 
         v.findViewById(R.id.ktvDatesNextButton).setOnClickListener(view -> {
             boolean valid = true;
-            if (ktvRateType.isEmpty()) {
-                showError(rateError, R.string.error_rate_type_required);
-                valid = false;
-            } else {
-                rateError.setVisibility(View.GONE);
-            }
             if (ktvDateMillis < 0) {
                 showError(dateError, R.string.error_date_required);
                 valid = false;
@@ -1364,11 +1344,62 @@ final class HotelBookingFlowController {
         }
     }
 
+    /** Duration stepper: jumps between the session lengths KTV Room Management has price packages
+     *  for. The list is fetched from the live units endpoint; until it arrives (or if it fails)
+     *  only the default 3 hours is offered. */
+    private void bindKtvDurationStepper(View v) {
+        ImageView minus = v.findViewById(R.id.ktvDatesDurationMinus);
+        ImageView plus = v.findViewById(R.id.ktvDatesDurationPlus);
+        Runnable refresh = () -> {
+            int index = ktvDurationOptions.indexOf(ktvDurationHours);
+            setStepperEnabled(minus, index > 0);
+            setStepperEnabled(plus, index >= 0 && index < ktvDurationOptions.size() - 1);
+            updateKtvDatesEndTimeAndDuration(v);
+        };
+        minus.setOnClickListener(view -> {
+            int index = ktvDurationOptions.indexOf(ktvDurationHours);
+            if (index > 0) {
+                ktvDurationHours = ktvDurationOptions.get(index - 1);
+                refresh.run();
+            }
+        });
+        plus.setOnClickListener(view -> {
+            int index = ktvDurationOptions.indexOf(ktvDurationHours);
+            if (index >= 0 && index < ktvDurationOptions.size() - 1) {
+                ktvDurationHours = ktvDurationOptions.get(index + 1);
+                refresh.run();
+            }
+        });
+        refresh.run();
+
+        ApiClient.bookingApi().getKtvUnits(null, null, null).enqueue(new Callback<KtvUnitListResponse>() {
+            @Override
+            public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
+                if (!response.isSuccessful() || response.body() == null || !v.isAttachedToWindow()) {
+                    return;
+                }
+                List<Integer> options = response.body().durationOptions();
+                if (options.isEmpty()) {
+                    return;
+                }
+                ktvDurationOptions = options;
+                if (!options.contains(ktvDurationHours)) {
+                    ktvDurationHours = options.contains(KTV_DEFAULT_HOURS) ? KTV_DEFAULT_HOURS : options.get(0);
+                }
+                refresh.run();
+            }
+
+            @Override
+            public void onFailure(Call<KtvUnitListResponse> call, Throwable t) {
+                // Keeps the default duration only.
+            }
+        });
+    }
+
     private void updateKtvDatesEndTimeAndDuration(View v) {
         TextView endTimeText = v.findViewById(R.id.ktvDatesEndTimeText);
         TextView durationValue = v.findViewById(R.id.ktvDatesDurationValue);
-        int hours = ReservationCatalog.RATE_TYPE_REGULAR.equals(ktvRateType) ? KTV_REGULAR_HOURS
-                : ReservationCatalog.RATE_TYPE_CONSUMABLE.equals(ktvRateType) ? KTV_CONSUMABLE_HOURS : 0;
+        int hours = ktvDurationHours;
 
         durationValue.setText(hours <= 0 ? activity.getString(R.string.placeholder_em_dash)
                 : activity.getString(R.string.format_duration_hours, hours));
@@ -2041,6 +2072,14 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.dialog_no_room_message, Toast.LENGTH_LONG).show();
                 return;
             }
+            for (CottageKtvOption item : ktvItems) {
+                Integer picked = roomQuantities.get(item.group_id);
+                if (picked != null && picked > 0 && item.capacity > 0 && ktvGuestCount > item.capacity) {
+                    Toast.makeText(activity, activity.getString(R.string.toast_ktv_over_capacity,
+                            item.variant_name, item.capacity), Toast.LENGTH_LONG).show();
+                    return;
+                }
+            }
             if (multiMode) {
                 multiAdvance(v.findViewById(R.id.itemSelectionNextButton));
                 return;
@@ -2090,7 +2129,7 @@ final class HotelBookingFlowController {
         bindHeader(v, R.id.ktvReviewHeaderBar, R.string.hotel_review_title,
                 () -> showScreen(SCREEN_KTV_SELECTION));
 
-        bindRow(v.findViewById(R.id.ktvReviewRowRateType), R.string.label_selected_rate_type, ktvRateTypeLabel());
+        bindRow(v.findViewById(R.id.ktvReviewRowRateType), R.string.label_duration, ktvDurationLabel());
         bindRow(v.findViewById(R.id.ktvReviewRowDate), R.string.label_date, formatDate(ktvDateMillis));
         bindRow(v.findViewById(R.id.ktvReviewRowTime), R.string.label_time, formatHourMinute(ktvStartHour, ktvStartMinute));
         bindRow(v.findViewById(R.id.ktvReviewRowEndTime), R.string.label_end_time, formatKtvEndTime());
@@ -2126,11 +2165,8 @@ final class HotelBookingFlowController {
         });
     }
 
-    private String ktvRateTypeLabel() {
-        if (ReservationCatalog.RATE_TYPE_CONSUMABLE.equals(ktvRateType)) {
-            return activity.getString(R.string.ktv_rate_type_consumable);
-        }
-        return activity.getString(R.string.ktv_rate_type_regular);
+    private String ktvDurationLabel() {
+        return activity.getString(R.string.format_duration_hours, ktvDurationHours);
     }
 
     private String formatKtvGuests() {
@@ -2140,8 +2176,7 @@ final class HotelBookingFlowController {
     /** Same calculation as updateKtvDatesEndTimeAndDuration, as a plain String for the Review
      *  screen's read-only row instead of writing straight into a TextView. */
     private String formatKtvEndTime() {
-        int hours = ReservationCatalog.RATE_TYPE_REGULAR.equals(ktvRateType) ? KTV_REGULAR_HOURS
-                : ReservationCatalog.RATE_TYPE_CONSUMABLE.equals(ktvRateType) ? KTV_CONSUMABLE_HOURS : 0;
+        int hours = ktvDurationHours;
         if (hours <= 0 || ktvStartHour < 0) {
             return activity.getString(R.string.placeholder_em_dash);
         }
@@ -2172,7 +2207,7 @@ final class HotelBookingFlowController {
         // remapped onto those same rows (CheckIn->RateType, CheckOut->Date, Nights->Time,
         // Adults->EndTime, Children->TotalGuest) and the 6th slot is hidden — same reuse-the-
         // layout approach as bindCottageBilling, just with one fewer field needed.
-        bindRow(v.findViewById(R.id.billingRowCheckIn), R.string.label_selected_rate_type, ktvRateTypeLabel());
+        bindRow(v.findViewById(R.id.billingRowCheckIn), R.string.label_duration, ktvDurationLabel());
         bindRow(v.findViewById(R.id.billingRowCheckOut), R.string.label_date, formatDate(ktvDateMillis));
         bindRow(v.findViewById(R.id.billingRowNights), R.string.label_time, formatHourMinute(ktvStartHour, ktvStartMinute));
         bindRow(v.findViewById(R.id.billingRowAdults), R.string.label_end_time, formatKtvEndTime());
@@ -2189,14 +2224,15 @@ final class HotelBookingFlowController {
             if (qty <= 0) {
                 continue;
             }
-            int unitPrice = (int) Math.round(resolvedItemPrice(item));
+            int baseUnit = (int) Math.round(resolvedItemPrice(item));
+            int unitPrice = baseUnit + ktvExtraCharge(item);
             int subtotal = unitPrice * qty;
             ktvTotal += subtotal;
             View row = inflater.inflate(R.layout.view_hotel_billing_line_row, accommodationContainer, false);
             ((TextView) row.findViewById(R.id.lineName)).setText(formatShowcaseName(item.variant_name, null));
             TextView meta = row.findViewById(R.id.lineMeta);
             meta.setText(activity.getString(R.string.format_capacity, item.capacity) + " · Qty " + qty + " · "
-                    + activity.getString(R.string.format_price_with_unit, formatMoney(unitPrice), resolvedItemPriceUnit(item)));
+                    + activity.getString(R.string.format_price_with_unit, formatMoney(baseUnit), resolvedItemPriceUnit(item)) + ktvExtraNote(item));
             meta.setVisibility(View.VISIBLE);
             ((TextView) row.findViewById(R.id.linePrice)).setText(formatCurrency(subtotal));
             accommodationContainer.addView(row);
@@ -2339,7 +2375,7 @@ final class HotelBookingFlowController {
     private int computeKtvGrandTotal() {
         int total = 0;
         for (CottageKtvOption item : ktvItems) {
-            total += (int) Math.round(resolvedItemPrice(item)) * roomQuantities.get(item.group_id);
+            total += ((int) Math.round(resolvedItemPrice(item)) + ktvExtraCharge(item)) * roomQuantities.get(item.group_id);
         }
         for (AmenityAvailability amenity : availableAmenities) {
             total += (int) Math.round(amenity.price) * amenityQuantities.get(amenity.id);
@@ -2409,7 +2445,7 @@ final class HotelBookingFlowController {
             grandTotal = computeCottageGrandTotal();
         } else if (activeContinuation == CONTINUATION_KTV) {
             detailsTitle.setText(R.string.section_visit_details);
-            bindRow(row1, R.string.label_selected_rate_type, ktvRateTypeLabel());
+            bindRow(row1, R.string.label_duration, ktvDurationLabel());
             bindRow(row2, R.string.label_date, formatDate(ktvDateMillis));
             bindRow(row3, R.string.label_start_time, formatHourMinute(ktvStartHour, ktvStartMinute));
             bindRow(row4, R.string.label_end_time, formatKtvEndTime());
@@ -2422,12 +2458,13 @@ final class HotelBookingFlowController {
                 if (qty <= 0) {
                     continue;
                 }
-                int unitPrice = (int) Math.round(resolvedItemPrice(item));
+                int baseUnit = (int) Math.round(resolvedItemPrice(item));
+                int unitPrice = baseUnit + ktvExtraCharge(item);
                 View row = inflater.inflate(R.layout.view_hotel_billing_line_row, itemsContainer, false);
                 ((TextView) row.findViewById(R.id.lineName)).setText(formatShowcaseName(item.variant_name, null));
                 TextView meta = row.findViewById(R.id.lineMeta);
                 meta.setText(activity.getString(R.string.format_capacity, item.capacity) + " · Qty " + qty + " · "
-                        + activity.getString(R.string.format_price_with_unit, formatMoney(unitPrice), resolvedItemPriceUnit(item)));
+                        + activity.getString(R.string.format_price_with_unit, formatMoney(baseUnit), resolvedItemPriceUnit(item)) + ktvExtraNote(item));
                 meta.setVisibility(View.VISIBLE);
                 ((TextView) row.findViewById(R.id.linePrice)).setText(formatCurrency(unitPrice * qty));
                 itemsContainer.addView(row);
@@ -3389,6 +3426,26 @@ final class HotelBookingFlowController {
      * Available Units" chip; each caller passes its own category's label. onChanged is called
      * after every +/- tap so the caller can rebind and reflect the new count.
      */
+    /** Extra-person charge for one KTV unit: guests beyond its base capacity, each at the Type's
+     *  extra-person price (configured in KTV Room Management). */
+    private int ktvExtraCharge(CottageKtvOption item) {
+        if (item.unit_id <= 0) {
+            return 0;
+        }
+        int extraGuests = Math.max(0, ktvGuestCount - item.base_capacity);
+        return (int) Math.round(extraGuests * item.extra_person_price);
+    }
+
+    /** " · +N extra guest/s: PHP X" for a unit whose base capacity is exceeded, else "". */
+    private String ktvExtraNote(CottageKtvOption item) {
+        int charge = ktvExtraCharge(item);
+        if (charge <= 0) {
+            return "";
+        }
+        return " · " + activity.getString(R.string.format_ktv_extra_guests,
+                Math.max(0, ktvGuestCount - item.base_capacity), formatMoney(charge));
+    }
+
     private boolean isKtvUnit(int groupId) {
         for (CottageKtvOption item : ktvItems) {
             if (item.unit_id > 0 && item.group_id == groupId) {
@@ -3530,12 +3587,11 @@ final class HotelBookingFlowController {
                 String eventDate = ktvDateMillis >= 0 ? day.format(new Date(ktvDateMillis)) : null;
                 String startTime = ktvStartHour >= 0
                         ? String.format(Locale.US, "%02d:%02d", ktvStartHour, ktvStartMinute) : null;
-                String rate = ktvRateType.isEmpty() ? null : ktvRateTypeLabel();
-                ApiClient.bookingApi().getKtvUnits(eventDate, startTime, rate).enqueue(new Callback<KtvUnitListResponse>() {
+                ApiClient.bookingApi().getKtvUnits(eventDate, startTime, null).enqueue(new Callback<KtvUnitListResponse>() {
                     @Override
                     public void onResponse(Call<KtvUnitListResponse> c, Response<KtvUnitListResponse> r) {
                         if (r.isSuccessful() && r.body() != null && r.body().ktv_units != null) {
-                            ktvItems = new ArrayList<>(r.body().toOptions());
+                            ktvItems = new ArrayList<>(r.body().toOptions(ktvDurationHours));
                         }
                         finishKtvLoad(onLoaded);
                     }
@@ -4229,11 +4285,11 @@ final class HotelBookingFlowController {
         cottageDateMillis = -1;
         cottageAdults = 1;
         cottageChildren = 0;
-        ktvRateType = "";
         ktvDateMillis = -1;
         ktvStartHour = -1;
         ktvStartMinute = -1;
         ktvGuestCount = 1;
+        ktvDurationHours = KTV_DEFAULT_HOURS;
         cottageItems = new ArrayList<>();
         ktvItems = new ArrayList<>();
         isLoadingCottageKtv = false;
@@ -4435,7 +4491,7 @@ final class HotelBookingFlowController {
         }
         if (facility == FAC_KTV) {
             return activity.getString(R.string.multi_facility_header_ktv, formatDate(ktvDateMillis),
-                    formatHourMinute(ktvStartHour, ktvStartMinute), formatKtvEndTime(), ktvRateTypeLabel(),
+                    formatHourMinute(ktvStartHour, ktvStartMinute), formatKtvEndTime(), ktvDurationLabel(),
                     formatKtvGuests());
         }
         return activity.getString(R.string.multi_facility_header_room, formatDate(checkInMillis),
@@ -4480,7 +4536,8 @@ final class HotelBookingFlowController {
             }
         } else {
             for (CottageKtvOption item : facility == FAC_COTTAGE ? cottageItems : ktvItems) {
-                total += (int) Math.round(resolvedItemPrice(item)) * multiQty(facility, item.group_id);
+                int unit = (int) Math.round(resolvedItemPrice(item)) + (facility == FAC_KTV ? ktvExtraCharge(item) : 0);
+                total += unit * multiQty(facility, item.group_id);
             }
         }
         return total;
@@ -4548,12 +4605,13 @@ final class HotelBookingFlowController {
             if (qty <= 0) {
                 continue;
             }
-            int unitPrice = (int) Math.round(resolvedItemPrice(item));
+            int baseUnit = (int) Math.round(resolvedItemPrice(item));
+            int unitPrice = baseUnit + (facility == FAC_KTV ? ktvExtraCharge(item) : 0);
             addLineRow(container, inflater, formatShowcaseName(item.variant_name, null),
                     activity.getString(facility == FAC_COTTAGE ? R.string.cottage_capacity_format
                             : R.string.format_capacity, item.capacity) + " · Qty " + qty + " · "
-                            + activity.getString(R.string.format_price_with_unit, formatMoney(unitPrice),
-                            resolvedItemPriceUnit(item)),
+                            + activity.getString(R.string.format_price_with_unit, formatMoney(baseUnit),
+                            resolvedItemPriceUnit(item)) + (facility == FAC_KTV ? ktvExtraNote(item) : ""),
                     unitPrice * qty);
         }
     }
@@ -4799,7 +4857,7 @@ final class HotelBookingFlowController {
                 fields.put("ktv[event_date]", day.format(new Date(ktvDateMillis)));
                 fields.put("ktv[start_time]", String.format(Locale.US, "%02d:%02d", ktvStartHour, ktvStartMinute));
                 fields.put("ktv[guest_count]", String.valueOf(ktvGuestCount));
-                fields.put("ktv[rate_label]", ktvRateTypeLabel());
+                fields.put("ktv[duration_hours]", String.valueOf(ktvDurationHours));
                 putKtvSelection(fields, multiQuantities.get(FAC_KTV));
             }
         }

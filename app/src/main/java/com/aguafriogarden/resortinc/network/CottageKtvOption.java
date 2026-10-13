@@ -16,6 +16,9 @@ public class CottageKtvOption {
     /** KTV only, from GET /api/booking/ktv-units: the physical unit's id (0 when this option is
      *  a Type from the older ktv-types/cottages-ktv lists). */
     public int unit_id;
+    /** KTV units only: guests included in the price, and the charge per guest beyond that. */
+    public int base_capacity;
+    public double extra_person_price;
     public int group_id;
     public int variant_id;
     public String variant_name;
