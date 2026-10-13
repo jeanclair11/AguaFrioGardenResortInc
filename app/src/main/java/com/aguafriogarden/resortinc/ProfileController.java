@@ -296,7 +296,7 @@ final class ProfileController {
         // shadow on Dark Mode's own dark surfaces.
         int cardBg = light ? R.drawable.bg_card : R.drawable.bg_card_bordered;
         float cardElevation = light ? 3f * activity.getResources().getDisplayMetrics().density : 0f;
-        for (int cardId : new int[]{R.id.profileCard, R.id.accountCard, R.id.preferencesCard, R.id.logoutCard, R.id.historyCard}) {
+        for (int cardId : new int[]{R.id.profileCard, R.id.accountCard, R.id.preferencesCard, R.id.logoutCard}) {
             View card = v.findViewById(cardId);
             card.setBackgroundResource(cardBg);
             card.setElevation(cardElevation);

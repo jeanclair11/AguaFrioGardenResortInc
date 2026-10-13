@@ -40,8 +40,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:background="@drawable/bg_card"
-                android:elevation="24dp"
+                android:background="@drawable/bg_browse_card"
+                android:elevation="4dp"
                 android:outlineAmbientShadowColor="@color/card_shadow_ambient"
                 android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">

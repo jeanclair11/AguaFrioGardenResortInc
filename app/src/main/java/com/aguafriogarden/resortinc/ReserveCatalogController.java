@@ -42,6 +42,7 @@ final class ReserveCatalogController {
         this.onBackToHome = onBackToHome;
         this.setBottomNavHidden = setBottomNavHidden;
         root = new FrameLayout(activity);
+        root.setBackgroundColor(ThemeManager.color(activity, R.attr.browsePageBackground));
         showPicker();
     }
 
