@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- KTV booking flow: Review Your Selection, reached from Your Selected KTV Room/s' Next
      button. See HotelBookingFlowController#bindKtvReview. Mirrors view_cottage_review.xml's
      structure/wording, but with an extra End Time row (KTV sessions have a fixed duration per
@@ -42,6 +42,9 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <include
@@ -140,3 +143,4 @@
     </LinearLayout>
 
 </LinearLayout>
+

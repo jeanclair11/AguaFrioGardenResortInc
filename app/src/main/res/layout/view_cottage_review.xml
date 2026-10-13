@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Cottage booking flow: Review Your Selection, reached from Your Selected Cottage/s' Next
      button. See HotelBookingFlowController#bindCottageReview. Mirrors view_hotel_review.xml's
      structure/wording, but with cottage-specific fields (rate type/date/time/guests) instead of
@@ -41,6 +41,9 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <include
@@ -50,10 +53,6 @@
 
                 <include
                     android:id="@+id/cottageReviewRowDate"
-                    layout="@layout/view_hotel_label_value_row" />
-
-                <include
-                    android:id="@+id/cottageReviewRowTime"
                     layout="@layout/view_hotel_label_value_row" />
 
                 <include
@@ -135,3 +134,4 @@
     </LinearLayout>
 
 </LinearLayout>
+

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Hotel booking flow, screen 7: GCash payment mock-up and proof-of-payment
      upload. See HotelBookingFlowController#bindPayment. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -42,6 +42,9 @@
                 android:layout_marginBottom="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <TextView
@@ -58,7 +61,7 @@
                     android:textStyle="bold" />
 
                 <!-- Reservation Payment only (see HotelBookingFlowController#bindReservationPayment)
-                     — shows both the full amount and the 30% down payment instead of the single
+                     â€” shows both the full amount and the 30% down payment instead of the single
                      paymentAmountDue figure above, which stays GONE in that context. -->
                 <include
                     android:id="@+id/paymentAmountDueFullRow"
@@ -78,6 +81,9 @@
                 android:layout_marginBottom="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <TextView
@@ -241,3 +247,4 @@
     </LinearLayout>
 
 </LinearLayout>
+

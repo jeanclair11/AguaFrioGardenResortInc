@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Content view for the "Feedback Submitted!" AlertDialog. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -6,6 +6,9 @@
     android:orientation="vertical"
     android:gravity="center"
     android:background="@drawable/bg_card"
+    android:elevation="24dp"
+    android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+    android:outlineSpotShadowColor="@color/card_shadow_spot"
     android:padding="24dp">
 
     <ImageView
@@ -40,3 +43,4 @@
         android:text="@string/button_ok" />
 
 </LinearLayout>
+

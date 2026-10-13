@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- One row on the My Reservations list (see
      HotelBookingFlowController#bindMyReservationsList). Tapping loads this reservation into
      Reservation Details via #loadReservationFromSummary. -->
@@ -8,6 +8,9 @@
     android:layout_marginBottom="12dp"
     android:orientation="vertical"
     android:background="@drawable/bg_card"
+    android:elevation="24dp"
+    android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+    android:outlineSpotShadowColor="@color/card_shadow_spot"
     android:foreground="?android:attr/selectableItemBackground"
     android:clipToOutline="true"
     android:clickable="true"
@@ -83,3 +86,4 @@
     </LinearLayout>
 
 </LinearLayout>
+

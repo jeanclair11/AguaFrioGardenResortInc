@@ -28,6 +28,21 @@
                 android:id="@+id/cottageDatesHeaderBar"
                 layout="@layout/view_screen_header" />
 
+            <!-- Real, server-backed list — same button/screen Hotel Rooms uses (see
+                 HotelBookingFlowController#bindCottageDatesEntry/bindMyReservationsList), every
+                 current and past Cottage reservation the guest has submitted. -->
+            <TextView
+                android:id="@+id/cottageDatesMyReservationsButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:padding="8dp"
+                android:text="@string/button_my_reservations"
+                android:textColor="?attr/accentPrimary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -37,44 +52,10 @@
                 android:textColor="?attr/textOnScreenMuted"
                 android:textSize="13sp" />
 
-            <!-- Rate Type -->
-            <TextView
-                style="@style/FieldLabel"
-                android:layout_marginTop="22dp"
-                android:text="@string/label_rate_type" />
-
-            <RadioGroup
-                android:id="@+id/cottageDatesRateTypeGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:orientation="vertical">
-
-                <RadioButton
-                    android:id="@+id/cottageDatesRateDay"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:buttonTint="?attr/accentPrimary"
-                    android:text="@string/rate_type_day"
-                    android:textColor="?attr/textPrimary"
-                    android:textSize="13sp" />
-
-                <RadioButton
-                    android:id="@+id/cottageDatesRateNight"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:buttonTint="?attr/accentPrimary"
-                    android:text="@string/rate_type_night"
-                    android:textColor="?attr/textPrimary"
-                    android:textSize="13sp" />
-
-            </RadioGroup>
-            <TextView android:id="@+id/cottageDatesRateTypeError" style="@style/FieldError" />
-
             <!-- Date -->
             <TextView
                 style="@style/FieldLabel"
-                android:layout_marginTop="18dp"
+                android:layout_marginTop="22dp"
                 android:text="@string/label_date" />
 
             <LinearLayout
@@ -119,53 +100,23 @@
             </LinearLayout>
             <TextView android:id="@+id/cottageDatesDateError" style="@style/FieldError" />
 
-            <!-- Time -->
+            <!-- Cottage Use (Day Use/Night Use/Overnight) — replaces a raw time picker, same
+                 concept as the receptionist side's own Create Reservation > Cottage screen; see
+                 HotelBookingFlowController#bindCottageDatesEntry. Always has a valid selection
+                 (defaults to Day Use), so there's no error state to show here. -->
             <TextView
                 style="@style/FieldLabel"
                 android:layout_marginTop="18dp"
-                android:text="@string/label_time" />
+                android:text="@string/label_cottage_use" />
 
-            <LinearLayout
-                android:id="@+id/cottageDatesTimeField"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_selector"
-                android:clickable="true"
-                android:focusable="true"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:padding="14dp">
-
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:layout_marginEnd="10dp"
-                    android:src="@drawable/ic_clock"
-                    android:importantForAccessibility="no" />
-
-                <TextView
-                    android:id="@+id/cottageDatesTimeText"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    android:text="@string/hint_select_time"
-                    android:textColor="?attr/textPrimary"
-                    android:alpha="0.5"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <ImageView
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:layout_marginStart="4dp"
-                    android:src="@drawable/ic_chevron_down"
-                    android:importantForAccessibility="no" />
-
+            <LinearLayout style="@style/InputField" android:paddingEnd="4dp">
+                <Spinner
+                    android:id="@+id/cottageDatesUseSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@null"
+                    android:spinnerMode="dropdown" />
             </LinearLayout>
-            <TextView android:id="@+id/cottageDatesTimeError" style="@style/FieldError" />
 
             <!-- Guests -->
             <TextView

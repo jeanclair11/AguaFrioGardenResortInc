@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Hotel booking flow, screen 8: confirmation with a mock booking
      reference. See HotelBookingFlowController#bindSuccess. -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
@@ -63,6 +63,9 @@
             android:layout_marginTop="22dp"
             android:orientation="vertical"
             android:background="@drawable/bg_card"
+            android:elevation="24dp"
+            android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+            android:outlineSpotShadowColor="@color/card_shadow_spot"
             android:padding="16dp">
 
             <TextView
@@ -106,3 +109,4 @@
 
     </LinearLayout>
 </ScrollView>
+

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Chat tab: a fixed header, a scrollable conversation (with a welcome
      card + quick-question chips while empty), and a fixed message composer. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -83,6 +83,9 @@
                 android:orientation="vertical"
                 android:gravity="center"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="24dp">
 
                 <ImageView
@@ -227,3 +230,4 @@
     </LinearLayout>
 
 </LinearLayout>
+

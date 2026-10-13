@@ -1,5 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Reservation Confirmed's "View Reservation" button — a standalone status screen for the
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Reservation Confirmed's "View Reservation" button â€” a standalone status screen for the
      reservation just submitted (reference/accommodation/date/guest, guest info, and a mock Pay
      Now, since there's no backend to actually process payment against yet). See
      HotelBookingFlowController#bindReservationDetails. -->
@@ -27,7 +27,7 @@
                 android:id="@+id/reservationDetailsHeaderBar"
                 layout="@layout/view_screen_header" />
 
-            <!-- Cancel — only shown while the reservation is still Pending (see
+            <!-- Cancel â€” only shown while the reservation is still Pending (see
                  bindReservationDetails); gone once Cancelled/Booked/Expired. -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -61,6 +61,9 @@
                 android:layout_marginTop="10dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <LinearLayout
@@ -113,6 +116,9 @@
                 android:layout_marginTop="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp"
                 android:visibility="gone">
 
@@ -136,6 +142,9 @@
                 android:layout_marginTop="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp"
                 android:visibility="gone">
 
@@ -158,6 +167,9 @@
                 android:layout_marginTop="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <TextView
@@ -170,7 +182,7 @@
                 <include android:id="@+id/reservationDetailsRowAddress" layout="@layout/view_hotel_label_value_row" />
             </LinearLayout>
 
-            <!-- Reservation Timeline — a real progress indicator (see
+            <!-- Reservation Timeline â€” a real progress indicator (see
                  HotelBookingFlowController#bindReservationTimeline), not a static status legend:
                  each stage the reservation has actually reached is filled with its date/time,
                  the current stage is bold, and stages not yet reached stay hollow/gray. -->
@@ -211,3 +223,4 @@
     </LinearLayout>
 
 </LinearLayout>
+

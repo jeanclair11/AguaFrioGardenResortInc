@@ -45,7 +45,7 @@
                 android:layout_marginEnd="20dp"
                 android:layout_marginBottom="24dp"
                 android:background="@drawable/bg_card"
-                android:elevation="4dp"
+                android:elevation="24dp"
                 android:outlineAmbientShadowColor="@color/card_shadow_ambient"
                 android:outlineSpotShadowColor="@color/card_shadow_spot"
                 />
@@ -65,7 +65,7 @@
         android:layout_marginEnd="14dp"
         android:padding="11dp"
         android:background="@drawable/bg_theme_toggle"
-        android:elevation="4dp"
+        android:elevation="24dp"
         android:outlineAmbientShadowColor="@color/card_shadow_ambient"
         android:outlineSpotShadowColor="@color/card_shadow_spot"
         android:tint="@color/white"

@@ -1,8 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Pre-login landing/welcome screen: fixed header + nav tabs, then a
-     scrollable marketing page (hero, gallery, about, footer). Only the
-     "AGUA FRIO" nav tab is wired up; ROOMS/COTTAGES/KTV/HALLS are left as
-     inert labels until their destinations exist. -->
+     scrollable marketing page (hero, gallery, about, footer). The
+     "AGUA FRIO", ROOMS, COTTAGES, and KTV nav tabs are wired up. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -15,7 +14,7 @@
         android:orientation="vertical">
 
         <!-- Fixed header: logo + resort name, Log In shortcut (or bell/profile once logged
-             in). Visible on Home/browse tabs; fully hidden elsewhere once logged in — see
+             in). Visible on Home/browse tabs; fully hidden elsewhere once logged in â€” see
              LandingActivity#setNavBarPresent. -->
     <LinearLayout
         android:id="@+id/landingHeaderBar"
@@ -25,6 +24,9 @@
         android:gravity="center_vertical"
         android:paddingStart="14dp"
         android:paddingEnd="14dp"
+        android:elevation="32dp"
+        android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+        android:outlineSpotShadowColor="@color/card_shadow_spot"
         android:background="@drawable/bg_top_bar_gradient">
 
         <ImageView
@@ -126,7 +128,7 @@
 
     <!-- landingContentContainer + landingNavBar are overlaid siblings (not stacked in
          the normal vertical flow) so the nav bar can hide/show via translationY alone
-         — a pure transform, no layout pass — letting it respond to scroll direction
+         â€” a pure transform, no layout pass â€” letting it respond to scroll direction
          immediately instead of fighting an active touch-scroll with a relayout. -->
     <FrameLayout
         android:layout_width="match_parent"
@@ -153,7 +155,7 @@
             android:paddingBottom="24dp">
 
             <!-- Hero card (logged out) vs Greeting+Progress (logged in, see
-                 view_dashboard_home.xml) — LandingActivity swaps this slot's single child
+                 view_dashboard_home.xml) â€” LandingActivity swaps this slot's single child
                  based on login state; everything below (Intro/Gallery/About/Footer) stays
                  the same either way. -->
             <FrameLayout
@@ -170,6 +172,9 @@
                 android:layout_marginTop="20dp"
                 android:orientation="vertical"
                 android:gravity="center_horizontal"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:background="@drawable/bg_card"
                 android:paddingTop="28dp"
                 android:paddingBottom="24dp"
@@ -207,25 +212,6 @@
 
             </FrameLayout>
 
-            <!-- Intro card -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginEnd="20dp"
-                android:layout_marginTop="20dp"
-                android:background="@drawable/bg_card"
-                android:padding="18dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:lineSpacingExtra="4dp"
-                    android:text="@string/landing_intro_paragraph"
-                    android:textColor="?attr/textPrimary"
-                    android:textSize="14sp" />
-            </LinearLayout>
-
             <!-- Gallery -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -253,6 +239,10 @@
                     android:textStyle="bold" />
             </LinearLayout>
 
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
             <HorizontalScrollView
                 android:id="@+id/landingGalleryScroll"
                 android:layout_width="match_parent"
@@ -262,7 +252,7 @@
                 android:scrollbars="none">
 
                 <!-- Three back-to-back copies of the same 5 images (see
-                     LandingActivity#setupInfiniteGallery) — the gallery silently jumps by one
+                     LandingActivity#setupInfiniteGallery) â€” the gallery silently jumps by one
                      copy-width whenever scroll strays into copy A or C, so as far as the guest
                      can tell it just loops forever in either direction. No androidx dependency
                      (ViewPager2/RecyclerView) needed for this since the project stays on plain
@@ -331,6 +321,33 @@
                 </LinearLayout>
             </HorizontalScrollView>
 
+            <ImageView
+                android:id="@+id/landingGalleryPrev"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center_vertical|start"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_gallery_nav_button"
+                android:contentDescription="@string/landing_gallery_previous"
+                android:padding="8dp"
+                android:rotation="180"
+                android:src="@drawable/ic_chevron_right"
+                android:tint="#FFFFFF" />
+
+            <ImageView
+                android:id="@+id/landingGalleryNext"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center_vertical|end"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/bg_gallery_nav_button"
+                android:contentDescription="@string/landing_gallery_next"
+                android:padding="8dp"
+                android:src="@drawable/ic_chevron_right"
+                android:tint="#FFFFFF" />
+
+            </FrameLayout>
+
             <!-- About the Resort -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -365,23 +382,91 @@
                     android:textSize="13sp" />
 
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
-                    android:letterSpacing="0.04"
-                    android:text="@string/landing_about_owners_title"
-                    android:textColor="?attr/textOnScreen"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="12dp"
                     android:lineSpacingExtra="4dp"
-                    android:text="@string/landing_about_owners_body"
+                    android:text="@string/landing_about_resort_body2"
                     android:textColor="?attr/textOnScreenMuted"
                     android:textSize="13sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/landing_contact_title"
+                    android:textColor="?attr/textOnScreen"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_phone" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:text="@string/landing_contact_phone"
+                        android:textColor="?attr/textOnScreenMuted"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_email" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:text="@string/landing_contact_email"
+                        android:textColor="?attr/textOnScreenMuted"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_location" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:text="@string/landing_contact_address"
+                        android:textColor="?attr/textOnScreenMuted"
+                        android:textSize="13sp" />
+                </LinearLayout>
 
             </LinearLayout>
 
@@ -513,7 +598,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
-        android:elevation="6dp"
+        android:elevation="32dp"
+        android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+        android:outlineSpotShadowColor="@color/card_shadow_spot"
         android:background="?attr/surfaceRaised"
         android:scrollbars="none">
 
@@ -544,21 +631,16 @@
                 style="@style/LandingNavTab"
                 android:text="@string/landing_nav_ktv" />
 
-            <TextView
-                android:id="@+id/navTabHalls"
-                style="@style/LandingNavTab"
-                android:text="@string/landing_nav_halls" />
-
         </LinearLayout>
     </HorizontalScrollView>
 
     </FrameLayout>
 
-    <!-- Reserve/Book/Chat/Feedback bottom nav — only shown once logged in. -->
+    <!-- Reserve/Book/Chat/Feedback bottom nav â€” only shown once logged in. -->
     <View
         android:id="@+id/bottomNavDivider"
         android:layout_width="match_parent"
-        android:layout_height="1dp"
+        android:layout_height="8dp"
         android:background="?attr/dividerColor"
         android:visibility="gone" />
 
@@ -567,9 +649,13 @@
         android:layout_width="match_parent"
         android:layout_height="58dp"
         android:orientation="horizontal"
+        android:elevation="32dp"
+        android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+        android:outlineSpotShadowColor="@color/card_shadow_spot"
         android:background="?attr/navBarBackground"
         android:visibility="gone" />
 
     </LinearLayout>
 
 </FrameLayout>
+

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Hotel booking flow, screen 6: guest info, stay/accommodation recap,
      totals and payment option. See HotelBookingFlowController#bindBilling. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -41,6 +41,9 @@
                 android:layout_marginBottom="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <TextView
@@ -60,6 +63,9 @@
                 android:layout_marginBottom="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <TextView
@@ -81,6 +87,9 @@
                 android:layout_marginBottom="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <TextView
@@ -103,6 +112,9 @@
                 android:layout_marginBottom="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp"
                 android:visibility="gone">
 
@@ -117,28 +129,6 @@
                     android:orientation="vertical" />
             </LinearLayout>
 
-            <!-- Food Orders (only shown when at least one is selected) -->
-            <LinearLayout
-                android:id="@+id/billingFoodCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="14dp"
-                android:orientation="vertical"
-                android:background="@drawable/bg_card"
-                android:padding="16dp"
-                android:visibility="gone">
-
-                <TextView
-                    style="@style/BillingSectionLabel"
-                    android:text="@string/section_food_orders" />
-
-                <LinearLayout
-                    android:id="@+id/billingFoodContainer"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical" />
-            </LinearLayout>
-
             <!-- Payment Summary -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -146,6 +136,9 @@
                 android:layout_marginBottom="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <TextView
@@ -154,7 +147,6 @@
 
                 <include android:id="@+id/billingRowRoomCharges" layout="@layout/view_hotel_billing_line_row" />
                 <include android:id="@+id/billingRowAmenitiesTotal" layout="@layout/view_hotel_billing_line_row" />
-                <include android:id="@+id/billingRowFoodTotal" layout="@layout/view_hotel_billing_line_row" />
 
                 <View
                     android:layout_width="match_parent"
@@ -359,3 +351,4 @@
     </LinearLayout>
 
 </LinearLayout>
+

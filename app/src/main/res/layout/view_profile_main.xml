@@ -1,8 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Standalone Profile screen: a "PROFILE" title, a plain rounded identity
      card (avatar with a tap-to-change badge, name, username, email), then
      floating cards for My Account and Preferences, and a separate Logout
-     card. No shared app top bar or bottom nav — DashboardActivity hides
+     card. No shared app top bar or bottom nav â€” DashboardActivity hides
      those while this screen is showing. -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -52,6 +52,9 @@
             android:orientation="vertical"
             android:gravity="center_horizontal"
             android:background="@drawable/bg_card"
+            android:elevation="24dp"
+            android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+            android:outlineSpotShadowColor="@color/card_shadow_spot"
             android:padding="24dp">
 
             <FrameLayout
@@ -129,6 +132,9 @@
             android:layout_marginTop="10dp"
             android:orientation="vertical"
             android:background="@drawable/bg_card"
+            android:elevation="24dp"
+            android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+            android:outlineSpotShadowColor="@color/card_shadow_spot"
             android:padding="12dp">
 
             <include
@@ -158,6 +164,9 @@
             android:layout_marginTop="10dp"
             android:orientation="vertical"
             android:background="@drawable/bg_card"
+            android:elevation="24dp"
+            android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+            android:outlineSpotShadowColor="@color/card_shadow_spot"
             android:padding="12dp">
 
             <include
@@ -176,6 +185,9 @@
             android:layout_marginTop="28dp"
             android:orientation="vertical"
             android:background="@drawable/bg_card"
+            android:elevation="24dp"
+            android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+            android:outlineSpotShadowColor="@color/card_shadow_spot"
             android:padding="8dp">
 
             <LinearLayout
@@ -225,3 +237,4 @@
 
     </LinearLayout>
 </ScrollView>
+

@@ -25,8 +25,9 @@ import android.window.OnBackInvokedDispatcher;
 import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.CottageKtvOption;
 import com.aguafriogarden.resortinc.network.CottageTypeListResponse;
-import com.aguafriogarden.resortinc.network.HallTypeListResponse;
 import com.aguafriogarden.resortinc.network.KtvTypeListResponse;
+import com.aguafriogarden.resortinc.network.KtvUnitListResponse;
+import com.aguafriogarden.resortinc.network.PriceBreakdownEntry;
 import com.aguafriogarden.resortinc.network.RoomTypeAvailability;
 import com.aguafriogarden.resortinc.network.RoomTypeListResponse;
 import com.bumptech.glide.Glide;
@@ -43,7 +44,7 @@ import retrofit2.Response;
 /**
  * The app's single Home screen for both logged-out and logged-in guests. Logged out, it's a
  * marketing/browse page (hero, gallery, about) with a top nav for Hotel Rooms/Cottages/KTV
- * Rooms/Function Halls, built from live Room/Cottage/KTV/Facility management data. Logging in
+ * Rooms, built from live Room/Cottage/KTV management data. Logging in
  * (via MainActivity, which is pushed without finishing this Activity — see openLogin()) flips
  * this same screen into a shell for Reserve/Book/Chat/Feedback/Profile/Alerts, replacing the
  * former separate DashboardActivity, while keeping the marketing content and top nav intact
@@ -52,7 +53,7 @@ import retrofit2.Response;
 public class LandingActivity extends Activity {
 
     private enum Section {
-        HOME, ROOMS, COTTAGES, KTV, HALLS,
+        HOME, ROOMS, COTTAGES, KTV,
         RESERVE, BOOK, CHAT, FEEDBACK, PROFILE, ALERTS, ROOM_OVERVIEW
     }
 
@@ -65,11 +66,16 @@ public class LandingActivity extends Activity {
     /** Top-nav order; index into this array lines up with topNavItems. Swiping left/right over
      *  the Home content steps forward/backward through this same order (see #stepTopNav). */
     private static final Section[] TOP_NAV_SECTIONS =
-            {Section.HOME, Section.ROOMS, Section.COTTAGES, Section.KTV, Section.HALLS};
+            {Section.HOME, Section.ROOMS, Section.COTTAGES, Section.KTV};
 
     private static final long CONTENT_FADE_MS = 150L;
     private static final long CONTENT_SLIDE_MS = 220L;
     private static final long BADGE_REFRESH_MS = 2000L;
+    /** How often the currently-open Hotel Rooms/Cottages/KTV Rooms browse screen
+     *  re-fetches its list, so admin-side additions/edits/price or capacity changes/activation-
+     *  deactivation show up without the guest leaving and reopening the tab. Works whether logged
+     *  in or not (see BookingApi's room-types/cottage-types/ktv-types, all public). */
+    private static final long CATEGORY_REFRESH_MS = 7000L;
     private static final int REQUEST_POST_NOTIFICATIONS = 1001;
     private static final String STATE_SECTION = "section";
 
@@ -104,6 +110,13 @@ public class LandingActivity extends Activity {
     private final Handler badgeHandler = new Handler(Looper.getMainLooper());
     private final Runnable badgeTick = this::tickBadges;
 
+    private final Handler categoryRefreshHandler = new Handler(Looper.getMainLooper());
+    private Runnable categoryRefreshTick;
+    /** The no-arg re-fetch for whichever browse category is currently on screen, or null when
+     *  none is (Home/logged-in modules/Room Overview). Retained so onResume can restart polling
+     *  after onPause stopped it, without re-inflating the browse screen. */
+    private Runnable currentCategoryFetch;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -134,12 +147,10 @@ public class LandingActivity extends Activity {
         topNavItems[1] = findViewById(R.id.navTabRooms);
         topNavItems[2] = findViewById(R.id.navTabCottages);
         topNavItems[3] = findViewById(R.id.navTabKtv);
-        topNavItems[4] = findViewById(R.id.navTabHalls);
         topNavItems[0].setOnClickListener(v -> showHome());
         topNavItems[1].setOnClickListener(v -> showCategory(Section.ROOMS));
         topNavItems[2].setOnClickListener(v -> showCategory(Section.COTTAGES));
         topNavItems[3].setOnClickListener(v -> showCategory(Section.KTV));
-        topNavItems[4].setOnClickListener(v -> showCategory(Section.HALLS));
         landingLogInButton.setOnClickListener(v -> openLogin());
         landingBellCluster.setOnClickListener(v -> showModule(Section.ALERTS));
         profileButton.setOnClickListener(v -> showModule(Section.PROFILE));
@@ -236,6 +247,9 @@ public class LandingActivity extends Activity {
             }
             badgeHandler.post(badgeTick);
         }
+        if (currentCategoryFetch != null) {
+            startCategoryRefresh(currentCategoryFetch);
+        }
     }
 
     @Override
@@ -245,6 +259,7 @@ public class LandingActivity extends Activity {
             chatController.onHidden();
             badgeHandler.removeCallbacks(badgeTick);
         }
+        stopCategoryRefresh();
     }
 
     @Override
@@ -322,9 +337,9 @@ public class LandingActivity extends Activity {
         }
         loggedIn = true;
 
-        reserveCatalog = new ReserveCatalogController(this, this::showHome);
+        reserveCatalog = new ReserveCatalogController(this, this::showHome, this::setBottomNavHidden);
         bookingCatalog = new BookingCatalogController(this,
-                () -> showModule(Section.RESERVE), this::showHome);
+                () -> showModule(Section.RESERVE), this::showHome, this::setBottomNavHidden);
         dashboardHome = new DashboardHomeController(this);
         profileController = new ProfileController(this, this::showHome, this::logout, this::bindHeaderAvatar);
         feedbackController = new FeedbackController(this);
@@ -393,6 +408,7 @@ public class LandingActivity extends Activity {
         ProfileStore.clearAuthToken(this);
         ProfileStore.clearActiveReservation(this);
         badgeHandler.removeCallbacks(badgeTick);
+        leaveCategoryBrowse();
         loggedIn = false;
 
         reserveCatalog = null;
@@ -465,6 +481,13 @@ public class LandingActivity extends Activity {
                     // onShown()/UnreadChatStore.markSeen() — no need to detour through Alerts.
                     NotificationStore.markReadByType(NotificationStore.Type.RESERVATION);
                     refreshBadges();
+                    showModule(section);
+                });
+            } else if (section == Section.BOOK) {
+                // Same reset-to-picker as Reserve above, done here (not in showModule) so the
+                // Room Overview's Book button can open its pre-chosen flow without it being wiped.
+                item.setOnClickListener(v -> {
+                    bookingCatalog.onTabShown();
                     showModule(section);
                 });
             } else {
@@ -544,7 +567,16 @@ public class LandingActivity extends Activity {
         if (section == currentSection) {
             return;
         }
+        leaveCategoryBrowse();
         leavingChat();
+
+        // Clear in-progress form data when leaving Book or Reserve tabs
+        if (currentSection == Section.BOOK) {
+            bookingCatalog.onTabHidden();
+        } else if (currentSection == Section.RESERVE) {
+            reserveCatalog.onTabHidden();
+        }
+
         currentSection = section;
         setBottomNavHidden(false);
         retintBottomNav();
@@ -613,6 +645,7 @@ public class LandingActivity extends Activity {
         if (currentSection == Section.HOME) {
             return;
         }
+        leaveCategoryBrowse();
         leavingChat();
         swapContent(landingHomeScroll, true, slideDirection);
         currentSection = Section.HOME;
@@ -641,25 +674,29 @@ public class LandingActivity extends Activity {
         LinearLayout container = browse.findViewById(R.id.categoryBrowseContainer);
         TextView emptyState = browse.findViewById(R.id.categoryBrowseEmptyState);
 
+        Runnable fetchAction;
         switch (section) {
             case ROOMS:
                 emptyState.setText(R.string.landing_rooms_empty_state);
-                fetchRoomTypes(container, emptyState);
+                fetchAction = () -> fetchRoomTypes(container, emptyState);
                 break;
             case COTTAGES:
                 emptyState.setText(R.string.landing_category_empty_state);
-                fetchCottageTypes(container, emptyState);
+                fetchAction = () -> fetchCottageTypes(container, emptyState);
                 break;
             case KTV:
                 emptyState.setText(R.string.landing_category_empty_state);
-                fetchKtvTypes(container, emptyState);
-                break;
-            case HALLS:
-                emptyState.setText(R.string.landing_category_empty_state);
-                fetchHallTypes(container, emptyState);
+                fetchAction = () -> fetchKtvTypes(container, emptyState);
                 break;
             default:
+                fetchAction = null;
                 break;
+        }
+        if (fetchAction != null) {
+            fetchAction.run();
+            startCategoryRefresh(fetchAction);
+        } else {
+            leaveCategoryBrowse();
         }
 
         swapContent(browse, true, slideDirection);
@@ -675,8 +712,6 @@ public class LandingActivity extends Activity {
                 return R.string.landing_cottages_section_title;
             case KTV:
                 return R.string.landing_ktv_section_title;
-            case HALLS:
-                return R.string.landing_halls_section_title;
             case ROOMS:
             default:
                 return R.string.landing_rooms_section_title;
@@ -692,7 +727,7 @@ public class LandingActivity extends Activity {
      * Swaps in newContent over whatever's currently showing, then drops the old content once the
      * animation finishes. landingHomeScroll is a retained field (never destroyed), so swapping
      * back to it later just re-adds the same instance. showTopNavBar controls the top nav bar
-     * (Agua Frio/Hotel Rooms/Cottages/KTV/Halls): present on Home/browse tabs, fully gone on
+     * (Agua Frio/Hotel Rooms/Cottages/KTV): present on Home/browse tabs, fully gone on
      * Reserve/Book/Chat/Feedback/Profile/Alerts/Booking Details, which have their own bottom nav.
      * slideDirection 0 cross-fades (tap navigation, and every non-top-nav caller); +1/-1 instead
      * slides newContent in from the right/left while the old content slides out the opposite
@@ -796,23 +831,42 @@ public class LandingActivity extends Activity {
      */
     private void setupInfiniteGallery(HorizontalScrollView galleryScroll, LinearLayout content) {
         content.post(() -> {
-            // content's own paddingStart/paddingEnd only appear once, before copy A and after
-            // copy C — excluded here so copyWidth is exactly one copy's pixel width (the true
-            // repeat period), not skewed by that one-time lead-in/trail-off space.
-            int copyWidth = (content.getWidth() - content.getPaddingLeft() - content.getPaddingRight()) / 3;
-            if (copyWidth <= 0) {
-                return;
-            }
-            galleryScroll.scrollTo(content.getPaddingLeft() + copyWidth, 0);
-            galleryScroll.setOnScrollChangeListener((View.OnScrollChangeListener) (v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
-                int maxScrollX = content.getWidth() - galleryScroll.getWidth();
-                if (scrollX <= 0) {
-                    galleryScroll.scrollTo(scrollX + copyWidth, 0);
-                } else if (scrollX >= maxScrollX) {
-                    galleryScroll.scrollTo(scrollX - copyWidth, 0);
-                }
-            });
+            // Side padding of (viewport - tile) / 2 means a tile is centred on screen whenever
+            // scrollX is an exact multiple of tileStep (tile + its end margin).
+            int sidePadding = Math.max(0, (galleryScroll.getWidth() - content.getChildAt(0).getWidth()) / 2);
+            content.setPadding(sidePadding, content.getPaddingTop(), sidePadding, content.getPaddingBottom());
+            content.post(() -> setupInfiniteGalleryScroll(galleryScroll, content));
         });
+    }
+
+    private void setupInfiniteGalleryScroll(HorizontalScrollView galleryScroll, LinearLayout content) {
+        // content's own paddingStart/paddingEnd only appear once, before copy A and after
+        // copy C — excluded here so copyWidth is exactly one copy's pixel width (the true
+        // repeat period), not skewed by that one-time lead-in/trail-off space.
+        int copyWidth = (content.getWidth() - content.getPaddingLeft() - content.getPaddingRight()) / 3;
+        if (copyWidth <= 0) {
+            return;
+        }
+        // Prev/next buttons step one tile (width + its end margin) at a time. copyWidth is an
+        // (near-)exact multiple of tileStep, so the silent copy-jump below keeps the alignment.
+        int tileStep = content.getChildAt(1).getLeft() - content.getChildAt(0).getLeft();
+        galleryScroll.scrollTo(5 * tileStep, 0);
+        findViewById(R.id.landingGalleryPrev).setOnClickListener(v -> stepGallery(galleryScroll, content, tileStep, -1));
+        findViewById(R.id.landingGalleryNext).setOnClickListener(v -> stepGallery(galleryScroll, content, tileStep, 1));
+        galleryScroll.setOnScrollChangeListener((View.OnScrollChangeListener) (v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+            int maxScrollX = content.getWidth() - galleryScroll.getWidth();
+            if (scrollX <= 0) {
+                galleryScroll.scrollTo(scrollX + copyWidth, 0);
+            } else if (scrollX >= maxScrollX) {
+                galleryScroll.scrollTo(scrollX - copyWidth, 0);
+            }
+        });
+    }
+
+    /** Smooth-scrolls the gallery to the neighbouring tile (direction -1 = previous, 1 = next). */
+    private void stepGallery(HorizontalScrollView galleryScroll, LinearLayout content, int tileStep, int direction) {
+        int index = Math.round(galleryScroll.getScrollX() / (float) tileStep);
+        galleryScroll.smoothScrollTo((index + direction) * tileStep, 0);
     }
 
     /**
@@ -866,6 +920,39 @@ public class LandingActivity extends Activity {
         bottomNav.setVisibility(hidden ? View.GONE : View.VISIBLE);
     }
 
+    /** Starts (or restarts) the poll loop that re-fetches whichever browse category is currently
+     *  on screen every CATEGORY_REFRESH_MS. Safe to call repeatedly (e.g. from onResume) — always
+     *  cancels any previous loop first so only one is ever ticking. */
+    private void startCategoryRefresh(Runnable fetchAction) {
+        categoryRefreshHandler.removeCallbacks(categoryRefreshTick);
+        currentCategoryFetch = fetchAction;
+        categoryRefreshTick = new Runnable() {
+            @Override
+            public void run() {
+                fetchAction.run();
+                categoryRefreshHandler.postDelayed(this, CATEGORY_REFRESH_MS);
+            }
+        };
+        categoryRefreshHandler.postDelayed(categoryRefreshTick, CATEGORY_REFRESH_MS);
+    }
+
+    /** Pauses the poll loop without forgetting which category it was refreshing, so onResume can
+     *  restart it after the app comes back to the foreground (see onPause/onResume). */
+    private void stopCategoryRefresh() {
+        if (categoryRefreshTick != null) {
+            categoryRefreshHandler.removeCallbacks(categoryRefreshTick);
+            categoryRefreshTick = null;
+        }
+    }
+
+    /** Stops the poll loop and forgets which category it was refreshing — call this whenever
+     *  navigation actually leaves the browse category (Home, a logged-in module, Room Overview,
+     *  logout), as opposed to just backgrounding the app (see stopCategoryRefresh). */
+    private void leaveCategoryBrowse() {
+        stopCategoryRefresh();
+        currentCategoryFetch = null;
+    }
+
     private void fetchRoomTypes(LinearLayout container, TextView emptyState) {
         ApiClient.bookingApi().getRoomTypes().enqueue(new Callback<RoomTypeListResponse>() {
             @Override
@@ -901,6 +988,26 @@ public class LandingActivity extends Activity {
     }
 
     private void fetchKtvTypes(LinearLayout container, TextView emptyState) {
+        // Actual KTV units (booking/ktv-units); falls back to the Type list if that call fails.
+        ApiClient.bookingApi().getKtvUnits(null, null, null).enqueue(new Callback<KtvUnitListResponse>() {
+            @Override
+            public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().ktv_units != null) {
+                    bindCottageKtvOptions(container, emptyState, response.body().toOptions(),
+                            getString(R.string.service_type_ktv), true, Section.KTV);
+                } else {
+                    fetchKtvTypesFallback(container, emptyState);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<KtvUnitListResponse> call, Throwable t) {
+                fetchKtvTypesFallback(container, emptyState);
+            }
+        });
+    }
+
+    private void fetchKtvTypesFallback(LinearLayout container, TextView emptyState) {
         ApiClient.bookingApi().getKtvTypes().enqueue(new Callback<KtvTypeListResponse>() {
             @Override
             public void onResponse(Call<KtvTypeListResponse> call, Response<KtvTypeListResponse> response) {
@@ -913,23 +1020,6 @@ public class LandingActivity extends Activity {
             @Override
             public void onFailure(Call<KtvTypeListResponse> call, Throwable t) {
                 bindCottageKtvOptions(container, emptyState, new ArrayList<>(), getString(R.string.service_type_ktv), true, Section.KTV);
-            }
-        });
-    }
-
-    private void fetchHallTypes(LinearLayout container, TextView emptyState) {
-        ApiClient.bookingApi().getHallTypes().enqueue(new Callback<HallTypeListResponse>() {
-            @Override
-            public void onResponse(Call<HallTypeListResponse> call, Response<HallTypeListResponse> response) {
-                List<CottageKtvOption> halls = response.isSuccessful() && response.body() != null
-                        && response.body().halls != null
-                        ? response.body().halls : new ArrayList<>();
-                bindCottageKtvOptions(container, emptyState, halls, getString(R.string.service_type_hall), false, Section.HALLS);
-            }
-
-            @Override
-            public void onFailure(Call<HallTypeListResponse> call, Throwable t) {
-                bindCottageKtvOptions(container, emptyState, new ArrayList<>(), getString(R.string.service_type_hall), false, Section.HALLS);
             }
         });
     }
@@ -962,63 +1052,123 @@ public class LandingActivity extends Activity {
                 ? roomType.category_name : getString(R.string.service_type_hotel);
         String name = roomType.variant_name != null && !roomType.variant_name.trim().isEmpty()
                 ? roomType.variant_name : category;
-        boolean available = roomType.available_quantity > 0;
-        CharSequence availabilityText = available
-                ? getResources().getQuantityString(R.plurals.room_type_available_count,
-                        roomType.available_quantity, roomType.available_quantity)
-                : getString(R.string.status_room_type_fully_booked);
 
         String priceText = getString(R.string.format_price_per_night, formatMoney(roomType.price_per_night));
         bindCard(card, roomType.image_path,
-                getString(R.string.format_room_type_with_category, name, category),
+                formatTypeTitle(name, category),
                 roomType.capacity, roomType.description, priceText,
-                available, availabilityText, true, Section.ROOMS,
-                name, category, roomType.variant_id, roomType.image_path, priceText);
+                roomType.available_quantity, true, Section.ROOMS,
+                name, category, roomType.variant_id, roomType.image_path, priceText, null);
     }
 
-    private void bindCottageKtvCard(View card, CottageKtvOption option, String fallbackCategory, boolean bookable, Section origin) {
-        String category = option.category_name != null && !option.category_name.trim().isEmpty()
-                ? option.category_name : fallbackCategory;
+    /**
+     * Cottages/KTV Rooms/Function Halls have no Category above Type (Hotel Rooms alone keeps
+     * Category -> Type -> Units — see bindRoomTypeCard above) — so unlike that method, the card's
+     * title is just the Type's own name, with fallbackName only standing in when the admin left
+     * the Type itself unnamed. categoryName is passed as null into bindCard/PendingRoomSelection
+     * so the Overview screen (see showRoomOverview/formatTypeTitle) shows the same plain title.
+     */
+    private void bindCottageKtvCard(View card, CottageKtvOption option, String fallbackName, boolean bookable, Section origin) {
         String name = option.variant_name != null && !option.variant_name.trim().isEmpty()
-                ? option.variant_name : category;
-        boolean available = option.available_quantity > 0;
-        CharSequence availabilityText = available
-                ? getResources().getQuantityString(R.plurals.category_available_count,
-                        option.available_quantity, option.available_quantity)
-                : getString(R.string.status_room_type_fully_booked);
+                ? option.variant_name : fallbackName;
 
         String priceText = getString(R.string.format_price_with_unit, formatMoney(option.price), option.price_unit);
-        bindCard(card, option.image_path,
-                getString(R.string.format_room_type_with_category, name, category),
+        bindCard(card, option.image_path, name,
                 option.capacity, option.description, priceText,
-                available, availabilityText, bookable, origin,
-                name, category, option.variant_id, option.image_path, priceText);
+                option.available_quantity, bookable, origin,
+                name, null, option.variant_id, option.image_path, priceText, option.price_breakdown);
     }
 
-    /** Shared binder for view_landing_room_type_card.xml, used by all four browse screens. */
+    /** Which noun the "X ___ Available" house-icon pill uses (see #bindCard) — Rooms/Cottages/
+     *  KTV Rooms/Function Halls each get their own, matching HotelBookingFlowController's
+     *  identical unit_label_room/cottage/ktv_room strings for the booking-flow's own cards. */
+    private int unitLabelRes(Section section) {
+        if (section == Section.COTTAGES) {
+            return R.string.unit_label_cottage;
+        }
+        if (section == Section.KTV) {
+            return R.string.unit_label_ktv_room;
+        }
+        return R.string.unit_label_room;
+    }
+
+    /** Day Use/Night Use/Overnight (or a single Single Rate), one per line — see
+     *  CottageVariant::priceBreakdown() on the backend. Cottages only. */
+    private String formatPriceBreakdown(List<PriceBreakdownEntry> entries) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < entries.size(); i++) {
+            if (i > 0) {
+                sb.append('\n');
+            }
+            PriceBreakdownEntry entry = entries.get(i);
+            sb.append(getString(R.string.format_price_breakdown_line, entry.label, formatMoney(entry.amount)));
+        }
+        return sb.toString();
+    }
+
+    /** "Name - Category" for Hotel Rooms (the only category still in the Category -> Type ->
+     *  Units structure); just the Type's own name for Cottages/KTV/Halls, whose category is
+     *  always null here (see bindCottageKtvCard). Shared by the browse cards and the Room/
+     *  Cottage/KTV Overview screen (see showRoomOverview) so both stay consistent. */
+    private String formatTypeTitle(String name, String category) {
+        return category != null && !category.trim().isEmpty()
+                ? getString(R.string.format_room_type_with_category, name, category)
+                : name;
+    }
+
+    /** Shared binder for view_landing_room_type_card.xml, used by all four browse screens.
+     *  priceBreakdown is Cottages-only (Day Use/Night Use/Overnight, or Single Rate) — when
+     *  non-empty it replaces the flat priceText line with one line per rate (see
+     *  #formatPriceBreakdown); null/empty for Hotel Rooms/KTV/Halls keeps the flat line. */
     private void bindCard(View card, String imagePath, String titleText, int capacity, String description,
-                           String priceText, boolean available, CharSequence availabilityText, boolean bookable, Section origin,
-                           String roomTypeName, String categoryName, int variantId, String imagePathForStorage, String pricePerNight) {
+                           String priceText, int availableQty, boolean bookable, Section origin,
+                           String roomTypeName, String categoryName, int variantId, String imagePathForStorage, String pricePerNight,
+                           List<PriceBreakdownEntry> priceBreakdown) {
         loadImage(card.findViewById(R.id.roomTypeCardImage), imagePath);
 
         ((TextView) card.findViewById(R.id.roomTypeCardName)).setText(titleText);
-        ((TextView) card.findViewById(R.id.roomTypeCardCapacity))
-                .setText(getString(R.string.landing_room_capacity_format, capacity));
+        boolean isCottageCard = origin == Section.COTTAGES;
+        TextView capacityView = card.findViewById(R.id.roomTypeCardCapacity);
+        capacityView.setText(getString(
+                isCottageCard ? R.string.cottage_capacity_format : R.string.landing_room_capacity_format,
+                capacity));
+        capacityView.setTextColor(ThemeManager.color(this,
+                isCottageCard ? R.attr.warningText : R.attr.textMuted));
         ((TextView) card.findViewById(R.id.roomTypeCardDescription)).setText(
                 description != null && !description.trim().isEmpty()
                         ? description : getString(R.string.landing_room_description_fallback));
-        ((TextView) card.findViewById(R.id.roomTypeCardPrice)).setText(priceText);
 
-        TextView availability = card.findViewById(R.id.roomTypeCardAvailability);
-        availability.setText(availabilityText);
-        availability.setTextColor(ThemeManager.color(this,
-                available ? R.attr.successText : R.attr.errorText));
+        TextView priceView = card.findViewById(R.id.roomTypeCardPrice);
+        TextView breakdownView = card.findViewById(R.id.roomTypeCardPriceBreakdown);
+        boolean hasBreakdown = priceBreakdown != null && !priceBreakdown.isEmpty();
+        priceView.setVisibility(hasBreakdown ? View.GONE : View.VISIBLE);
+        breakdownView.setVisibility(hasBreakdown ? View.VISIBLE : View.GONE);
+        if (hasBreakdown) {
+            breakdownView.setText(formatPriceBreakdown(priceBreakdown));
+        } else {
+            priceView.setText(priceText);
+        }
+
+        boolean available = availableQty > 0;
+        TextView fullyBookedView = card.findViewById(R.id.roomTypeCardAvailability);
+        View pillContainer = card.findViewById(R.id.roomTypeCardAvailablePillContainer);
+        if (available) {
+            fullyBookedView.setVisibility(View.GONE);
+            pillContainer.setVisibility(View.VISIBLE);
+            ((TextView) card.findViewById(R.id.roomTypeCardAvailablePillText)).setText(
+                    getString(R.string.format_available_units, availableQty, getString(unitLabelRes(origin))));
+        } else {
+            pillContainer.setVisibility(View.GONE);
+            fullyBookedView.setVisibility(View.VISIBLE);
+            fullyBookedView.setText(R.string.status_room_type_fully_booked);
+            fullyBookedView.setTextColor(ThemeManager.color(this, R.attr.errorText));
+        }
 
         View bookButton = card.findViewById(R.id.roomTypeCardBookButton);
         bookButton.setVisibility(bookable ? View.VISIBLE : View.GONE);
         if (bookable) {
             bookButton.setOnClickListener(v -> handleCardTap(origin, roomTypeName, categoryName,
-                    capacity, description, pricePerNight, variantId, imagePathForStorage,
+                    capacity, description, pricePerNight, variantId, imagePathForStorage, priceBreakdown, availableQty,
                     PendingRoomSelection.PURPOSE_BOOK));
         }
 
@@ -1026,7 +1176,7 @@ public class LandingActivity extends Activity {
         reserveButton.setVisibility(bookable ? View.VISIBLE : View.GONE);
         if (bookable) {
             reserveButton.setOnClickListener(v -> handleCardTap(origin, roomTypeName, categoryName,
-                    capacity, description, pricePerNight, variantId, imagePathForStorage,
+                    capacity, description, pricePerNight, variantId, imagePathForStorage, priceBreakdown, availableQty,
                     PendingRoomSelection.PURPOSE_RESERVE));
         }
     }
@@ -1039,12 +1189,12 @@ public class LandingActivity extends Activity {
      */
     private void handleCardTap(Section origin, String roomTypeName, String categoryName,
                               int capacity, String description, String pricePerNight, int variantId,
-                              String imagePath, int purpose) {
+                              String imagePath, List<PriceBreakdownEntry> priceBreakdown, int availableQty, int purpose) {
         int type = origin == Section.COTTAGES ? PendingRoomSelection.TYPE_COTTAGE
                 : origin == Section.KTV ? PendingRoomSelection.TYPE_KTV
                 : PendingRoomSelection.TYPE_ROOM;
         PendingRoomSelection.set(imagePath, roomTypeName, categoryName,
-                capacity, description, pricePerNight, variantId, type, purpose);
+                capacity, description, pricePerNight, variantId, priceBreakdown, availableQty, type, purpose);
         if (!loggedIn) {
             openLogin();
             return;
@@ -1080,6 +1230,7 @@ public class LandingActivity extends Activity {
      * (roomOverviewOrigin) rather than all the way to Home.
      */
     private void showRoomOverview(PendingRoomSelection room) {
+        leaveCategoryBrowse();
         leavingChat();
         currentSection = Section.ROOM_OVERVIEW;
         retintBottomNav();
@@ -1110,17 +1261,44 @@ public class LandingActivity extends Activity {
         ImageView imageView = v.findViewById(R.id.roomOverviewImage);
         loadImage(imageView, room.imagePath);
 
+        boolean overviewAvailable = room.availableQty > 0;
+        TextView overviewFullyBookedView = v.findViewById(R.id.roomOverviewAvailability);
+        View overviewPillContainer = v.findViewById(R.id.roomOverviewAvailablePillContainer);
+        if (overviewAvailable) {
+            overviewFullyBookedView.setVisibility(View.GONE);
+            overviewPillContainer.setVisibility(View.VISIBLE);
+            ((TextView) v.findViewById(R.id.roomOverviewAvailablePillText)).setText(
+                    getString(R.string.format_available_units, room.availableQty, getString(unitLabelRes(roomOverviewOrigin))));
+        } else {
+            overviewPillContainer.setVisibility(View.GONE);
+            overviewFullyBookedView.setVisibility(View.VISIBLE);
+        }
+
         // Room details
         ((TextView) v.findViewById(R.id.roomOverviewType)).setText(
-                getString(R.string.format_room_type_with_category, room.roomTypeName, room.categoryName));
-        ((TextView) v.findViewById(R.id.roomOverviewCapacity)).setText(
-                getString(R.string.landing_room_capacity_format, room.capacity));
+                formatTypeTitle(room.roomTypeName, room.categoryName));
+        boolean overviewIsCottage = room.type == PendingRoomSelection.TYPE_COTTAGE;
+        TextView overviewCapacityView = v.findViewById(R.id.roomOverviewCapacity);
+        overviewCapacityView.setText(getString(
+                overviewIsCottage ? R.string.cottage_capacity_format : R.string.landing_room_capacity_format,
+                room.capacity));
+        overviewCapacityView.setTextColor(ThemeManager.color(this,
+                overviewIsCottage ? R.attr.warningText : R.attr.textMuted));
         ((TextView) v.findViewById(R.id.roomOverviewDescription)).setText(room.description);
-        ((TextView) v.findViewById(R.id.roomOverviewPrice)).setText(room.pricePerNight);
+
+        TextView overviewPriceView = v.findViewById(R.id.roomOverviewPrice);
+        TextView overviewBreakdownView = v.findViewById(R.id.roomOverviewPriceBreakdown);
+        boolean overviewHasBreakdown = room.priceBreakdown != null && !room.priceBreakdown.isEmpty();
+        overviewPriceView.setVisibility(overviewHasBreakdown ? View.GONE : View.VISIBLE);
+        overviewBreakdownView.setVisibility(overviewHasBreakdown ? View.VISIBLE : View.GONE);
+        if (overviewHasBreakdown) {
+            overviewBreakdownView.setText(formatPriceBreakdown(room.priceBreakdown));
+        } else {
+            overviewPriceView.setText(room.pricePerNight);
+        }
 
         // CTA button: BOOK sends Hotel Rooms/Cottages/KTV to bookingCatalog's own focused gate
-        // screen (see BookingCatalogController#showHotelFlowFromRoomOverview /
-        // #showHotelFlowFromCottageOverview / #showHotelFlowFromKtvOverview); RESERVE sends them
+        // screen (see BookingCatalogController#showHotelFlow); RESERVE sends them
         // to reserveCatalog's equivalent instead (see ReserveCatalogController's own versions of
         // those same methods) — sharing the Reserve tab's own instance/state, not bookingCatalog's,
         // so a reservation started here and one started from the Reserve tab's own picker are the
@@ -1134,28 +1312,15 @@ public class LandingActivity extends Activity {
         ctaButton.setOnClickListener(view -> {
             Runnable backToThisOverview = () -> showRoomOverview(room);
             if (reserve) {
-                if (room.type == PendingRoomSelection.TYPE_ROOM) {
-                    reserveCatalog.showHotelFlowFromRoomOverview(room.variantId, backToThisOverview);
-                } else if (room.type == PendingRoomSelection.TYPE_COTTAGE) {
-                    reserveCatalog.showHotelFlowFromCottageOverview(room.variantId, backToThisOverview);
-                } else if (room.type == PendingRoomSelection.TYPE_KTV) {
-                    reserveCatalog.showHotelFlowFromKtvOverview(room.variantId, backToThisOverview);
-                }
+                reserveCatalog.showHotelFlow(room.type, room.variantId, backToThisOverview);
                 showModule(Section.RESERVE);
             } else {
-                if (room.type == PendingRoomSelection.TYPE_ROOM) {
-                    bookingCatalog.showHotelFlowFromRoomOverview(room.variantId, backToThisOverview);
-                } else if (room.type == PendingRoomSelection.TYPE_COTTAGE) {
-                    bookingCatalog.showHotelFlowFromCottageOverview(room.variantId, backToThisOverview);
-                } else if (room.type == PendingRoomSelection.TYPE_KTV) {
-                    bookingCatalog.showHotelFlowFromKtvOverview(room.variantId, backToThisOverview);
-                }
+                bookingCatalog.showHotelFlow(room.type, room.variantId, backToThisOverview);
                 showModule(Section.BOOK);
             }
-            // The wizard that just opened has its own per-screen header/back button, not the
-            // bottom tabs — hidden until the guest backs out to this Overview or all the way
-            // home (see setBottomNavHidden, showRoomOverview, showHome).
-            setBottomNavHidden(true);
+            // The wizard's own Dates screen (its "first interface") re-shows the bottom nav;
+            // every screen past that hides it again — see HotelBookingFlowController#showScreen,
+            // which now owns this for every entry point, not just this one.
         });
 
         setBottomNavHidden(false);

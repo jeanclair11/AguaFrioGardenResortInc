@@ -1,8 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Room/Cottage/KTV overview screen shown after login if an item was selected before login (see
      LandingActivity#showRoomOverview). Root is a plain LinearLayout rather than the ScrollView
      root the browse screens use, since "Book Now" must stay fixed just above the bottom nav
-     instead of scrolling away with the content — LandingActivity manually applies the same
+     instead of scrolling away with the content â€” LandingActivity manually applies the same
      nav-bar-height top inset that swapContent()/configureScrollableContent() apply automatically
      for ScrollView roots. Header (back arrow + "You Selected This Room/Cottage/KTV Room") and the
      footer button are fixed; only the room card (image + type/capacity/description/price, mirrors
@@ -61,17 +61,75 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:background="@drawable/bg_card"
+            android:elevation="24dp"
+            android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+            android:outlineSpotShadowColor="@color/card_shadow_spot"
             android:clipToOutline="true"
             android:padding="14dp">
 
-            <ImageView
-                android:id="@+id/roomOverviewImage"
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="220dp"
                 android:background="@drawable/bg_item_thumb"
-                android:clipToOutline="true"
-                android:scaleType="centerCrop"
-                android:contentDescription="@string/room_image" />
+                android:clipToOutline="true">
+
+                <ImageView
+                    android:id="@+id/roomOverviewImage"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:contentDescription="@string/room_image" />
+
+                <!-- Fully booked (available_quantity == 0) â€” plain text, no pill. Same as the
+                     landing page's browse card and the booking flow's "Your Selected ..." cards. -->
+                <TextView
+                    android:id="@+id/roomOverviewAvailability"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top|end"
+                    android:layout_margin="12dp"
+                    android:letterSpacing="0.03"
+                    android:textColor="?attr/errorText"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:text="@string/status_room_type_fully_booked"
+                    android:visibility="gone" />
+
+                <!-- Available â€” "X Room/Cottage/KTV Room Available" house-icon pill, same as the
+                     landing page's browse card and the booking flow's "Your Selected ..." cards. -->
+                <LinearLayout
+                    android:id="@+id/roomOverviewAvailablePillContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top|end"
+                    android:layout_margin="12dp"
+                    android:background="@drawable/bg_badge_success"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingTop="5dp"
+                    android:paddingBottom="5dp">
+
+                    <ImageView
+                        android:layout_width="13dp"
+                        android:layout_height="13dp"
+                        android:layout_marginEnd="5dp"
+                        android:src="@drawable/ic_home"
+                        android:tint="?attr/successText"
+                        android:importantForAccessibility="no" />
+
+                    <TextView
+                        android:id="@+id/roomOverviewAvailablePillText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="?attr/successText"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+            </FrameLayout>
 
             <!-- Room type -->
             <TextView
@@ -111,6 +169,21 @@
                 android:textColor="?attr/accentPrimary"
                 android:textSize="15sp"
                 android:textStyle="bold" />
+
+            <!-- Cottages only (see LandingActivity#showRoomOverview) â€” Day Use/Night Use/
+                 Overnight (Time-Based types) or Single Rate (24-Hour types), one per line, in
+                 place of roomOverviewPrice above (hidden whenever this is shown), same as the
+                 landing page's own browse card (view_landing_room_type_card.xml). -->
+            <TextView
+                android:id="@+id/roomOverviewPriceBreakdown"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:visibility="gone"
+                android:lineSpacingExtra="2dp"
+                android:textColor="?attr/accentPrimary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
     </ScrollView>
@@ -133,3 +206,4 @@
         android:stateListAnimator="@null" />
 
 </LinearLayout>
+

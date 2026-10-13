@@ -12,7 +12,8 @@
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:fillViewport="true">
 
         <LinearLayout
@@ -34,13 +35,28 @@
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
+            <FrameLayout
+                android:id="@+id/reservePickerMultiSlot"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp" />
+
             <LinearLayout
                 android:id="@+id/reservePickerContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="6dp"
                 android:orientation="vertical" />
 
         </LinearLayout>
     </ScrollView>
+
+    <Button
+        android:id="@+id/reservePickerContinueButton"
+        style="@style/PrimaryButton"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="16dp"
+        android:text="@string/button_continue_multi"
+        android:visibility="gone" />
 </LinearLayout>

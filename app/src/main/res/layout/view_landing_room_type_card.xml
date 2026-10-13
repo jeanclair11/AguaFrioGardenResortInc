@@ -1,6 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Shared browse card for the pre-login landing page's Hotel Rooms /
-     Cottages / KTV Rooms / Function Halls screens: a large image
+     Cottages / KTV Rooms screens: a large image
      placeholder with the live availability badge pinned top-right, then
      type/category, capacity, description, and a price + BOOK row. See
      LandingActivity#bindCard. -->
@@ -10,6 +10,9 @@
     android:layout_marginBottom="14dp"
     android:orientation="vertical"
     android:background="@drawable/bg_card"
+    android:elevation="24dp"
+    android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+    android:outlineSpotShadowColor="@color/card_shadow_spot"
     android:clipToOutline="true"
     android:padding="14dp">
 
@@ -26,6 +29,7 @@
             android:scaleType="centerCrop"
             android:importantForAccessibility="no" />
 
+        <!-- Fully booked (available_quantity == 0) â€” plain text, no pill. -->
         <TextView
             android:id="@+id/roomTypeCardAvailability"
             android:layout_width="wrap_content"
@@ -35,6 +39,41 @@
             android:letterSpacing="0.03"
             android:textSize="12sp"
             android:textStyle="bold" />
+
+        <!-- Available â€” "X Room/Cottage/KTV Room Available" house-icon pill,
+             matching the receptionist web admin's own "Total Available Units" chip and the
+             booking flow's "Your Selected ..." cards (view_selectable_item_card.xml). -->
+        <LinearLayout
+            android:id="@+id/roomTypeCardAvailablePillContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_margin="12dp"
+            android:background="@drawable/bg_badge_success"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp">
+
+            <ImageView
+                android:layout_width="13dp"
+                android:layout_height="13dp"
+                android:layout_marginEnd="5dp"
+                android:src="@drawable/ic_home"
+                android:tint="?attr/successText"
+                android:importantForAccessibility="no" />
+
+            <TextView
+                android:id="@+id/roomTypeCardAvailablePillText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="?attr/successText"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
 
     </FrameLayout>
 
@@ -65,6 +104,20 @@
         android:ellipsize="end"
         android:textColor="?attr/textMuted"
         android:textSize="12sp" />
+
+    <!-- Cottages only (see LandingActivity#bindCottageKtvCard) â€” Day Use/Night Use/Overnight
+         (Time-Based types) or Single Rate (24-Hour types), one per line, in place of the flat
+         price row below (roomTypeCardPrice is hidden whenever this is shown). -->
+    <TextView
+        android:id="@+id/roomTypeCardPriceBreakdown"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:visibility="gone"
+        android:lineSpacingExtra="2dp"
+        android:textColor="?attr/accentPrimary"
+        android:textSize="13sp"
+        android:textStyle="bold" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -121,3 +174,4 @@
     </LinearLayout>
 
 </LinearLayout>
+

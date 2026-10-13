@@ -15,6 +15,7 @@ import retrofit2.http.Part;
 import retrofit2.http.PartMap;
 import retrofit2.http.Path;
 import retrofit2.http.POST;
+import retrofit2.http.Query;
 
 /**
  * Mirrors the website's guest booking wizard endpoints (Api\BookingController
@@ -36,8 +37,14 @@ public interface BookingApi {
     @GET("booking/ktv-types")
     Call<KtvTypeListResponse> getKtvTypes();
 
-    @GET("booking/hall-types")
-    Call<HallTypeListResponse> getHallTypes();
+    /** Individual KTV units. With event_date/start_time/rate_label (same formats as the "ktv[...]"
+     *  reservation fields) each unit's {@code available} reflects that slot; without them it is
+     *  the plain browse list. */
+    @GET("booking/ktv-units")
+    Call<KtvUnitListResponse> getKtvUnits(
+            @Query("event_date") String eventDate,
+            @Query("start_time") String startTime,
+            @Query("rate_label") String rateLabel);
 
     @GET("booking/cottages-ktv")
     Call<CottageKtvListResponse> getCottagesKtv(@Header("Authorization") String bearerToken);
@@ -51,11 +58,22 @@ public interface BookingApi {
             @Field("adults") int adults,
             @Field("children") int children);
 
+    /**
+     * Real, date + Cottage Use-scoped availability — the Cottage equivalent of
+     * checkAvailability() above, checked against actual Bookings/pending holds for that exact
+     * date and period (see the backend's HandlesCottageAvailability::cottageAvailableAt()),
+     * unlike getCottagesKtv()'s static in-stock count. Always called fresh, never cached client-
+     * side, same as checkAvailability().
+     */
+    @FormUrlEncoded
+    @POST("booking/cottage-availability")
+    Call<CottageAvailabilityResponse> checkCottageAvailability(
+            @Header("Authorization") String bearerToken,
+            @Field("date") String date,
+            @Field("use") String use);
+
     @GET("booking/amenities")
     Call<AmenityListResponse> getAmenities(@Header("Authorization") String bearerToken);
-
-    @GET("booking/food")
-    Call<FoodListResponse> getFood(@Header("Authorization") String bearerToken);
 
     /** Every reservation/booking the logged-in guest has, real or still-pending — backs the My
      *  Reservations list, fetched fresh every time it's opened so it survives app restarts and
@@ -68,13 +86,13 @@ public interface BookingApi {
      * session to spread this across multiple requests the way the website's wizard
      * does, so it sends everything accumulated across its own screens at once.
      * {@code quantities} holds bracket-notation form keys the backend already expects
-     * from the website (e.g. "room_quantities[1]", "amenity_quantities[27]",
-     * "menu_quantities[2]"), one entry per selected item with qty &gt; 0.
+     * from the website (e.g. "room_quantities[1]", "amenity_quantities[27]"), one entry per selected item with qty &gt; 0.
      */
     @Multipart
     @POST("booking/reserve")
     Call<ReserveResponse> reserve(
             @Header("Authorization") String bearerToken,
+            @Part("multiple_facilities") RequestBody multipleFacilities,
             @Part("check_in") RequestBody checkIn,
             @Part("check_out") RequestBody checkOut,
             @Part("adults") RequestBody adults,
@@ -94,6 +112,7 @@ public interface BookingApi {
     @POST("booking/reservations")
     Call<ReservationRequestResponse> createReservation(
             @Header("Authorization") String bearerToken,
+            @Field("multiple_facilities") String multipleFacilities,
             @Field("check_in") String checkIn,
             @Field("check_out") String checkOut,
             @Field("adults") int adults,
@@ -102,9 +121,56 @@ public interface BookingApi {
             @FieldMap Map<String, String> roomQuantities);
 
     /**
+     * Multi-facility "Reserve" (multiple_facilities=1): one request carrying a block per facility
+     * (bracket-notation keys such as "hotel[check_in]", "hotel[room_quantities][5]",
+     * "cottage[date]", "ktv[start_time]"), answered with a single reservation and reference.
+     */
+    @FormUrlEncoded
+    @POST("booking/reservations")
+    Call<ReservationRequestResponse> createMultiReservation(
+            @Header("Authorization") String bearerToken,
+            @FieldMap Map<String, String> fields);
+
+    /**
+     * Multi-facility "Book" (multiple_facilities=1): same facility blocks as
+     * {@link #createMultiReservation}, plus the usual payment fields, as multipart.
+     */
+    @Multipart
+    @POST("booking/reserve")
+    Call<ReserveResponse> reserveMulti(
+            @Header("Authorization") String bearerToken,
+            @Part("multiple_facilities") RequestBody multipleFacilities,
+            @Part("payment_option") RequestBody paymentOption,
+            @Part("reference_number") RequestBody referenceNumber,
+            @Part MultipartBody.Part proofImage,
+            @PartMap Map<String, RequestBody> fields);
+
+    /**
+     * Cottage's own "Reserve" request — same lifecycle as {@link #createReservation} (creates a
+     * Pending AdvanceReservation, visible immediately in Reservation Management's Cottage list),
+     * just with Cottage's own date+Cottage Use fields instead of a check-in/check-out range.
+     * {@code use} is "day"/"night"/"overnight" (see BookingApi#checkCottageAvailability).
+     * {@code cottageQuantities} holds the same bracket-notation keys as roomQuantities above
+     * (e.g. "cottage_quantities[10]"), keyed by Cottage Type (variant_id). Payment/status/cancel
+     * afterward reuse {@link #payReservation}/{@link #getReservationStatus}/
+     * {@link #cancelReservation} unchanged — those already work on any reservation by ID.
+     */
+    @FormUrlEncoded
+    @POST("booking/cottage-reservations")
+    Call<ReservationRequestResponse> createCottageReservation(
+            @Header("Authorization") String bearerToken,
+            @Field("multiple_facilities") String multipleFacilities,
+            @Field("date") String date,
+            @Field("use") String use,
+            @Field("adults") int adults,
+            @Field("children") int children,
+            @Field("special_request") String specialRequest,
+            @FieldMap Map<String, String> cottageQuantities);
+
+    /**
      * Submits payment for a Pending reservation created by {@link #createReservation} — promotes
      * it into a real booking, visible in Booking Management. {@code quantities} holds the same
-     * bracket-notation amenity/menu keys {@link #reserve} uses (e.g. "amenity_quantities[27]").
+     * bracket-notation amenity keys {@link #reserve} uses (e.g. "amenity_quantities[27]").
      */
     @Multipart
     @POST("booking/reservations/{id}/payment")

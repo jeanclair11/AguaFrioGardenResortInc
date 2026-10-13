@@ -1,6 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- One selectable room/amenity/food card with a quantity stepper; reused by
-     the Hotel Rooms, Choose Amenity and Order Food screens
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- One selectable room/amenity card with a quantity stepper; reused by
+     the Hotel Rooms and Choose Amenity screens
      (see HotelBookingFlowController). Fields not relevant to a given screen
      (category tag, meta line, description) are hidden in code. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -9,6 +9,9 @@
     android:layout_marginBottom="14dp"
     android:orientation="vertical"
     android:background="@drawable/bg_card"
+    android:elevation="24dp"
+    android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+    android:outlineSpotShadowColor="@color/card_shadow_spot"
     android:padding="14dp">
 
     <LinearLayout
@@ -159,7 +162,7 @@
 
     </LinearLayout>
 
-    <!-- Optional per-card proceed action. Gone by default (Amenity/Food screens rely on their
+    <!-- Optional per-card proceed action. Gone by default (the Amenity screen relies on their
          own bottom Next/Skip buttons instead); only the Reservation Module's results list shows
          and wires this, enabled once this card's quantity is > 0. -->
     <Button
@@ -188,3 +191,4 @@
         android:visibility="gone" />
 
 </LinearLayout>
+

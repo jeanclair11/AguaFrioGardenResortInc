@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Full-screen browse content swapped into LandingActivity's
-     landingContentContainer for the Hotel Rooms / Cottages / KTV Rooms /
-     Function Halls nav tabs. See LandingActivity#showCategory. Title and
+     landingContentContainer for the Hotel Rooms / Cottages / KTV Rooms
+     nav tabs. See LandingActivity#showCategory. Title and
      cards share one ScrollView so the title scrolls away with the list
      instead of staying pinned above it. Solid background (rather than
      transparent) so this full-screen swap paints over the page's

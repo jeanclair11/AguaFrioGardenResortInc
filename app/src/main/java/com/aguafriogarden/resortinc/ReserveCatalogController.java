@@ -5,15 +5,16 @@ import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+
+import java.util.List;
+import java.util.function.Consumer;
 
 /**
- * Drives the Reserve tab: a "What do you want to reserve?" gate (Hotel Room/Cottage/KTV Room),
- * each choice handing off to {@link HotelBookingFlowController}'s reserve-now flow at that
+ * Drives the Reserve tab: a "What do you want to reserve?" gate (Hotel Room/Cottage/KTV Room, or
+ * several at once via "Reserve Multiple Facilities" — see {@link FacilityPicker}), each choice handing off to {@link HotelBookingFlowController}'s reserve-now flow at that
  * category's own focused dates-entry screen (Choose Your Stay Dates/Choose Your Visit Date/Plan
  * Your KTV Session) — the exact same flow reached from a Room/Cottage/KTV Overview's "Reserve
- * Now" button (see BookingCatalogController#showHotelFlowFromRoomOverview etc.), just without a
+ * Now" button (see BookingCatalogController#showHotelFlow), just without a
  * specific pre-chosen variant (variantId -1, so Your Selected .../s shows every available option
  * with no pre-selected origin card).
  *
@@ -30,14 +31,16 @@ final class ReserveCatalogController {
 
     private final Activity activity;
     private final Runnable onBackToHome;
+    private final Consumer<Boolean> setBottomNavHidden;
     private final FrameLayout root;
 
     private int currentScreen = -1;
     private HotelBookingFlowController hotelBookingFlow;
 
-    ReserveCatalogController(Activity activity, Runnable onBackToHome) {
+    ReserveCatalogController(Activity activity, Runnable onBackToHome, Consumer<Boolean> setBottomNavHidden) {
         this.activity = activity;
         this.onBackToHome = onBackToHome;
+        this.setBottomNavHidden = setBottomNavHidden;
         root = new FrameLayout(activity);
         showPicker();
     }
@@ -67,38 +70,23 @@ final class ReserveCatalogController {
         currentScreen = SCREEN_PICKER;
         View v = LayoutInflater.from(activity).inflate(R.layout.view_reserve_picker, root, false);
 
-        LayoutInflater inflater = LayoutInflater.from(activity);
-        LinearLayout container = v.findViewById(R.id.reservePickerContainer);
-        container.removeAllViews();
-        container.addView(buildOption(inflater, container, R.string.service_type_hotel,
-                () -> showFlow(PendingRoomSelection.TYPE_ROOM)));
-        container.addView(buildOption(inflater, container, R.string.booking_type_cottage,
-                () -> showFlow(PendingRoomSelection.TYPE_COTTAGE)));
-        container.addView(buildOption(inflater, container, R.string.service_type_ktv,
-                () -> showFlow(PendingRoomSelection.TYPE_KTV)));
+        FacilityPicker.bind(activity, v, R.string.reserve_multiple_facilities, new FacilityPicker.Listener() {
+            @Override
+            public void onSingle(int facility) {
+                showHotelFlow(facility, -1, ReserveCatalogController.this::showPicker);
+            }
+
+            @Override
+            public void onMultiple(List<Integer> facilities) {
+                currentScreen = SCREEN_FLOW;
+                ensureHotelBookingFlow().startMultiFlow(facilities, ReserveCatalogController.this::showPicker, true);
+                root.removeAllViews();
+                root.addView(hotelBookingFlow.getRootView());
+            }
+        });
 
         root.removeAllViews();
         root.addView(v);
-    }
-
-    private View buildOption(LayoutInflater inflater, LinearLayout container, int nameRes, Runnable onChosen) {
-        View card = inflater.inflate(R.layout.view_booking_category_card, container, false);
-        ((TextView) card.findViewById(R.id.categoryName)).setText(nameRes);
-        card.setOnClickListener(view -> onChosen.run());
-        return card;
-    }
-
-    private void showFlow(int type) {
-        currentScreen = SCREEN_FLOW;
-        if (type == PendingRoomSelection.TYPE_COTTAGE) {
-            ensureHotelBookingFlow().showCottageDatesEntry(-1, this::showPicker, true);
-        } else if (type == PendingRoomSelection.TYPE_KTV) {
-            ensureHotelBookingFlow().showKtvDatesEntry(-1, this::showPicker, true);
-        } else {
-            ensureHotelBookingFlow().showRoomDatesEntry(-1, this::showPicker, true);
-        }
-        root.removeAllViews();
-        root.addView(hotelBookingFlow.getRootView());
     }
 
     /**
@@ -112,38 +100,36 @@ final class ReserveCatalogController {
             hotelBookingFlow = new HotelBookingFlowController(activity, this::showPicker, () -> {
                 showPicker();
                 onBackToHome.run();
-            });
+            }, setBottomNavHidden);
         }
         return hotelBookingFlow;
     }
 
     /**
-     * LandingActivity's Room Overview "Reserve Now" for a specific pre-chosen Hotel Room —
-     * mirrors BookingCatalogController#showHotelFlowFromRoomOverview, but shares THIS controller's
-     * instance/state instead, so a reservation started from the Landing Page and one started from
-     * the Reserve tab's own picker are the same reservation, visible from either entry point's
-     * Reservation Details screen (always reserve mode — this controller only ever drives Reserve).
+     * Enters the Reserve flow for a just-picked facility, from either the tab's picker (variantId
+     * -1) or LandingActivity's Room/Cottage/KTV Overview "Reserve Now" (a pre-chosen variantId) —
+     * the latter shares THIS controller's instance/state, so a reservation started from the
+     * Landing Page and one started from the Reserve tab's own picker are the same reservation,
+     * visible from either entry point's Reservation Details screen.
      */
-    void showHotelFlowFromRoomOverview(int variantId, Runnable onBackToOverview) {
+    void showHotelFlow(int type, int variantId, Runnable onBackToOverview) {
         currentScreen = SCREEN_FLOW;
-        ensureHotelBookingFlow().showRoomDatesEntry(variantId, onBackToOverview, true);
+        HotelBookingFlowController flow = ensureHotelBookingFlow();
+        if (type == PendingRoomSelection.TYPE_COTTAGE) {
+            flow.showCottageDatesEntry(variantId, onBackToOverview, true);
+        } else if (type == PendingRoomSelection.TYPE_KTV) {
+            flow.showKtvDatesEntry(variantId, onBackToOverview, true);
+        } else {
+            flow.showRoomDatesEntry(variantId, onBackToOverview, true);
+        }
         root.removeAllViews();
-        root.addView(hotelBookingFlow.getRootView());
+        root.addView(flow.getRootView());
     }
 
-    /** Same as {@link #showHotelFlowFromRoomOverview}, but for Cottages. */
-    void showHotelFlowFromCottageOverview(int variantId, Runnable onBackToOverview) {
-        currentScreen = SCREEN_FLOW;
-        ensureHotelBookingFlow().showCottageDatesEntry(variantId, onBackToOverview, true);
-        root.removeAllViews();
-        root.addView(hotelBookingFlow.getRootView());
-    }
-
-    /** Same as {@link #showHotelFlowFromRoomOverview}, but for KTV Rooms. */
-    void showHotelFlowFromKtvOverview(int variantId, Runnable onBackToOverview) {
-        currentScreen = SCREEN_FLOW;
-        ensureHotelBookingFlow().showKtvDatesEntry(variantId, onBackToOverview, true);
-        root.removeAllViews();
-        root.addView(hotelBookingFlow.getRootView());
+    /** Called when the Reserve tab is deactivated — clears in-progress form data. */
+    void onTabHidden() {
+        if (hotelBookingFlow != null) {
+            hotelBookingFlow.resetFlow();
+        }
     }
 }

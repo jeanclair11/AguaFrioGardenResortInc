@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- One room/cottage/KTV card on the "Your Selected ..." screen (see
      HotelBookingFlowController#buildSelectableCard). Three states, driven purely from code:
      (1) the originally-chosen item, available: itemSelectedBadge visible, itemQuantityRow visible.
@@ -11,6 +11,9 @@
     android:layout_marginBottom="14dp"
     android:orientation="vertical"
     android:background="@drawable/bg_card"
+    android:elevation="24dp"
+    android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+    android:outlineSpotShadowColor="@color/card_shadow_spot"
     android:clipToOutline="true"
     android:padding="14dp">
 
@@ -52,6 +55,41 @@
             android:textSize="12sp"
             android:textStyle="bold"
             android:visibility="gone" />
+
+        <!-- "X Room/Cottage/KTV Room Available" pill â€” house icon + count, matching the
+             receptionist web admin's own "Total Available Units" chip. Hidden whenever
+             itemUnavailableBanner is shown (see buildSelectableCard). -->
+        <LinearLayout
+            android:id="@+id/itemAvailableBadgeContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_margin="10dp"
+            android:background="@drawable/bg_badge_success"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp">
+
+            <ImageView
+                android:layout_width="13dp"
+                android:layout_height="13dp"
+                android:layout_marginEnd="5dp"
+                android:src="@drawable/ic_home"
+                android:tint="?attr/successText"
+                android:importantForAccessibility="no" />
+
+            <TextView
+                android:id="@+id/itemAvailableBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="?attr/successText"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
 
     </FrameLayout>
 
@@ -154,3 +192,4 @@
     </LinearLayout>
 
 </LinearLayout>
+

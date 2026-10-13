@@ -1,5 +1,9 @@
 package com.aguafriogarden.resortinc;
 
+import com.aguafriogarden.resortinc.network.PriceBreakdownEntry;
+
+import java.util.List;
+
 /**
  * Holds a room/cottage/KTV selection made before login. After successful login, the overview
  * screen is shown instead of the home page. Once the guest taps its CTA button, this is cleared
@@ -28,12 +32,20 @@ final class PendingRoomSelection {
     final String description;
     final String pricePerNight;
     final int variantId;
+    /** Cottages only (Day Use/Night Use/Overnight, or a single Single Rate row) — null for Rooms/
+     *  KTV, which show pricePerNight alone. See LandingActivity#bindCard/showRoomOverview. */
+    final List<PriceBreakdownEntry> priceBreakdown;
+    /** The browse card's live available_quantity at the moment it was tapped — carried over so
+     *  the Overview screen ("You Selected This Room/Cottage/KTV Room") can show the same
+     *  house-icon "X ___ Available" pill the browse card and booking-flow cards show. See
+     *  LandingActivity#bindCard/showRoomOverview. */
+    final int availableQty;
     final int type;
     final int purpose;
 
     private PendingRoomSelection(String imagePath, String roomTypeName, String categoryName,
-                                 int capacity, String description, String pricePerNight, int variantId, int type,
-                                 int purpose) {
+                                 int capacity, String description, String pricePerNight, int variantId,
+                                 List<PriceBreakdownEntry> priceBreakdown, int availableQty, int type, int purpose) {
         this.imagePath = imagePath;
         this.roomTypeName = roomTypeName;
         this.categoryName = categoryName;
@@ -41,15 +53,17 @@ final class PendingRoomSelection {
         this.description = description;
         this.pricePerNight = pricePerNight;
         this.variantId = variantId;
+        this.priceBreakdown = priceBreakdown;
+        this.availableQty = availableQty;
         this.type = type;
         this.purpose = purpose;
     }
 
     static void set(String imagePath, String roomTypeName, String categoryName,
-                    int capacity, String description, String pricePerNight, int variantId, int type,
-                    int purpose) {
+                    int capacity, String description, String pricePerNight, int variantId,
+                    List<PriceBreakdownEntry> priceBreakdown, int availableQty, int type, int purpose) {
         current = new PendingRoomSelection(imagePath, roomTypeName, categoryName,
-                capacity, description, pricePerNight, variantId, type, purpose);
+                capacity, description, pricePerNight, variantId, priceBreakdown, availableQty, type, purpose);
     }
 
     static PendingRoomSelection take() {

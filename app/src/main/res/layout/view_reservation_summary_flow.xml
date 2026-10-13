@@ -1,6 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Reserve flow's own Summary screen (Hotel Room/Cottage/KTV — see
-     HotelBookingFlowController#bindReservationSummary), reached from Order Food instead of the
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Reserve flow's own Summary screen (Hotel Room/Cottage/KTV â€” see
+     HotelBookingFlowController#bindReservationSummary), reached from Choose Amenity (or the last facility screen) instead of the
      Book flow's Billing Summary. Guest Information through Amount to Pay reuse Billing Summary's
      exact card styling (BillingSectionLabel headers, view_hotel_billing_line_row.xml line items)
      for visual consistency between the two flows; Amount to Pay itself is Reserve-specific
@@ -47,6 +47,9 @@
                 android:layout_marginBottom="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <TextView
@@ -59,7 +62,7 @@
                 <include android:id="@+id/reservationSummaryRowAddress" layout="@layout/view_hotel_label_value_row" />
             </LinearLayout>
 
-            <!-- Stay/Visit Details — title and which of the 5 rows are shown depend on category
+            <!-- Stay/Visit Details â€” title and which of the 5 rows are shown depend on category
                  (see bindReservationSummary): Hotel uses check-in/out/nights/guests; Cottage uses
                  rate type/date/time/guests; KTV uses rate type/date/start time/end time/guests. -->
             <LinearLayout
@@ -68,6 +71,9 @@
                 android:layout_marginBottom="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <TextView
@@ -82,13 +88,16 @@
                 <include android:id="@+id/reservationSummaryDetailsRow5" layout="@layout/view_hotel_label_value_row" />
             </LinearLayout>
 
-            <!-- Selected Room(s)/Cottage/KTV Room — title and line items depend on category. -->
+            <!-- Selected Room(s)/Cottage/KTV Room â€” title and line items depend on category. -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <TextView
@@ -111,6 +120,9 @@
                 android:layout_marginBottom="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp"
                 android:visibility="gone">
 
@@ -125,30 +137,8 @@
                     android:orientation="vertical" />
             </LinearLayout>
 
-            <!-- Food Orders (only shown when at least one is selected) -->
-            <LinearLayout
-                android:id="@+id/reservationSummaryFoodCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="14dp"
-                android:orientation="vertical"
-                android:background="@drawable/bg_card"
-                android:padding="16dp"
-                android:visibility="gone">
-
-                <TextView
-                    style="@style/BillingSectionLabel"
-                    android:text="@string/section_food_orders" />
-
-                <LinearLayout
-                    android:id="@+id/reservationSummaryFoodContainer"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical" />
-            </LinearLayout>
-
             <!-- Amount to Pay (Billing Summary's equivalent "Payment Summary" section, renamed)
-                 — Full Payment / 30% Down Payment shown as plain informational rows, not
+                 â€” Full Payment / 30% Down Payment shown as plain informational rows, not
                  clickable, since Reserve has no payment option to select. -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -156,6 +146,9 @@
                 android:layout_marginBottom="14dp"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
+                android:elevation="24dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
                 android:padding="16dp">
 
                 <TextView
@@ -166,7 +159,7 @@
                 <include android:id="@+id/reservationSummaryDownPaymentRow" layout="@layout/view_hotel_billing_line_row" />
             </LinearLayout>
 
-            <!-- Important Notice — Reserve-specific, plain text on the screen background rather
+            <!-- Important Notice â€” Reserve-specific, plain text on the screen background rather
                  than inside a card. -->
             <TextView
                 android:layout_width="match_parent"
@@ -254,3 +247,4 @@
     </LinearLayout>
 
 </LinearLayout>
+

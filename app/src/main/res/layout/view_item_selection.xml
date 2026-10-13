@@ -30,6 +30,31 @@
                 android:id="@+id/itemSelectionHeaderBar"
                 layout="@layout/view_screen_header" />
 
+            <!-- Cottage Use chooser, shown only by the multi-facility flow's Cottage step (see
+                 HotelBookingFlowController#bindCottageSelection), where the date is carried over
+                 from the Hotel Room step and there is no dedicated Cottage dates screen. -->
+            <LinearLayout
+                android:id="@+id/itemSelectionUseRow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    style="@style/FieldLabel"
+                    android:text="@string/label_cottage_use" />
+
+                <LinearLayout style="@style/InputField" android:paddingEnd="4dp">
+                    <Spinner
+                        android:id="@+id/itemSelectionUseSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@null"
+                        android:spinnerMode="dropdown" />
+                </LinearLayout>
+            </LinearLayout>
+
             <!-- Originally-chosen item slot: exactly one card, built by buildSelectableCard. -->
             <FrameLayout
                 android:id="@+id/itemSelectionOriginSlot"

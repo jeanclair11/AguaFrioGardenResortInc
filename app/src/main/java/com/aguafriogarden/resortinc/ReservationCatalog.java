@@ -25,11 +25,14 @@ final class ReservationCatalog {
     static final String BOOKING_TYPE_COTTAGE = "Cottage";
     static final String BOOKING_TYPE_KTV = "KTV";
 
-    /** Client-only rate-type placeholders for the Cottage/KTV tabs (see
-     *  ReservationFlowController) — the backend has no rate-type field yet, so these
-     *  don't change pricing; they only drive the KTV tab's duration/end-time auto-calc. */
-    static final String RATE_TYPE_DAY = "Day Rate";
-    static final String RATE_TYPE_NIGHT = "Night Rate";
+    /** Cottage Use choice on the Cottage Dates screen — matches CottageVariant::COTTAGE_USES'
+     *  labels on the backend exactly, so HotelBookingFlowController#resolvedItemPrice can look
+     *  the guest's choice straight up in a CottageKtvOption's price_breakdown. KTV's own
+     *  RATE_TYPE_REGULAR/RATE_TYPE_CONSUMABLE below are a separate, unrelated concept (they only
+     *  drive the KTV tab's duration/end-time auto-calc, not pricing). */
+    static final String RATE_TYPE_DAY = "Day Use";
+    static final String RATE_TYPE_NIGHT = "Night Use";
+    static final String RATE_TYPE_OVERNIGHT = "Overnight";
     static final String RATE_TYPE_REGULAR = "Regular KTV";
     static final String RATE_TYPE_CONSUMABLE = "Consumable KTV";
 

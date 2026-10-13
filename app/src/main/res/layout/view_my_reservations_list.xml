@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- My Reservations on the Reserve tab's "Choose Your Stay Dates" screen — always fetched fresh
-     from the server (see HotelBookingFlowController#bindMyReservationsList), never cached locally,
-     so it survives app restarts and re-logins. Current/Past toggle plus a tappable list, each row
-     opening Reservation Details for that reservation. -->
+<!-- My Reservations/My Bookings on the Reserve/Book tabs' "Choose Your Stay Dates" screen —
+     always fetched fresh from the server (see HotelBookingFlowController#bindMyReservationsList),
+     never cached locally, so it survives app restarts and re-logins. Current/Past toggle plus a
+     tappable list, each row opening Reservation Details for that entry. Reserve shows
+     kind:"advance_reservation" entries (still pending/cancelled deposits); Book shows
+     kind:"reservation" entries (already booked/paid) — see #matchesListMode. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -65,7 +67,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="40dp"
                 android:gravity="center"
-                android:text="@string/label_no_reservation_message"
+                android:text="@string/label_no_current_reservations"
                 android:textColor="?attr/textOnScreenMuted"
                 android:textSize="14sp"
                 android:visibility="gone" />

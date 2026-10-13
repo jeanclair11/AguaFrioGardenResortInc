@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- One feedback entry; inflated repeatedly into feedbackListContainer. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -6,6 +6,9 @@
     android:layout_marginBottom="14dp"
     android:orientation="vertical"
     android:background="@drawable/bg_card"
+    android:elevation="24dp"
+    android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+    android:outlineSpotShadowColor="@color/card_shadow_spot"
     android:padding="14dp">
 
     <LinearLayout
@@ -116,3 +119,4 @@
     </LinearLayout>
 
 </LinearLayout>
+

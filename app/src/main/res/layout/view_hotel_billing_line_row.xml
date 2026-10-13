@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- One itemized line (name + meta on the left, price on the right) used in
-     the Billing Summary's Accommodation, Amenities and Food Orders sections,
+     the Billing Summary's Accommodation and Amenities sections,
      and in the Payment Summary totals block. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"

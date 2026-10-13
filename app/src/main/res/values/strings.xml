@@ -10,17 +10,26 @@
     <string name="landing_nav_rooms">HOTEL ROOMS</string>
     <string name="landing_nav_cottages">COTTAGES</string>
     <string name="landing_nav_ktv">KTV ROOMS</string>
-    <string name="landing_nav_halls">HALLS</string>
     <string name="landing_welcome_title">Welcome to Agua Frio Garden Resort Inc.</string>
     <string name="landing_welcome_subtitle">— Venue for Great Events —</string>
-    <string name="landing_intro_paragraph">Established in 2004, Agua Frio is a relaxing destination in Koronadal where families and friends can gather, celebrate, and create lasting memories. From refreshing pools and comfortable accommodations to function halls and entertainment areas, we offer a welcoming space for every occasion and getaway.</string>
 
     <string name="landing_rooms_section_title">EXPLORE OUR HOTEL ROOMS</string>
     <string name="landing_rooms_empty_state">No room types are available right now. Please check back soon.</string>
     <string name="landing_room_description_fallback">Comfortable accommodations for your stay.</string>
     <string name="landing_room_capacity_format">Up to %1$d Guests</string>
+    <!-- Cottages only — see LandingActivity#bindCard/showRoomOverview and
+         HotelBookingFlowController's buildSelectableCard/cottage review/billing rows. Hotel
+         Rooms/KTV keep landing_room_capacity_format/format_capacity ("Up to X Guests"). -->
+    <string name="cottage_capacity_format">Can accommodate %1$d Guests</string>
     <string name="format_room_type_with_category">%1$s (%2$s)</string>
     <string name="status_room_type_fully_booked">FULLY BOOKED</string>
+    <!-- "Your Selected .../Available ..." booking-flow cards' house-icon pill badge (see
+         HotelBookingFlowController#buildSelectableCard) — matches the receptionist web admin's
+         own "Total Available Units" chip. unitLabel is one of the three below. -->
+    <string name="format_available_units">%1$d %2$s Available</string>
+    <string name="unit_label_room">Room</string>
+    <string name="unit_label_cottage">Cottage</string>
+    <string name="unit_label_ktv_room">KTV Room</string>
     <plurals name="room_type_available_count">
         <item quantity="one">%1$d ROOM AVAILABLE</item>
         <item quantity="other">%1$d ROOMS AVAILABLE</item>
@@ -34,15 +43,20 @@
     <string name="landing_button_reserve">RESERVE</string>
     <string name="landing_cottages_section_title">EXPLORE OUR COTTAGES</string>
     <string name="landing_ktv_section_title">EXPLORE OUR KTV ROOMS</string>
-    <string name="landing_halls_section_title">EXPLORE OUR FUNCTION HALLS</string>
     <string name="landing_category_empty_state">No options are available right now. Please check back soon.</string>
     <string name="format_price_with_unit">PHP %1$s / %2$s</string>
+    <string name="format_price_breakdown_line">%1$s: PHP %2$s</string>
 
     <string name="landing_gallery_title">Gallery</string>
-    <string name="landing_about_resort_title">About the Resort</string>
-    <string name="landing_about_resort_body">Established on December 8, 2004, Agua Frio Garden Resort Inc. began as a simple place for families and friends to enjoy quality time together. As the years passed, it continued to grow—adding Villa Rooms in 2006, Claricon Rooms and function halls in 2010, and KTV Rooms and entertainment facilities in 2016. Through every change, Agua Frio has remained a place where guests can relax, celebrate, and create cherished memories together.</string>
-    <string name="landing_about_owners_title">About the Owners</string>
-    <string name="landing_about_owners_body">Agua Frio Garden Resort Inc. is owned and managed by the Pascua siblings, who inherited the resort from their parents as part of their family legacy. They work together to oversee its operations and continued development while preserving Agua Frio as a place for relaxation, recreation, and memorable gatherings.</string>
+    <string name="landing_gallery_previous">Previous image</string>
+    <string name="landing_gallery_next">Next image</string>
+    <string name="landing_about_resort_title">Agua Frio Garden Resort, Inc.</string>
+    <string name="landing_about_resort_body">Welcome to Agua Frio Garden Resort, Inc., located at Purok Ramos, Barangay Sta. Cruz, Koronadal City, South Cotabato. We offer a welcoming destination where families, friends, and groups can relax, enjoy quality time together, and create memorable experiences.</string>
+    <string name="landing_about_resort_body2">Discover our resort facilities and services, including swimming pools, cottages for day-use and overnight stays, hotel room accommodations, KTV rooms, and dining services. Whether you\'re planning a family getaway, a gathering with friends, or a special celebration, Agua Frio Garden Resort offers a relaxing environment for your leisure and recreation needs.</string>
+    <string name="landing_contact_title">Official Contact Information</string>
+    <string name="landing_contact_phone">+63 933 819 9018</string>
+    <string name="landing_contact_email">aguafrioinc@gmail.com</string>
+    <string name="landing_contact_address">Purok Ramos, Barangay Sta. Cruz, Koronadal City, South Cotabato</string>
 
     <!-- Share the App section (below About the Owners) -->
     <string name="landing_share_app_title">Share the App</string>
@@ -325,7 +339,6 @@
     <string name="service_type_hotel">Hotel Room</string>
     <string name="service_type_ktv">KTV Room</string>
     <string name="service_type_cottage">Pool &amp; Cottage</string>
-    <string name="service_type_hall">Function Hall</string>
 
     <!-- Profile -->
     <string name="section_my_account">MY ACCOUNT</string>
@@ -421,6 +434,20 @@
          service_type_ktv for their 3 options. -->
     <string name="booking_picker_title">What do you want to book?</string>
     <string name="reserve_picker_title">What do you want to reserve?</string>
+    <string name="reserve_multiple_facilities">Reserve Multiple Facilities</string>
+    <string name="book_multiple_facilities">Book Multiple Facilities</string>
+    <string name="button_continue_multi">Continue</string>
+    <string name="toast_select_two_facilities">Select at least two facilities to continue.</string>
+    <string name="add_on_title_reserve">Reserve more?</string>
+    <string name="add_on_title_book">Book more?</string>
+    <string name="add_on_message">Would you also like to add a %1$s to this?</string>
+    <string name="add_on_choose_title">Add which facility?</string>
+    <string name="toast_select_add_on">Select a facility to add, or tap No.</string>
+    <string name="multi_review_subtitle">Here\'s everything you\'ve picked, all in one transaction.</string>
+    <string name="label_facility_charges">Facility Charges</string>
+    <string name="multi_facility_header_room">Hotel Rooms · %1$s – %2$s · %3$s · %4$s</string>
+    <string name="multi_facility_header_cottage">Cottage · %1$s · %2$s · %3$s</string>
+    <string name="multi_facility_header_ktv">KTV Room · %1$s · %2$s – %3$s · %4$s · %5$s</string>
 
     <string name="button_book_now">BOOK NOW</string>
     <string name="button_reserve_now">RESERVE NOW</string>
@@ -504,9 +531,8 @@
     <string name="room_dates_subtitle">To help us find the best available accommodation for your preferred schedule, please select your check-in and check-out dates before exploring our rooms.</string>
     <string name="button_my_reservations">My Reservations</string>
     <string name="button_my_bookings">My Bookings</string>
-    <string name="label_no_reservation_message">You have no reservation yet.</string>
-    <string name="label_no_booking_message">You have no booking yet.</string>
     <string name="my_reservations_title">My Reservations</string>
+    <string name="my_bookings_title">My Bookings</string>
     <string name="reservation_cancelled_by_guest">You cancelled this Reservation.</string>
     <string name="reservation_cancelled_by_staff">The Reservation has been cancelled by our staff.</string>
     <string name="format_reservation_cancelled_reason_suffix"> Reason: %1$s</string>
@@ -514,11 +540,13 @@
     <string name="label_reservations_past">Past</string>
     <string name="label_no_current_reservations">You have no active reservations.</string>
     <string name="label_no_past_reservations">You have no past reservations.</string>
+    <string name="label_no_current_bookings">You have no active bookings.</string>
+    <string name="label_no_past_bookings">You have no past bookings.</string>
 
     <!-- Cottage Overview's "Book Now" entry only (see HotelBookingFlowController#bindCottageDatesEntry) —
          the Book/Reserve tabs' shared focused, Cottage-only gate screen. -->
     <string name="cottage_dates_title">Choose Your Visit Date</string>
-    <string name="cottage_dates_subtitle">To help us find the best available cottage for your preferred schedule, please select your visit date and time.</string>
+    <string name="cottage_dates_subtitle">To help us find the best available cottage for your preferred schedule, please select your visit date and Cottage Use.</string>
     <string name="note_entrance_fee_calculation">Please indicate the number of adults and children in your group for entrance fee calculation. The details will be verified upon entry.</string>
 
     <!-- KTV Overview's "Book Now" entry only (see HotelBookingFlowController#bindKtvDatesEntry) —
@@ -535,8 +563,15 @@
     <!-- Cottage / KTV reservation-details tabs (Reserve tab) -->
     <string name="label_rate_type">Select Rate Type</string>
     <string name="label_selected_rate_type">Selected Rate Type</string>
-    <string name="rate_type_day">Day Rate</string>
-    <string name="rate_type_night">Night Rate</string>
+    <string name="rate_type_day">Day Use</string>
+    <string name="rate_type_night">Night Use</string>
+    <string name="rate_type_overnight">Overnight</string>
+    <string name="label_cottage_use">Cottage Use</string>
+    <string-array name="cottage_use_options">
+        <item>@string/rate_type_day</item>
+        <item>@string/rate_type_night</item>
+        <item>@string/rate_type_overnight</item>
+    </string-array>
     <string name="label_total_guest">Total Guest</string>
     <string name="ktv_rate_type_regular">Regular KTV – 5 Hours</string>
     <string name="ktv_rate_type_consumable">Consumable KTV – 3 Hours</string>
@@ -607,11 +642,6 @@
     <string name="button_loading">Loading…</string>
     <string name="toast_amenities_load_failed">We couldn\'t load amenities right now. Please try again.</string>
 
-    <string name="hotel_food_title">Order Food</string>
-    <string name="hotel_food_subtitle">Pre-order food for your stay. You can skip this step if you don\'t need any.</string>
-    <string name="dialog_no_food_title">No Food Selected</string>
-    <string name="dialog_no_food_message">You haven\'t added any food to your order. Add an item or tap Skip to continue without ordering food.</string>
-    <string name="toast_food_load_failed">We couldn\'t load the food menu right now. Please try again.</string>
 
     <string name="hotel_billing_title">Summary</string>
     <string name="hotel_billing_subtitle">Please review your details before proceeding.</string>
@@ -620,7 +650,6 @@
     <string name="section_cottage">COTTAGE</string>
     <string name="section_ktv_rooms">KTV ROOMS</string>
     <string name="section_amenities">AMENITIES</string>
-    <string name="section_food_orders">FOOD ORDERS</string>
     <string name="section_payment_summary">PAYMENT SUMMARY</string>
     <string name="section_payment_option">PAYMENT OPTION</string>
     <string name="label_full_name">Full Name</string>
@@ -635,7 +664,6 @@
     <string name="label_cottage_charges">Cottage Charges</string>
     <string name="label_ktv_charges">KTV Charges</string>
     <string name="label_amenities_total">Amenities</string>
-    <string name="label_food_total">Food Orders</string>
     <string name="label_grand_total">Grand Total</string>
     <string name="payment_option_full_title">FULL PAYMENT</string>
     <string name="payment_option_full_desc">Pay the total amount today.</string>
