@@ -1973,7 +1973,7 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
                 return;
             }
-            Toast.makeText(activity, R.string.toast_feature_coming_soon, Toast.LENGTH_LONG).show();
+            submitSingleFacilityBooking(v, FAC_COTTAGE);
         });
     }
 
@@ -2374,7 +2374,7 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
                 return;
             }
-            Toast.makeText(activity, R.string.toast_feature_coming_soon, Toast.LENGTH_LONG).show();
+            submitSingleFacilityBooking(v, FAC_KTV);
         });
     }
 
@@ -2541,26 +2541,16 @@ final class HotelBookingFlowController {
         termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
         cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
 
-        // Hotel Rooms and Cottages both submit a real reservation request to the shared backend
-        // (see submitReservationRequest/submitCottageReservationRequest) — KTV has no such
-        // endpoint yet, so it keeps the mock "request submitted" confirmation this screen
-        // originally shipped with.
+        // Hotel Rooms, Cottages and KTV Rooms all submit a real reservation request to the shared
+        // backend (submitReservationRequest / submitCottageReservationRequest /
+        // submitSingleFacilityReservation).
         v.findViewById(R.id.reservationSummaryReserveButton).setOnClickListener(view -> {
             if (activeContinuation == CONTINUATION_COTTAGE) {
                 submitCottageReservationRequest(v);
                 return;
             }
-            if (activeContinuation != CONTINUATION_NONE) {
-                reservationReferenceNo = generateReservationReference();
-                reservationStatus = RES_STATUS_PENDING;
-                reservationPaymentSubmitted = false;
-                reservationSubmittedAtMillis = System.currentTimeMillis();
-                reservationPaymentSubmittedAtMillis = -1;
-                reservationBookedAtMillis = -1;
-                reservationCancelledAtMillis = -1;
-                reservationCancelReason = "";
-                snapshotReservationDisplayData();
-                showScreen(SCREEN_RESERVATION_CONFIRMED);
+            if (activeContinuation == CONTINUATION_KTV) {
+                submitSingleFacilityReservation(v, FAC_KTV);
                 return;
             }
             submitReservationRequest(v);
@@ -2711,13 +2701,6 @@ final class HotelBookingFlowController {
             resetFlow();
             onBackToHome.run();
         });
-    }
-
-    /** No backend reservation endpoint yet (see resetFlow/reservationReferenceNo) — a locally
-     *  generated, display-only reference so the mock Reservation Confirmed/Details screens have
-     *  something to show. */
-    private String generateReservationReference() {
-        return "RES-" + new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
     }
 
     /**
@@ -2959,8 +2942,8 @@ final class HotelBookingFlowController {
                 return;
             }
             if (reservationAdvanceReservationId > 0) {
-                // A real reservation (Hotel Rooms or Cottage — see submitReservationRequest/
-                // submitCottageReservationRequest) — cancel it on the shared backend so it
+                // A real reservation (Hotel Rooms, Cottage or KTV — see submitReservationRequest/
+                // submitCottageReservationRequest/submitSingleFacilityReservation) — cancel it on the shared backend so it
                 // actually takes effect (Reservation Management's own list, and a re-fetch of
                 // this same reservation's status, both need to see it), not just a local status
                 // flip that the very next refreshReservationStatus() call would overwrite right
@@ -2968,8 +2951,7 @@ final class HotelBookingFlowController {
                 submitReservationCancellation(dialog, reason);
                 return;
             }
-            // KTV Reserve is still local-mock (see submitReservationRequest's own class doc) —
-            // nothing real exists server-side to cancel.
+            // No server-side reservation exists to cancel (never submitted).
             reservationStatus = RES_STATUS_CANCELLED;
             reservationCancelReason = reason;
             reservationCancelledAtMillis = System.currentTimeMillis();
@@ -4843,29 +4825,41 @@ final class HotelBookingFlowController {
     /** Adds one facility's block to a multi-facility request, as bracket-notation keys
      *  ("hotel[check_in]", "cottage[cottage_quantities][7]", ...). */
     private Map<String, String> multiFacilityFields() {
+        return facilityFields(multiQueue, multiQuantities::get);
+    }
+
+    /** A single Cottage or KTV Room submission, sent through the same multi-facility endpoints
+     *  with exactly one facility block (the server accepts a lone block) — so it creates a real
+     *  record the receptionist sees, with the quantities from the on-screen selection. */
+    private Map<String, String> singleFacilityFields(int facility) {
+        return facilityFields(java.util.Collections.singletonList(facility), f -> roomQuantities);
+    }
+
+    private Map<String, String> facilityFields(List<Integer> facilities,
+                                               java.util.function.Function<Integer, Map<Integer, Integer>> quantitiesFor) {
         Map<String, String> fields = new LinkedHashMap<>();
         SimpleDateFormat day = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
         fields.put("multiple_facilities", "1");
         fields.put("special_request", specialRequest);
-        for (int facility : multiQueue) {
+        for (int facility : facilities) {
             if (facility == FAC_ROOM) {
                 fields.put("hotel[check_in]", day.format(new Date(checkInMillis)));
                 fields.put("hotel[check_out]", day.format(new Date(checkOutMillis)));
                 fields.put("hotel[adults]", String.valueOf(adults));
                 fields.put("hotel[children]", String.valueOf(children));
-                putNestedQuantities(fields, "hotel[room_quantities]", multiQuantities.get(FAC_ROOM));
+                putNestedQuantities(fields, "hotel[room_quantities]", quantitiesFor.apply(FAC_ROOM));
             } else if (facility == FAC_COTTAGE) {
                 fields.put("cottage[date]", day.format(new Date(cottageDateMillis)));
                 fields.put("cottage[use]", cottageUseKey());
                 fields.put("cottage[adults]", String.valueOf(cottageAdults));
                 fields.put("cottage[children]", String.valueOf(cottageChildren));
-                putNestedQuantities(fields, "cottage[cottage_quantities]", multiQuantities.get(FAC_COTTAGE));
+                putNestedQuantities(fields, "cottage[cottage_quantities]", quantitiesFor.apply(FAC_COTTAGE));
             } else {
                 fields.put("ktv[event_date]", day.format(new Date(ktvDateMillis)));
                 fields.put("ktv[start_time]", String.format(Locale.US, "%02d:%02d", ktvStartHour, ktvStartMinute));
                 fields.put("ktv[guest_count]", String.valueOf(ktvGuestCount));
                 fields.put("ktv[duration_hours]", String.valueOf(ktvDurationHours));
-                putKtvSelection(fields, multiQuantities.get(FAC_KTV));
+                putKtvSelection(fields, quantitiesFor.apply(FAC_KTV));
             }
         }
         return fields;
@@ -4911,6 +4905,16 @@ final class HotelBookingFlowController {
      * A 422 is shown to the guest as the server's own message.
      */
     private void submitMultiReservation(View summaryView) {
+        submitFacilityReservation(summaryView, multiFacilityFields(), true);
+    }
+
+    /** Reserve for a facility-only (Cottage/KTV) flow: a real Pending reservation on the server,
+     *  keeping the facility's own continuation so its details/summary screens still render. */
+    private void submitSingleFacilityReservation(View summaryView, int facility) {
+        submitFacilityReservation(summaryView, singleFacilityFields(facility), false);
+    }
+
+    private void submitFacilityReservation(View summaryView, Map<String, String> fields, boolean multi) {
         String token = ProfileStore.getAuthToken(activity);
         if (token.isEmpty()) {
             Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
@@ -4919,7 +4923,7 @@ final class HotelBookingFlowController {
         Button reserveButton = summaryView.findViewById(R.id.reservationSummaryReserveButton);
         reserveButton.setEnabled(false);
 
-        ApiClient.bookingApi().createMultiReservation("Bearer " + token, multiFacilityFields())
+        ApiClient.bookingApi().createMultiReservation("Bearer " + token, fields)
                 .enqueue(new Callback<ReservationRequestResponse>() {
                     @Override
                     public void onResponse(Call<ReservationRequestResponse> call, Response<ReservationRequestResponse> response) {
@@ -4927,7 +4931,7 @@ final class HotelBookingFlowController {
                         if (response.isSuccessful() && response.body() != null) {
                             reservationAdvanceReservationId = response.body().advance_reservation_id;
                             reservationReferenceNo = response.body().booking_reference;
-                            finishMultiReservation();
+                            finishMultiReservation(multi);
                         } else if (response.code() == 401) {
                             Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
                         } else {
@@ -4946,7 +4950,7 @@ final class HotelBookingFlowController {
                 });
     }
 
-    private void finishMultiReservation() {
+    private void finishMultiReservation(boolean multi) {
         reservationStatus = RES_STATUS_PENDING;
         ProfileStore.setActiveReservationId(activity, reservationAdvanceReservationId);
         ProfileStore.setActiveReservationStatus(activity, "pending");
@@ -4956,7 +4960,9 @@ final class HotelBookingFlowController {
         reservationBookedAtMillis = -1;
         reservationCancelledAtMillis = -1;
         reservationCancelReason = "";
-        activeContinuation = CONTINUATION_NONE;
+        if (multi) {
+            activeContinuation = CONTINUATION_NONE;
+        }
         snapshotReservationDisplayData();
         multiMode = false;
         showScreen(SCREEN_RESERVATION_CONFIRMED);
@@ -4968,6 +4974,17 @@ final class HotelBookingFlowController {
      * Amenities (Hotel Rooms only) go in the same request as amenity_quantities.
      */
     private void submitMultiBooking(View paymentView) {
+        submitFacilityBooking(paymentView, multiFacilityFields(), multiQueue.contains(FAC_ROOM));
+    }
+
+    /** Complete Booking for a facility-only (Cottage/KTV) flow: the same multipart booking
+     *  request as the multi-facility Book, with that one facility's block. Amenities chosen on
+     *  the shared Amenity step ride along. */
+    private void submitSingleFacilityBooking(View paymentView, int facility) {
+        submitFacilityBooking(paymentView, singleFacilityFields(facility), true);
+    }
+
+    private void submitFacilityBooking(View paymentView, Map<String, String> fieldSource, boolean includeAmenities) {
         String token = ProfileStore.getAuthToken(activity);
         if (token.isEmpty()) {
             Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
@@ -4989,12 +5006,12 @@ final class HotelBookingFlowController {
         completeButton.setEnabled(false);
 
         Map<String, RequestBody> fields = new LinkedHashMap<>();
-        for (Map.Entry<String, String> entry : multiFacilityFields().entrySet()) {
+        for (Map.Entry<String, String> entry : fieldSource.entrySet()) {
             if (!entry.getKey().equals("multiple_facilities")) {
                 fields.put(entry.getKey(), textPart(entry.getValue()));
             }
         }
-        if (multiQueue.contains(FAC_ROOM)) {
+        if (includeAmenities) {
             putQuantityParts(fields, "amenity_quantities", amenityQuantities);
         }
 
