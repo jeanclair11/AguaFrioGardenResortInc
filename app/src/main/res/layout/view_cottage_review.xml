@@ -95,13 +95,13 @@
                 android:id="@+id/cottageReviewSpecialRequestField"
                 android:layout_width="match_parent"
                 android:layout_height="110dp"
-                android:background="@drawable/bg_input"
+                android:background="@drawable/bg_auth_input"
                 android:gravity="top|start"
                 android:hint="@string/hint_special_request_flow"
                 android:inputType="textMultiLine"
                 android:padding="14dp"
-                android:textColor="?attr/textPrimary"
-                android:textColorHint="?attr/textHint"
+                android:textColor="@color/auth_input_text"
+                android:textColorHint="?attr/authFieldHint"
                 android:textSize="14sp" />
 
             <TextView

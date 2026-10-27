@@ -210,11 +210,11 @@
             android:minHeight="44dp"
             android:gravity="center_vertical|start"
             android:padding="12dp"
-            android:background="@drawable/bg_input"
+            android:background="@drawable/bg_auth_input"
             android:hint="@string/hint_chat_message"
             android:inputType="textMultiLine|textCapSentences"
-            android:textColor="?attr/textPrimary"
-            android:textColorHint="?attr/textHint"
+            android:textColor="@color/auth_input_text"
+            android:textColorHint="?attr/authFieldHint"
             android:textSize="14sp" />
 
         <ImageView

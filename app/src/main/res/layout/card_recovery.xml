@@ -12,7 +12,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:fontFamily="serif"
+        android:fontFamily="@font/poppins"
         android:text="@string/recovery_heading"
         android:textColor="?attr/textPrimary"
         android:textSize="22sp"
@@ -31,16 +31,16 @@
         android:layout_marginTop="24dp"
         android:text="@string/label_registered_email" />
 
-    <LinearLayout style="@style/InputField">
+    <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
 
         <ImageView style="@style/InputIcon" android:src="@drawable/ic_email" />
 
         <EditText
             android:id="@+id/emailField"
-            style="@style/InputEditText"
+            style="@style/AuthInputEditText"
             android:hint="@string/hint_registered_email"
             android:inputType="textEmailAddress" />
-    </LinearLayout>
+    </com.aguafriogarden.resortinc.AuthInputField>
 
     <!-- Send OTP (text + arrow, styled like the primary button) -->
     <LinearLayout

@@ -12,6 +12,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -30,7 +31,6 @@ import com.aguafriogarden.resortinc.network.KtvUnitListResponse;
 import com.aguafriogarden.resortinc.network.PriceBreakdownEntry;
 import com.aguafriogarden.resortinc.network.RoomTypeAvailability;
 import com.aguafriogarden.resortinc.network.RoomTypeListResponse;
-import com.bumptech.glide.Glide;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -71,6 +71,8 @@ public class LandingActivity extends Activity {
     private static final long CONTENT_FADE_MS = 150L;
     private static final long CONTENT_SLIDE_MS = 220L;
     private static final long BADGE_REFRESH_MS = 2000L;
+    private static final long SPLASH_SPIN_MS = 1400L;
+    private static final long SPLASH_FADE_MS = 300L;
     /** How often the currently-open Hotel Rooms/Cottages/KTV Rooms browse screen
      *  re-fetches its list, so admin-side additions/edits/price or capacity changes/activation-
      *  deactivation show up without the guest leaving and reopening the tab. Works whether logged
@@ -117,6 +119,39 @@ public class LandingActivity extends Activity {
      *  after onPause stopped it, without re-inflating the browse screen. */
     private Runnable currentCategoryFetch;
 
+    /**
+     * Cold-start splash: a full-screen overlay (same navy background as the system splash) whose
+     * logo flips like a coin (turns about its vertical axis) one full time, then fades away to reveal the Home screen. Done in-app rather
+     * than in the system splash, which can only show a static icon.
+     */
+    private void playSplashSpin() {
+        FrameLayout root = findViewById(android.R.id.content);
+        FrameLayout overlay = new FrameLayout(this);
+        overlay.setBackgroundColor(getColor(R.color.dark_gradient_start));
+        overlay.setClickable(true);
+        overlay.setElevation(1000f);
+
+        int logoSize = (int) (160 * getResources().getDisplayMetrics().density);
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.drawable.agua_frio_logo);
+        logo.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        overlay.addView(logo, new FrameLayout.LayoutParams(logoSize, logoSize, android.view.Gravity.CENTER));
+        root.addView(overlay, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        logo.setCameraDistance(8000f * getResources().getDisplayMetrics().density);
+        logo.animate()
+                .rotationY(360f)
+                .setDuration(SPLASH_SPIN_MS)
+                .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
+                .withEndAction(() -> overlay.animate()
+                        .alpha(0f)
+                        .setDuration(SPLASH_FADE_MS)
+                        .withEndAction(() -> root.removeView(overlay))
+                        .start())
+                .start();
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -124,8 +159,11 @@ public class LandingActivity extends Activity {
         activeThemeMode = ThemeManager.mode(this);
         setContentView(R.layout.activity_landing);
         ThemeManager.playPendingFade(this);
+        if (savedInstanceState == null) {
+            playSplashSpin();
+        }
 
-        landingContentContainer = findViewById(R.id.landingContentContainer);
+        landingContentContainer =findViewById(R.id.landingContentContainer);
         landingHomeScroll = findViewById(R.id.landingHomeScroll);
         navBar = findViewById(R.id.landingNavBar);
         headerBar = findViewById(R.id.landingHeaderBar);
@@ -141,6 +179,7 @@ public class LandingActivity extends Activity {
         // only scroll the gallery, never step the top-nav tabs (see setSwipeExclusionZone).
         HorizontalScrollView galleryScroll = findViewById(R.id.landingGalleryScroll);
         landingContentContainer.setSwipeExclusionZone(galleryScroll);
+        loadGalleryTiles(findViewById(R.id.landingGalleryContent));
         setupInfiniteGallery(galleryScroll, findViewById(R.id.landingGalleryContent));
 
         topNavItems[0] = findViewById(R.id.navTabHome);
@@ -845,6 +884,24 @@ public class LandingActivity extends Activity {
      * copyWidth to restore a full buffer in that direction, so a true edge is never reached in
      * ordinary use and the strip just appears to keep going forever either way.
      */
+    /**
+     * Fills each gallery tile with its bundled photo (named by the tile's tag) through Glide, so the
+     * photos decode off the main thread at tile size and each tile shows a skeleton until its photo
+     * is ready, instead of the layout inflater decoding all of them synchronously.
+     */
+    private void loadGalleryTiles(LinearLayout content) {
+        for (int i = 0; i < content.getChildCount(); i++) {
+            View tile = content.getChildAt(i);
+            ImageView photo = (ImageView) ((ViewGroup) tile).getChildAt(0);
+            Object name = photo.getTag();
+            int res = name == null ? 0
+                    : getResources().getIdentifier(name.toString(), "drawable", getPackageName());
+            if (res != 0) {
+                ImageLoader.loadResource(photo, res, R.drawable.ic_gallery);
+            }
+        }
+    }
+
     private void setupInfiniteGallery(HorizontalScrollView galleryScroll, LinearLayout content) {
         content.post(() -> {
             // Side padding of (viewport - tile) / 2 means a tile is centred on screen whenever
@@ -1221,17 +1278,7 @@ public class LandingActivity extends Activity {
 
     /** Loads a photo from the backend, falling back to a placeholder icon. */
     private void loadImage(ImageView imageView, String imagePath) {
-        String url = ApiClient.imageUrl(imagePath);
-        if (url == null) {
-            imageView.setImageResource(R.drawable.ic_bed);
-            return;
-        }
-        Glide.with(this)
-                .load(url)
-                .placeholder(R.drawable.ic_bed)
-                .error(R.drawable.ic_bed)
-                .centerCrop()
-                .into(imageView);
+        ImageLoader.load(imageView, ApiClient.imageUrl(imagePath), R.drawable.ic_bed);
     }
 
     private String formatMoney(double amount) {

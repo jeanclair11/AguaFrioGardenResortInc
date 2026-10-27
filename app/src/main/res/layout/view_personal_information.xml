@@ -37,88 +37,85 @@
             style="@style/FieldLabelOnScreen"
             android:text="@string/label_first_name" />
 
-        <LinearLayout style="@style/InputField">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_person" />
             <EditText
                 android:id="@+id/piFirstNameField"
-                style="@style/InputEditText"
+                style="@style/AuthInputEditText"
                 android:inputType="textPersonName" />
-        </LinearLayout>
-        <TextView android:id="@+id/piFirstNameError" style="@style/FieldError" />
+        </com.aguafriogarden.resortinc.AuthInputField>
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piFirstNameError" style="@style/AuthFieldError" />
 
         <TextView
             style="@style/FieldLabelOnScreen"
             android:layout_marginTop="16dp"
             android:text="@string/label_middle_name" />
 
-        <LinearLayout style="@style/InputField">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_person" />
             <EditText
                 android:id="@+id/piMiddleNameField"
-                style="@style/InputEditText"
+                style="@style/AuthInputEditText"
                 android:inputType="textPersonName" />
-        </LinearLayout>
-        <TextView android:id="@+id/piMiddleNameError" style="@style/FieldError" />
+        </com.aguafriogarden.resortinc.AuthInputField>
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piMiddleNameError" style="@style/AuthFieldError" />
 
         <TextView
             style="@style/FieldLabelOnScreen"
             android:layout_marginTop="16dp"
             android:text="@string/label_last_name" />
 
-        <LinearLayout style="@style/InputField">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_person" />
             <EditText
                 android:id="@+id/piLastNameField"
-                style="@style/InputEditText"
+                style="@style/AuthInputEditText"
                 android:inputType="textPersonName" />
-        </LinearLayout>
-        <TextView android:id="@+id/piLastNameError" style="@style/FieldError" />
+        </com.aguafriogarden.resortinc.AuthInputField>
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piLastNameError" style="@style/AuthFieldError" />
 
         <TextView
             style="@style/FieldLabelOnScreen"
             android:layout_marginTop="16dp"
             android:text="@string/label_gender" />
 
-        <LinearLayout style="@style/InputField" android:paddingEnd="4dp">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <Spinner
                 android:id="@+id/piGenderSpinner"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@null"
-                android:spinnerMode="dropdown" />
-        </LinearLayout>
-        <TextView android:id="@+id/piGenderError" style="@style/FieldError" />
+                style="@style/AuthSpinner" />
+        </com.aguafriogarden.resortinc.AuthInputField>
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piGenderError" style="@style/AuthFieldError" />
 
         <TextView
             style="@style/FieldLabelOnScreen"
             android:layout_marginTop="16dp"
             android:text="@string/label_birth_date" />
 
-        <LinearLayout style="@style/InputField">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_calendar" />
             <EditText
                 android:id="@+id/piBirthDateField"
-                style="@style/InputEditText"
+                style="@style/AuthInputEditText"
                 android:clickable="true"
                 android:focusable="false"
                 android:hint="@string/hint_select_date" />
-        </LinearLayout>
-        <TextView android:id="@+id/piBirthDateError" style="@style/FieldError" />
+        </com.aguafriogarden.resortinc.AuthInputField>
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piBirthDateError" style="@style/AuthFieldError" />
 
         <TextView
             style="@style/FieldLabelOnScreen"
             android:layout_marginTop="16dp"
             android:text="@string/label_phone" />
 
-        <LinearLayout style="@style/InputField">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_phone" />
             <EditText
                 android:id="@+id/piPhoneNumberField"
-                style="@style/InputEditText"
+                style="@style/AuthInputEditText"
                 android:hint="@string/hint_phone"
                 android:inputType="phone" />
-        </LinearLayout>
-        <TextView android:id="@+id/piPhoneNumberError" style="@style/FieldError" />
+        </com.aguafriogarden.resortinc.AuthInputField>
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piPhoneNumberError" style="@style/AuthFieldError" />
 
         <TextView
             style="@style/FieldLabelOnScreen"
@@ -131,42 +128,42 @@
             style="@style/FieldLabelOnScreen"
             android:text="@string/label_province" />
 
-        <LinearLayout style="@style/InputField">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_location" />
             <EditText
                 android:id="@+id/piProvinceField"
-                style="@style/InputEditText"
+                style="@style/AuthInputEditText"
                 android:hint="@string/hint_province" />
-        </LinearLayout>
-        <TextView android:id="@+id/piProvinceError" style="@style/FieldError" />
+        </com.aguafriogarden.resortinc.AuthInputField>
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piProvinceError" style="@style/AuthFieldError" />
 
         <TextView
             style="@style/FieldLabelOnScreen"
             android:layout_marginTop="16dp"
             android:text="@string/label_city" />
 
-        <LinearLayout style="@style/InputField">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_location" />
             <EditText
                 android:id="@+id/piCityField"
-                style="@style/InputEditText"
+                style="@style/AuthInputEditText"
                 android:hint="@string/hint_city" />
-        </LinearLayout>
-        <TextView android:id="@+id/piCityError" style="@style/FieldError" />
+        </com.aguafriogarden.resortinc.AuthInputField>
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piCityError" style="@style/AuthFieldError" />
 
         <TextView
             style="@style/FieldLabelOnScreen"
             android:layout_marginTop="16dp"
             android:text="@string/label_barangay" />
 
-        <LinearLayout style="@style/InputField">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_location" />
             <EditText
                 android:id="@+id/piBarangayField"
-                style="@style/InputEditText"
+                style="@style/AuthInputEditText"
                 android:hint="@string/hint_barangay" />
-        </LinearLayout>
-        <TextView android:id="@+id/piBarangayError" style="@style/FieldError" />
+        </com.aguafriogarden.resortinc.AuthInputField>
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piBarangayError" style="@style/AuthFieldError" />
 
         <TextView
             style="@style/FieldLabelOnScreen"
@@ -179,29 +176,29 @@
             style="@style/FieldLabelOnScreen"
             android:text="@string/label_username" />
 
-        <LinearLayout style="@style/InputField">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_person" />
             <EditText
                 android:id="@+id/piUsernameField"
-                style="@style/InputEditText"
+                style="@style/AuthInputEditText"
                 android:hint="@string/hint_username" />
-        </LinearLayout>
-        <TextView android:id="@+id/piUsernameError" style="@style/FieldError" />
+        </com.aguafriogarden.resortinc.AuthInputField>
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piUsernameError" style="@style/AuthFieldError" />
 
         <TextView
             style="@style/FieldLabelOnScreen"
             android:layout_marginTop="16dp"
             android:text="@string/label_email" />
 
-        <LinearLayout style="@style/InputField">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_email" />
             <EditText
                 android:id="@+id/piEmailField"
-                style="@style/InputEditText"
+                style="@style/AuthInputEditText"
                 android:hint="@string/hint_email"
                 android:inputType="textEmailAddress" />
-        </LinearLayout>
-        <TextView android:id="@+id/piEmailError" style="@style/FieldError" />
+        </com.aguafriogarden.resortinc.AuthInputField>
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piEmailError" style="@style/AuthFieldError" />
 
         <LinearLayout
             android:layout_width="match_parent"

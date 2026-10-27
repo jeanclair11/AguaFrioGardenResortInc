@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ic_deco_palm turned 180 degrees so it fans out from the bottom-left corner. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="110dp"
+    android:height="110dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100"
+    android:tint="?attr/authDecorTintSoft">
+    <group
+        android:pivotX="50"
+        android:pivotY="50"
+        android:rotation="180">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M92,8 Q54,0 18,26 Q56,22 92,8 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M92,8 Q50,12 30,56 Q62,34 92,8 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M92,8 Q64,28 54,82 Q84,44 92,8 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M92,8 Q82,34 82,96 Q98,50 92,8 Z" />
+    </group>
+</vector>

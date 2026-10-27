@@ -7,11 +7,15 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.MediaStore;
 import android.text.InputFilter;
+import android.util.Log;
 import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -559,9 +563,7 @@ public class MainActivity extends Activity {
         List<String> options = new ArrayList<>();
         options.add(getString(promptRes));
         options.addAll(Arrays.asList(getResources().getStringArray(optionsRes)));
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this, android.R.layout.simple_spinner_item, options);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = new AuthSpinnerAdapter(this, options);
         spinner.setAdapter(adapter);
         spinner.setSelection(selection);
     }
@@ -584,9 +586,7 @@ public class MainActivity extends Activity {
             List<String> options = new ArrayList<>();
             options.add(getString(R.string.province_prompt));
             options.addAll(provinces);
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                    this, android.R.layout.simple_spinner_item, options);
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            ArrayAdapter<String> adapter = new AuthSpinnerAdapter(this, options);
             provinceSpinner.setAdapter(adapter);
 
             int restoreIndex = s.province.isEmpty() ? 0 : Math.max(0, options.indexOf(s.province));
@@ -624,9 +624,7 @@ public class MainActivity extends Activity {
             List<String> options = new ArrayList<>();
             options.add(getString(R.string.city_prompt));
             options.addAll(cities);
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                    this, android.R.layout.simple_spinner_item, options);
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            ArrayAdapter<String> adapter = new AuthSpinnerAdapter(this, options);
             citySpinner.setAdapter(adapter);
             citySpinner.setEnabled(true);
 
@@ -665,9 +663,7 @@ public class MainActivity extends Activity {
             List<String> options = new ArrayList<>();
             options.add(getString(R.string.barangay_prompt));
             options.addAll(barangays);
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                    this, android.R.layout.simple_spinner_item, options);
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            ArrayAdapter<String> adapter = new AuthSpinnerAdapter(this, options);
             barangaySpinner.setAdapter(adapter);
             barangaySpinner.setEnabled(true);
 
@@ -699,9 +695,8 @@ public class MainActivity extends Activity {
 
     private void setSingleOptionSpinner(Spinner spinner, int promptRes) {
         spinner.setOnItemSelectedListener(null);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item,
+        ArrayAdapter<String> adapter = new AuthSpinnerAdapter(this,
                 Collections.singletonList(getString(promptRes)));
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
         spinner.setSelection(0);
     }
@@ -943,6 +938,7 @@ public class MainActivity extends Activity {
 
             @Override
             public void onFailure(Call<RegisterResponse> call, Throwable t) {
+                Log.e("SignUp", "register request failed", t);
                 setCreateAccountLoading(card, false);
                 Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_LONG).show();
             }
@@ -997,27 +993,84 @@ public class MainActivity extends Activity {
         return (value == null || value.isEmpty()) ? null : textPart(value);
     }
 
-    /** Reads the picked gallery image or captured camera preview into an upload-ready request body. */
+    /** Longest edge, in pixels, of an uploaded photo; phone cameras produce far more than the server needs. */
+    private static final int UPLOAD_MAX_EDGE_PX = 1600;
+    private static final int UPLOAD_JPEG_QUALITY = 80;
+
+    /**
+     * Reads the picked gallery image or captured camera preview into an upload-ready request body,
+     * downscaled and re-encoded as JPEG so multi-megabyte photos don't time out the sign-up request.
+     */
     private RequestBody imagePart(Uri uri, Bitmap bitmap) {
         try {
+            Bitmap source = bitmap;
             if (uri != null) {
-                try (InputStream in = getContentResolver().openInputStream(uri)) {
-                    if (in == null) {
-                        return null;
-                    }
-                    byte[] bytes = readAllBytes(in);
-                    String mime = getContentResolver().getType(uri);
-                    return RequestBody.create(bytes, MediaType.parse(mime != null ? mime : "image/jpeg"));
-                }
-            } else if (bitmap != null) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out);
-                return RequestBody.create(out.toByteArray(), MediaType.parse("image/jpeg"));
+                source = decodeScaled(uri);
             }
+            if (source == null) {
+                return null;
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            Bitmap scaled = scaleDown(source);
+            scaled.compress(Bitmap.CompressFormat.JPEG, UPLOAD_JPEG_QUALITY, out);
+            return RequestBody.create(out.toByteArray(), MediaType.parse("image/jpeg"));
         } catch (IOException e) {
             return null;
         }
-        return null;
+    }
+
+    /** Decodes a gallery image at reduced size (never loading the full-resolution bitmap) and applies its EXIF rotation. */
+    private Bitmap decodeScaled(Uri uri) throws IOException {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                return null;
+            }
+            BitmapFactory.decodeStream(in, null, bounds);
+        }
+
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inSampleSize = 1;
+        while (Math.max(bounds.outWidth, bounds.outHeight) / (opts.inSampleSize * 2) >= UPLOAD_MAX_EDGE_PX) {
+            opts.inSampleSize *= 2;
+        }
+        Bitmap decoded;
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                return null;
+            }
+            decoded = BitmapFactory.decodeStream(in, null, opts);
+        }
+        if (decoded == null) {
+            return null;
+        }
+
+        int orientation = ExifInterface.ORIENTATION_NORMAL;
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in != null) {
+                orientation = new ExifInterface(in).getAttributeInt(
+                        ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+            }
+        }
+        Matrix matrix = new Matrix();
+        switch (orientation) {
+            case ExifInterface.ORIENTATION_ROTATE_90: matrix.postRotate(90); break;
+            case ExifInterface.ORIENTATION_ROTATE_180: matrix.postRotate(180); break;
+            case ExifInterface.ORIENTATION_ROTATE_270: matrix.postRotate(270); break;
+            default: return decoded;
+        }
+        return Bitmap.createBitmap(decoded, 0, 0, decoded.getWidth(), decoded.getHeight(), matrix, true);
+    }
+
+    private static Bitmap scaleDown(Bitmap src) {
+        int longest = Math.max(src.getWidth(), src.getHeight());
+        if (longest <= UPLOAD_MAX_EDGE_PX) {
+            return src;
+        }
+        float ratio = (float) UPLOAD_MAX_EDGE_PX / longest;
+        return Bitmap.createScaledBitmap(src,
+                Math.round(src.getWidth() * ratio), Math.round(src.getHeight() * ratio), true);
     }
 
     private static MultipartBody.Part toMultipart(String fieldName, String filename, RequestBody body) {

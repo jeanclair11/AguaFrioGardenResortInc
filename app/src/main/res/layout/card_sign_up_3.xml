@@ -13,7 +13,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:fontFamily="serif"
+        android:fontFamily="@font/poppins"
         android:gravity="center"
         android:text="@string/signup_heading"
         android:textColor="?attr/textPrimary"
@@ -35,21 +35,17 @@
         android:layout_marginTop="22dp"
         android:text="@string/label_id_type" />
 
-    <LinearLayout
-        style="@style/InputField"
-        android:paddingEnd="4dp">
+    <com.aguafriogarden.resortinc.AuthInputField
+        style="@style/AuthInputField">
 
         <Spinner
             android:id="@+id/idTypeSpinner"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@null"
-            android:spinnerMode="dropdown" />
-    </LinearLayout>
+            style="@style/AuthSpinner" />
+    </com.aguafriogarden.resortinc.AuthInputField>
 
-    <TextView
+    <com.aguafriogarden.resortinc.AuthFieldError
         android:id="@+id/idTypeError"
-        style="@style/FieldError" />
+        style="@style/AuthFieldError" />
 
     <!-- Upload Valid ID -->
     <TextView
@@ -89,14 +85,14 @@
         android:layout_width="match_parent"
         android:layout_height="120dp"
         android:layout_marginTop="8dp"
-        android:background="@drawable/bg_input"
+        android:background="@drawable/bg_auth_input"
         android:scaleType="fitCenter"
         android:visibility="gone"
         android:contentDescription="@string/label_upload_valid_id" />
 
-    <TextView
+    <com.aguafriogarden.resortinc.AuthFieldError
         android:id="@+id/govIdError"
-        style="@style/FieldError" />
+        style="@style/AuthFieldError" />
 
     <!-- Profile Picture (optional) -->
     <TextView
@@ -115,7 +111,7 @@
             android:id="@+id/profilePreview"
             android:layout_width="60dp"
             android:layout_height="60dp"
-            android:background="@drawable/bg_input"
+            android:background="@drawable/bg_auth_input"
             android:padding="4dp"
             android:scaleType="centerCrop"
             android:src="@drawable/ic_person"
@@ -159,9 +155,9 @@
             android:textSize="10sp" />
     </LinearLayout>
 
-    <TextView
+    <com.aguafriogarden.resortinc.AuthFieldError
         android:id="@+id/termsError"
-        style="@style/FieldError" />
+        style="@style/AuthFieldError" />
 
     <!-- Back / Create Account -->
     <LinearLayout

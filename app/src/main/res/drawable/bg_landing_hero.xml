@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Landing hero card: the Login / Sign Up card's light-blue wash and border, with a lighter
+     touch of decoration (one small palm, one wave) since it sits on a busier page. The first
+     layer supplies the rounded outline the card clips to. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:endColor="?attr/authCardBottom"
+                android:startColor="?attr/authCardTop" />
+            <corners android:radius="28dp" />
+            <stroke
+                android:width="1dp"
+                android:color="?attr/authCardBorder" />
+        </shape>
+    </item>
+    <item
+        android:drawable="@drawable/ic_deco_wave"
+        android:gravity="bottom|fill_horizontal"
+        android:height="56dp" />
+    <item
+        android:drawable="@drawable/ic_deco_palm"
+        android:gravity="top|end"
+        android:height="96dp"
+        android:width="96dp" />
+</layer-list>

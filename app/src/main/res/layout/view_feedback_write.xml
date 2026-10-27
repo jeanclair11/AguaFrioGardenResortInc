@@ -112,12 +112,12 @@
             android:minLines="6"
             android:gravity="top|start"
             android:padding="14dp"
-            android:background="@drawable/bg_input"
+            android:background="@drawable/bg_auth_input"
             android:hint="@string/hint_feedback_message"
             android:inputType="textMultiLine|textCapSentences"
             android:maxLength="500"
-            android:textColor="?attr/textPrimary"
-            android:textColorHint="?attr/textHint"
+            android:textColor="@color/auth_input_text"
+            android:textColorHint="?attr/authFieldHint"
             android:textSize="14sp" />
 
         <TextView
@@ -129,9 +129,9 @@
             android:textColor="?attr/textOnScreenMuted"
             android:textSize="11sp" />
 
-        <TextView
+        <com.aguafriogarden.resortinc.AuthFieldError
             android:id="@+id/fwMessageError"
-            style="@style/FieldError" />
+            style="@style/AuthFieldError" />
 
         <Button
             android:id="@+id/fwSubmitButton"

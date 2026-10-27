@@ -44,12 +44,12 @@
                 android:layout_marginTop="18dp"
                 android:text="@string/label_date" />
 
-            <LinearLayout
+            <com.aguafriogarden.resortinc.AuthInputField
                 android:id="@+id/ktvDatesDateField"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_selector"
+                android:background="@drawable/bg_auth_input"
                 android:clickable="true"
                 android:focusable="true"
                 android:orientation="horizontal"
@@ -83,8 +83,8 @@
                     android:src="@drawable/ic_chevron_down"
                     android:importantForAccessibility="no" />
 
-            </LinearLayout>
-            <TextView android:id="@+id/ktvDatesDateError" style="@style/FieldError" />
+            </com.aguafriogarden.resortinc.AuthInputField>
+            <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/ktvDatesDateError" style="@style/AuthFieldError" />
 
             <!-- Start Time -->
             <TextView
@@ -92,12 +92,12 @@
                 android:layout_marginTop="18dp"
                 android:text="@string/label_start_time" />
 
-            <LinearLayout
+            <com.aguafriogarden.resortinc.AuthInputField
                 android:id="@+id/ktvDatesStartTimeField"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_selector"
+                android:background="@drawable/bg_auth_input"
                 android:clickable="true"
                 android:focusable="true"
                 android:orientation="horizontal"
@@ -131,8 +131,8 @@
                     android:src="@drawable/ic_chevron_down"
                     android:importantForAccessibility="no" />
 
-            </LinearLayout>
-            <TextView android:id="@+id/ktvDatesStartTimeError" style="@style/FieldError" />
+            </com.aguafriogarden.resortinc.AuthInputField>
+            <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/ktvDatesStartTimeError" style="@style/AuthFieldError" />
 
             <!-- End Time (read-only, start time + chosen duration) -->
             <TextView
@@ -140,11 +140,11 @@
                 android:layout_marginTop="18dp"
                 android:text="@string/label_end_time" />
 
-            <LinearLayout
+            <com.aguafriogarden.resortinc.AuthInputField
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_selector"
+                android:background="@drawable/bg_auth_input"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:padding="14dp">
@@ -161,7 +161,7 @@
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
-            </LinearLayout>
+            </com.aguafriogarden.resortinc.AuthInputField>
 
             <!-- Duration: one radio option per session length configured in KTV Room Management
                  (filled in from code — see HotelBookingFlowController#bindKtvDurationOptions) -->
@@ -193,11 +193,11 @@
                 android:layout_marginTop="16dp"
                 android:text="@string/label_guest_count" />
 
-            <LinearLayout
+            <com.aguafriogarden.resortinc.AuthInputField
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_selector"
+                android:background="@drawable/bg_auth_input"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:padding="14dp">
@@ -244,7 +244,7 @@
                     android:src="@drawable/ic_plus"
                     android:background="@drawable/bg_stepper_button" />
 
-            </LinearLayout>
+            </com.aguafriogarden.resortinc.AuthInputField>
 
         </LinearLayout>
     </ScrollView>

@@ -45,7 +45,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="serif"
+                android:fontFamily="@font/poppins"
                 android:letterSpacing="0.02"
                 android:text="@string/resort_title"
                 android:textColor="?attr/onTopBar"
@@ -172,10 +172,11 @@
                 android:layout_marginTop="20dp"
                 android:orientation="vertical"
                 android:gravity="center_horizontal"
+                android:clipToOutline="true"
                 android:elevation="24dp"
-                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
-                android:outlineSpotShadowColor="@color/card_shadow_spot"
-                android:background="@drawable/bg_card"
+                android:outlineAmbientShadowColor="@color/auth_card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/auth_card_shadow_spot"
+                android:background="@drawable/bg_landing_hero"
                 android:paddingTop="28dp"
                 android:paddingBottom="24dp"
                 android:paddingStart="24dp"
@@ -191,7 +192,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="18dp"
-                    android:fontFamily="serif"
+                    android:fontFamily="@font/poppins"
                     android:gravity="center"
                     android:text="@string/landing_welcome_title"
                     android:textColor="?attr/textOnScreen"
@@ -225,7 +226,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:layout_marginEnd="8dp"
-                    android:src="@drawable/ic_camera"
+                    android:src="@drawable/ic_gallery"
                     android:tint="?attr/textOnScreen"
                     android:importantForAccessibility="no" />
 
@@ -267,55 +268,55 @@
 
                     <!-- Copy A -->
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_light_mode" />
                     </FrameLayout>
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode2" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_light_mode2" />
                     </FrameLayout>
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_frio_bgimg" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_frio_bgimg" />
                     </FrameLayout>
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_night_mode" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_night_mode" />
                     </FrameLayout>
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_night_mode2" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_night_mode2" />
                     </FrameLayout>
 
                     <!-- Copy B (the guest starts here, see setupInfiniteGallery) -->
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_light_mode" />
                     </FrameLayout>
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode2" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_light_mode2" />
                     </FrameLayout>
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_frio_bgimg" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_frio_bgimg" />
                     </FrameLayout>
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_night_mode" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_night_mode" />
                     </FrameLayout>
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_night_mode2" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_night_mode2" />
                     </FrameLayout>
 
                     <!-- Copy C -->
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_light_mode" />
                     </FrameLayout>
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_light_mode2" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_light_mode2" />
                     </FrameLayout>
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_frio_bgimg" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_frio_bgimg" />
                     </FrameLayout>
                     <FrameLayout style="@style/LandingGalleryTile">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_night_mode" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_night_mode" />
                     </FrameLayout>
                     <FrameLayout
                         style="@style/LandingGalleryTile"
                         android:layout_marginEnd="0dp">
-                        <ImageView style="@style/LandingGalleryTilePhoto" android:src="@drawable/agua_night_mode2" />
+                        <ImageView style="@style/LandingGalleryTilePhoto" android:tag="agua_night_mode2" />
                     </FrameLayout>
 
                 </LinearLayout>
@@ -512,17 +513,13 @@
                     android:background="@drawable/bg_qr_container"
                     android:padding="10dp">
 
-                    <TextView
+                    <ImageView
                         android:id="@+id/shareAppQrPlaceholder"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:background="?attr/dividerColor"
-                        android:gravity="center"
-                        android:text="@string/label_qr_code_placeholder"
-                        android:textColor="#000000"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.06" />
+                        android:contentDescription="@string/label_scan_to_download"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/download_app_qr" />
 
                 </FrameLayout>
 
@@ -601,7 +598,7 @@
         android:elevation="32dp"
         android:outlineAmbientShadowColor="@color/card_shadow_ambient"
         android:outlineSpotShadowColor="@color/card_shadow_spot"
-        android:background="?attr/surfaceRaised"
+        android:background="#E0E0E0"
         android:scrollbars="none">
 
         <LinearLayout

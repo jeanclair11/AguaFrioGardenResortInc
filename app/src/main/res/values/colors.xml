@@ -16,6 +16,10 @@
     <color name="badge_unavailable_bg">#FDE8E6</color>
     <color name="card_shadow_ambient">#1A3A2E1E</color>
     <color name="card_shadow_spot">#2E3A2E1E</color>
+    <!-- Cool navy counterpart for the Login / Sign Up card, so its shadow reads as a soft
+         blue glow rather than the warm brown used on the other cards. -->
+    <color name="auth_card_shadow_ambient">#1A1E3A8A</color>
+    <color name="auth_card_shadow_spot">#331E3A8A</color>
 
     <!-- Greeting card glass overlay: the card shows a time-of-day photo
          (see DashboardActivity$GreetingPeriod) under a frosted glass tint,
@@ -59,6 +63,22 @@
     <color name="light_disabled">#E8E8E8</color>
     <color name="light_field">#FFFFFF</color>
     <color name="light_field_stroke">#E0E0E0</color>
+    <color name="light_auth_field">#F3F6FB</color>
+    <color name="light_auth_field_border">#CBD5E1</color>
+    <color name="light_auth_field_focused">#FFFFFF</color>
+    <color name="light_auth_field_focused_border">#2563EB</color>
+    <color name="light_auth_field_invalid">#FEF2F2</color>
+    <color name="light_auth_field_invalid_border">#DC2626</color>
+    <color name="light_auth_field_disabled">#E5E7EB</color>
+    <color name="light_auth_field_disabled_border">#D1D5DB</color>
+    <color name="light_auth_field_text">#1F2937</color>
+    <color name="light_auth_field_hint">#6B7280</color>
+    <color name="light_auth_field_disabled_text">#9CA3AF</color>
+    <color name="light_auth_card_top">#FFFFFF</color>
+    <color name="light_auth_card_bottom">#EAF3FF</color>
+    <color name="light_auth_card_border">#DCEAFB</color>
+    <color name="light_auth_decor">#3360A5FA</color>
+    <color name="light_auth_decor_soft">#1F60A5FA</color>
     <color name="light_text">#1A1A1A</color>
     <color name="light_text_muted">#666666</color>
     <color name="light_text_hint">#999999</color>
@@ -94,6 +114,24 @@
     <color name="dark_disabled">#2A3A52</color>
     <color name="dark_field">#152232</color>
     <color name="dark_field_stroke">#28394F</color>
+    <!-- Dark counterparts of the auth field states: lifted off the #182640 card,
+         with borders bright enough to stay visible against it. -->
+    <color name="dark_auth_field">#20304C</color>
+    <color name="dark_auth_field_border">#4A5F80</color>
+    <color name="dark_auth_field_focused">#0F1A2B</color>
+    <color name="dark_auth_field_focused_border">#60A5FA</color>
+    <color name="dark_auth_field_invalid">#3A1C24</color>
+    <color name="dark_auth_field_invalid_border">#F87171</color>
+    <color name="dark_auth_field_disabled">#1B2638</color>
+    <color name="dark_auth_field_disabled_border">#2E3C52</color>
+    <color name="dark_auth_field_text">#F2F5FA</color>
+    <color name="dark_auth_field_hint">#93A2B8</color>
+    <color name="dark_auth_field_disabled_text">#5F7089</color>
+    <color name="dark_auth_card_top">#182640</color>
+    <color name="dark_auth_card_bottom">#1B3052</color>
+    <color name="dark_auth_card_border">#2A4066</color>
+    <color name="dark_auth_decor">#2E60A5FA</color>
+    <color name="dark_auth_decor_soft">#1C60A5FA</color>
     <color name="dark_text">#F2F5FA</color>
     <color name="dark_text_muted">#93A2B8</color>
     <color name="dark_text_hint">#5F7089</color>

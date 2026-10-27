@@ -42,12 +42,12 @@
                 android:layout_marginTop="22dp"
                 android:text="@string/label_check_in" />
 
-            <LinearLayout
+            <com.aguafriogarden.resortinc.AuthInputField
                 android:id="@+id/roomDatesCheckInField"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_selector"
+                android:background="@drawable/bg_auth_input"
                 android:clickable="true"
                 android:focusable="true"
                 android:orientation="horizontal"
@@ -96,8 +96,8 @@
                     android:src="@drawable/ic_chevron_down"
                     android:importantForAccessibility="no" />
 
-            </LinearLayout>
-            <TextView android:id="@+id/roomDatesCheckInError" style="@style/FieldError" />
+            </com.aguafriogarden.resortinc.AuthInputField>
+            <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/roomDatesCheckInError" style="@style/AuthFieldError" />
 
             <!-- Check-out Date -->
             <TextView
@@ -105,12 +105,12 @@
                 android:layout_marginTop="18dp"
                 android:text="@string/label_check_out" />
 
-            <LinearLayout
+            <com.aguafriogarden.resortinc.AuthInputField
                 android:id="@+id/roomDatesCheckOutField"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_selector"
+                android:background="@drawable/bg_auth_input"
                 android:clickable="true"
                 android:focusable="true"
                 android:orientation="horizontal"
@@ -159,8 +159,8 @@
                     android:src="@drawable/ic_chevron_down"
                     android:importantForAccessibility="no" />
 
-            </LinearLayout>
-            <TextView android:id="@+id/roomDatesCheckOutError" style="@style/FieldError" />
+            </com.aguafriogarden.resortinc.AuthInputField>
+            <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/roomDatesCheckOutError" style="@style/AuthFieldError" />
 
             <!-- Number of Adults -->
             <TextView
@@ -168,11 +168,11 @@
                 android:layout_marginTop="18dp"
                 android:text="@string/label_adults" />
 
-            <LinearLayout
+            <com.aguafriogarden.resortinc.AuthInputField
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_selector"
+                android:background="@drawable/bg_auth_input"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:padding="14dp">
@@ -212,7 +212,7 @@
                     android:src="@drawable/ic_plus"
                     android:background="@drawable/bg_stepper_button" />
 
-            </LinearLayout>
+            </com.aguafriogarden.resortinc.AuthInputField>
 
             <!-- Number of Children -->
             <TextView
@@ -220,11 +220,11 @@
                 android:layout_marginTop="18dp"
                 android:text="@string/label_children" />
 
-            <LinearLayout
+            <com.aguafriogarden.resortinc.AuthInputField
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_selector"
+                android:background="@drawable/bg_auth_input"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:padding="14dp">
@@ -264,7 +264,7 @@
                     android:src="@drawable/ic_plus"
                     android:background="@drawable/bg_stepper_button" />
 
-            </LinearLayout>
+            </com.aguafriogarden.resortinc.AuthInputField>
 
         </LinearLayout>
     </ScrollView>

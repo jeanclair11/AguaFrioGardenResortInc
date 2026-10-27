@@ -151,26 +151,26 @@
                 android:layout_marginTop="14dp"
                 android:text="@string/label_amount_paid" />
 
-            <LinearLayout style="@style/InputField">
+            <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
                 <EditText
                     android:id="@+id/paymentAmountPaidField"
-                    style="@style/InputEditText"
+                    style="@style/AuthInputEditText"
                     android:hint="@string/hint_amount_paid"
                     android:inputType="numberDecimal" />
-            </LinearLayout>
+            </com.aguafriogarden.resortinc.AuthInputField>
 
             <TextView
                 style="@style/FieldLabelOnScreen"
                 android:layout_marginTop="16dp"
                 android:text="@string/label_reference_number" />
 
-            <LinearLayout style="@style/InputField">
+            <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
                 <EditText
                     android:id="@+id/paymentReferenceField"
-                    style="@style/InputEditText"
+                    style="@style/AuthInputEditText"
                     android:hint="@string/hint_reference_number"
                     android:inputType="number" />
-            </LinearLayout>
+            </com.aguafriogarden.resortinc.AuthInputField>
 
             <TextView
                 style="@style/FieldLabelOnScreen"

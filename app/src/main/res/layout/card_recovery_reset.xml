@@ -11,7 +11,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:fontFamily="serif"
+        android:fontFamily="@font/poppins"
         android:text="@string/recovery_heading"
         android:textColor="?attr/textPrimary"
         android:textSize="22sp"
@@ -30,42 +30,42 @@
         android:layout_marginTop="24dp"
         android:text="@string/label_new_password" />
 
-    <LinearLayout style="@style/InputField">
+    <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
         <ImageView style="@style/InputIcon" android:src="@drawable/ic_lock" android:contentDescription="@null" />
         <EditText
             android:id="@+id/newPasswordField"
-            style="@style/InputEditText"
+            style="@style/AuthInputEditText"
             android:hint="@string/hint_password"
             android:inputType="textPassword" />
         <ImageView
             android:id="@+id/newPasswordToggle"
-            style="@style/InputTrailingIcon"
+            style="@style/AuthPasswordToggle"
             android:src="@drawable/ic_eye"
             android:contentDescription="@null" />
-    </LinearLayout>
+    </com.aguafriogarden.resortinc.AuthInputField>
 
     <TextView
         style="@style/FieldLabel"
         android:layout_marginTop="16dp"
         android:text="@string/label_confirm_new_password" />
 
-    <LinearLayout style="@style/InputField">
+    <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
         <ImageView style="@style/InputIcon" android:src="@drawable/ic_lock" android:contentDescription="@null" />
         <EditText
             android:id="@+id/confirmPasswordField"
-            style="@style/InputEditText"
+            style="@style/AuthInputEditText"
             android:hint="@string/hint_confirm_password"
             android:inputType="textPassword" />
         <ImageView
             android:id="@+id/confirmPasswordToggle"
-            style="@style/InputTrailingIcon"
+            style="@style/AuthPasswordToggle"
             android:src="@drawable/ic_eye"
             android:contentDescription="@null" />
-    </LinearLayout>
+    </com.aguafriogarden.resortinc.AuthInputField>
 
-    <TextView
+    <com.aguafriogarden.resortinc.AuthFieldError
         android:id="@+id/resetError"
-        style="@style/FieldError" />
+        style="@style/AuthFieldError" />
 
     <Button
         android:id="@+id/resetPasswordButton"

@@ -52,7 +52,6 @@ import com.aguafriogarden.resortinc.network.ReserveResponse;
 import com.aguafriogarden.resortinc.network.RoomListResponse;
 import com.aguafriogarden.resortinc.network.RoomSummary;
 import com.aguafriogarden.resortinc.network.RoomTypeAvailability;
-import com.bumptech.glide.Glide;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -60,6 +59,7 @@ import java.io.InputStream;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -79,7 +79,7 @@ import retrofit2.Response;
  * Drives the Hotel Rooms booking flow reached from the Book tab: stay dates,
  * room selection, review, optional amenities, billing summary, mock
  * GCash payment and a success screen. Rooms and amenities both come
- * from the shared backend (see {@link #fetchAvailability}, {@link #fetchAmenities}) with real photos loaded via Glide. One instance is
+ * from the shared backend (see {@link #fetchAvailability}, {@link #fetchAmenities}) with real photos loaded via {@link ImageLoader} (skeleton while loading). One instance is
  * kept alive by {@link BookingCatalogController} for as long as the Book tab
  * exists, so answers survive navigating to another module and back;
  * {@link #resetFlow()} clears them once a booking is completed.
@@ -1045,9 +1045,9 @@ final class HotelBookingFlowController {
         updateCottageDateField(dateText);
         totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
 
-        ArrayAdapter<CharSequence> useAdapter = ArrayAdapter.createFromResource(
-                activity, R.array.cottage_use_options, android.R.layout.simple_spinner_item);
-        useAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> useAdapter = new AuthSpinnerAdapter(activity,
+                Arrays.asList(activity.getResources().getStringArray(R.array.cottage_use_options)),
+                false);
         useSpinner.setAdapter(useAdapter);
         int selectedIndex = 0;
         for (int i = 0; i < COTTAGE_USE_OPTIONS.length; i++) {
@@ -4417,9 +4417,9 @@ final class HotelBookingFlowController {
     private void bindMultiCottageUseRow(View v) {
         v.findViewById(R.id.itemSelectionUseRow).setVisibility(View.VISIBLE);
         Spinner useSpinner = v.findViewById(R.id.itemSelectionUseSpinner);
-        ArrayAdapter<CharSequence> useAdapter = ArrayAdapter.createFromResource(
-                activity, R.array.cottage_use_options, android.R.layout.simple_spinner_item);
-        useAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> useAdapter = new AuthSpinnerAdapter(activity,
+                Arrays.asList(activity.getResources().getStringArray(R.array.cottage_use_options)),
+                false);
         useSpinner.setAdapter(useAdapter);
         for (int i = 0; i < COTTAGE_USE_OPTIONS.length; i++) {
             if (COTTAGE_USE_OPTIONS[i].equals(cottageRateType)) {
@@ -5111,17 +5111,7 @@ final class HotelBookingFlowController {
 
     /** Loads a room/amenity thumbnail from the backend, falling back to a placeholder icon. */
     private void loadImage(ImageView imageView, String imagePath, int placeholderRes) {
-        String url = ApiClient.imageUrl(imagePath);
-        if (url == null) {
-            imageView.setImageResource(placeholderRes);
-            return;
-        }
-        Glide.with(activity)
-                .load(url)
-                .placeholder(placeholderRes)
-                .error(placeholderRes)
-                .centerCrop()
-                .into(imageView);
+        ImageLoader.load(imageView, ApiClient.imageUrl(imagePath), placeholderRes);
     }
 
     private int computePartialAmount(int grandTotal) {
