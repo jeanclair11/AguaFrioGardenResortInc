@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Resort logo as the adaptive icon's foreground. The logo PNG already has
-     ~11% transparent padding around its circular badge; this inset shrinks
+<!-- Resort logo as the adaptive icon's foreground. The logo PNG had
+     ~11% transparent padding (the latest logo has almost none); this inset shrinks
      it further so the badge sits fully inside the ~66dp safe zone that
      launchers use when masking the 108dp foreground layer. -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
-    android:insetLeft="12%"
-    android:insetTop="12%"
-    android:insetRight="12%"
-    android:insetBottom="12%">
+    android:insetLeft="22%"
+    android:insetTop="22%"
+    android:insetRight="22%"
+    android:insetBottom="22%">
 
     <bitmap
         android:src="@drawable/agua_frio_logo"
