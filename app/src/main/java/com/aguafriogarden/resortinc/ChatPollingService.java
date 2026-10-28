@@ -119,6 +119,9 @@ public class ChatPollingService extends Service {
         if (!running) {
             return;
         }
+        // Same cadence: pulls in alerts raised elsewhere (front-desk actions on the website) and
+        // read/archive changes made from another device.
+        NotificationStore.refresh(this);
         String token = ProfileStore.getAuthToken(this);
         int reservationId = ProfileStore.getActiveReservationId(this);
         if (token.isEmpty() || reservationId <= 0) {
@@ -171,16 +174,23 @@ public class ChatPollingService extends Service {
         pushReservationAlert(getString(R.string.reservation_cancelled_notification_title), body);
     }
 
+    /** Not stored in the Alerts feed: the front desk confirming a reservation already creates a
+     *  "Reservation Confirmed" guest notification on the server, which the next refresh brings in —
+     *  storing this one too would show the same event twice. Only the system notification is raised. */
     private void notifyReservationBooked() {
-        pushReservationAlert(getString(R.string.reservation_booked_notification_title),
+        postSystemIfEnabled(getString(R.string.reservation_booked_notification_title),
                 getString(R.string.reservation_booked_notification_body));
+        NotificationStore.refresh(this);
     }
 
     private void pushReservationAlert(String title, String body) {
-        NotificationStore.push(new NotificationStore.Notification(
+        NotificationStore.push(this, new NotificationStore.Notification(
                 title, body, getString(R.string.notif_button_view_reservation), null,
                 System.currentTimeMillis(), NotificationStore.Type.RESERVATION));
+        postSystemIfEnabled(title, body);
+    }
 
+    private void postSystemIfEnabled(String title, String body) {
         if (ProfileStore.isNotificationsEnabled(this)) {
             postSystemReservationNotification(title, body);
         }
@@ -225,7 +235,7 @@ public class ChatPollingService extends Service {
                 ? getString(R.string.chat_new_message_body_one)
                 : getString(R.string.chat_new_message_body_many, total);
 
-        NotificationStore.push(new NotificationStore.Notification(
+        NotificationStore.push(this, new NotificationStore.Notification(
                 getString(R.string.chat_new_message_title), body,
                 getString(R.string.notif_button_view_chat), null, System.currentTimeMillis(),
                 NotificationStore.Type.CHAT));

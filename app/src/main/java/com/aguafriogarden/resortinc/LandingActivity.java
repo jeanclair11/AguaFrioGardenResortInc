@@ -396,7 +396,8 @@ public class LandingActivity extends Activity {
                 // — see that class) — a notification tap can only land back on Reserve's own gate.
                 showModule(Section.RESERVE);
             }
-        });
+        }, this::refreshBadges);
+        NotificationStore.refresh(this);
 
         heroOrGreetingSlot.removeAllViews();
         heroOrGreetingSlot.addView(dashboardHome.getRootView());
@@ -461,6 +462,8 @@ public class LandingActivity extends Activity {
         feedbackController = null;
         chatController = null;
         notificationController = null;
+        NotificationStore.setChangeListener(null);
+        NotificationStore.clear();
 
         heroOrGreetingSlot.removeAllViews();
         heroOrGreetingSlot.addView(heroSectionView);
@@ -522,7 +525,7 @@ public class LandingActivity extends Activity {
                     reserveCatalog.showPicker();
                     // Opening Reserve itself clears its own badge, same as Chat already does via
                     // onShown()/UnreadChatStore.markSeen() — no need to detour through Alerts.
-                    NotificationStore.markReadByType(NotificationStore.Type.RESERVATION);
+                    NotificationStore.markReadByType(this, NotificationStore.Type.RESERVATION);
                     refreshBadges();
                     showModule(section);
                 });

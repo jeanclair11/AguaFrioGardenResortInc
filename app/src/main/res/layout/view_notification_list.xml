@@ -28,6 +28,45 @@
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/notificationTabInbox"
+                    style="@style/SecondaryButton"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:text="@string/notification_tab_inbox"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/notificationTabArchived"
+                    style="@style/SecondaryButton"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:text="@string/notification_tab_archived"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/notificationMarkAllRead"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginTop="12dp"
+                android:padding="4dp"
+                android:text="@string/notification_mark_all_read"
+                android:textColor="?attr/textOnScreen"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
             <TextView
                 android:id="@+id/notificationEmptyState"
                 android:layout_width="match_parent"
@@ -43,7 +82,7 @@
                 android:id="@+id/notificationListContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="8dp"
                 android:orientation="vertical" />
 
         </LinearLayout>

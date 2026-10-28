@@ -22,6 +22,7 @@ public final class ApiClient {
     private static BookingApi bookingApi;
     private static ChatApi chatApi;
     private static FeedbackApi feedbackApi;
+    private static NotificationApi notificationApi;
 
     private ApiClient() {
     }
@@ -73,6 +74,13 @@ public final class ApiClient {
             feedbackApi = retrofit().create(FeedbackApi.class);
         }
         return feedbackApi;
+    }
+
+    public static synchronized NotificationApi notificationApi() {
+        if (notificationApi == null) {
+            notificationApi = retrofit().create(NotificationApi.class);
+        }
+        return notificationApi;
     }
 
     private static Retrofit retrofit() {

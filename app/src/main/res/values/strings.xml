@@ -796,5 +796,13 @@
 
     <string name="notification_screen_title">Notifications</string>
     <string name="notification_empty_message">You have no notifications yet.</string>
+    <string name="notification_archived_empty_message">No archived notifications.</string>
+    <string name="notification_tab_inbox">INBOX</string>
+    <string name="notification_tab_archived">ARCHIVED</string>
+    <string name="notification_mark_all_read">MARK ALL AS READ</string>
+    <string name="notification_mark_read">MARK AS READ</string>
+    <string name="notification_mark_unread">MARK AS UNREAD</string>
+    <string name="notification_archive">ARCHIVE</string>
+    <string name="notification_unarchive">UNARCHIVE</string>
 
 </resources>
