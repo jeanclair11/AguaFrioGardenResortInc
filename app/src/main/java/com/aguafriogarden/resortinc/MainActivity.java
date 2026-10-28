@@ -36,6 +36,7 @@ import android.widget.Toast;
 
 import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.ErrorResponse;
+import com.aguafriogarden.resortinc.network.ForgotPasswordResponse;
 import com.aguafriogarden.resortinc.network.MessageResponse;
 import com.aguafriogarden.resortinc.network.RegisterResponse;
 import com.aguafriogarden.resortinc.network.VerifyResponse;
@@ -147,6 +148,9 @@ public class MainActivity extends Activity {
     private static class RecoveryState {
         String email = "";
         String otp = "";
+        String resetToken = "";
+        /** True while a request is in flight, so a double tap can't send two codes. */
+        boolean busy;
     }
 
     private SignUpState signUpState = new SignUpState();
@@ -1261,17 +1265,54 @@ public class MainActivity extends Activity {
         card.findViewById(R.id.backToLogin).setOnClickListener(v ->
                 showScreen(SCREEN_LOGIN, true));
 
-        card.findViewById(R.id.sendOtpButton).setOnClickListener(v -> {
+        View sendButton = card.findViewById(R.id.sendOtpButton);
+        sendButton.setOnClickListener(v -> {
             String email = emailField.getText().toString().trim();
             if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
                 Toast.makeText(this, R.string.error_email_invalid, Toast.LENGTH_SHORT).show();
                 return;
             }
             recoveryState.email = email;
-            // Mock API call success
-            Toast.makeText(this, "OTP sent to " + email, Toast.LENGTH_SHORT).show();
-            showScreen(SCREEN_RECOVERY_OTP, true);
+            if (recoveryState.busy) {
+                return;
+            }
+            setRecoveryBusy(sendButton, true);
+            ApiClient.authApi().forgotPassword(email).enqueue(new Callback<ForgotPasswordResponse>() {
+                @Override
+                public void onResponse(Call<ForgotPasswordResponse> call, Response<ForgotPasswordResponse> response) {
+                    setRecoveryBusy(sendButton, false);
+                    if (response.isSuccessful() && response.body() != null && response.body().reset_token != null) {
+                        recoveryState.resetToken = response.body().reset_token;
+                        Toast.makeText(MainActivity.this, getString(R.string.recovery_code_sent, email),
+                                Toast.LENGTH_SHORT).show();
+                        showScreen(SCREEN_RECOVERY_OTP, true);
+                    } else {
+                        Toast.makeText(MainActivity.this, recoveryErrorMessage(response.errorBody(), R.string.error_recovery_failed),
+                                Toast.LENGTH_LONG).show();
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<ForgotPasswordResponse> call, Throwable t) {
+                    setRecoveryBusy(sendButton, false);
+                    Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_LONG).show();
+                }
+            });
         });
+    }
+
+    private void setRecoveryBusy(View button, boolean busy) {
+        recoveryState.busy = busy;
+        button.setEnabled(!busy);
+        button.setAlpha(busy ? 0.6f : 1f);
+    }
+
+    /** The server's own message for a failed recovery call (unknown email, wrong/expired code,
+     *  weak password...), or the given fallback when the body has none. */
+    private String recoveryErrorMessage(okhttp3.ResponseBody errorBody, int fallbackRes) {
+        ErrorResponse error = ApiClient.parseError(errorBody);
+        String message = error.firstMessage();
+        return message != null && !message.isEmpty() ? message : getString(fallbackRes);
     }
 
     private void bindRecoveryOtpCard(View card) {
@@ -1298,12 +1339,47 @@ public class MainActivity extends Activity {
                 return;
             }
             recoveryState.otp = otp;
-            // Mock verification success
-            showScreen(SCREEN_RECOVERY_RESET, true);
+            if (recoveryState.busy) {
+                return;
+            }
+            View verifyButton = card.findViewById(R.id.verifyOtpButton);
+            setRecoveryBusy(verifyButton, true);
+            ApiClient.authApi().verifyResetCode(recoveryState.resetToken, otp).enqueue(new Callback<MessageResponse>() {
+                @Override
+                public void onResponse(Call<MessageResponse> call, Response<MessageResponse> response) {
+                    setRecoveryBusy(verifyButton, false);
+                    if (response.isSuccessful()) {
+                        showScreen(SCREEN_RECOVERY_RESET, true);
+                    } else {
+                        showError(otpError, recoveryErrorMessage(response.errorBody(), R.string.error_recovery_failed));
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<MessageResponse> call, Throwable t) {
+                    setRecoveryBusy(verifyButton, false);
+                    Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_LONG).show();
+                }
+            });
         });
 
         card.findViewById(R.id.resendOtpButton).setOnClickListener(v ->
-                Toast.makeText(this, R.string.resend_code_sent, Toast.LENGTH_SHORT).show());
+                ApiClient.authApi().resendResetCode(recoveryState.resetToken).enqueue(new Callback<MessageResponse>() {
+                    @Override
+                    public void onResponse(Call<MessageResponse> call, Response<MessageResponse> response) {
+                        if (response.isSuccessful()) {
+                            Toast.makeText(MainActivity.this, R.string.resend_code_sent, Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(MainActivity.this, recoveryErrorMessage(response.errorBody(), R.string.error_recovery_failed),
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<MessageResponse> call, Throwable t) {
+                        Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_SHORT).show();
+                    }
+                }));
     }
 
     private void bindRecoveryResetCard(View card) {
@@ -1332,8 +1408,29 @@ public class MainActivity extends Activity {
                 return;
             }
 
-            // Mock password reset success
-            showScreen(SCREEN_RECOVERY_SUCCESS, true);
+            if (recoveryState.busy) {
+                return;
+            }
+            View resetButton = card.findViewById(R.id.resetPasswordButton);
+            setRecoveryBusy(resetButton, true);
+            ApiClient.authApi().resetPassword(recoveryState.resetToken, p1, p2).enqueue(new Callback<MessageResponse>() {
+                @Override
+                public void onResponse(Call<MessageResponse> call, Response<MessageResponse> response) {
+                    setRecoveryBusy(resetButton, false);
+                    if (response.isSuccessful()) {
+                        recoveryState = new RecoveryState();
+                        showScreen(SCREEN_RECOVERY_SUCCESS, true);
+                    } else {
+                        showError(error, recoveryErrorMessage(response.errorBody(), R.string.error_recovery_failed));
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<MessageResponse> call, Throwable t) {
+                    setRecoveryBusy(resetButton, false);
+                    Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_LONG).show();
+                }
+            });
         });
 
         AuthUiUtils.afterTextChanged(newPass, () -> error.setVisibility(View.GONE));

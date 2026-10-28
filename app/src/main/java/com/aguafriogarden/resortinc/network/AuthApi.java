@@ -49,6 +49,26 @@ public interface AuthApi {
     @POST("login")
     Call<LoginResponse> login(@Field("login") String login, @Field("password") String password);
 
+    /** Forgot password: emails a 6-digit code and returns the token for the rest of the recovery. */
+    @FormUrlEncoded
+    @POST("guest/password/forgot")
+    Call<ForgotPasswordResponse> forgotPassword(@Field("email") String email);
+
+    @FormUrlEncoded
+    @POST("guest/password/verify")
+    Call<MessageResponse> verifyResetCode(@Field("reset_token") String resetToken, @Field("otp") String otp);
+
+    @FormUrlEncoded
+    @POST("guest/password/resend")
+    Call<MessageResponse> resendResetCode(@Field("reset_token") String resetToken);
+
+    @FormUrlEncoded
+    @POST("guest/password/reset")
+    Call<MessageResponse> resetPassword(
+            @Field("reset_token") String resetToken,
+            @Field("password") String password,
+            @Field("password_confirmation") String passwordConfirmation);
+
     @POST("logout")
     Call<MessageResponse> logout(@Header("Authorization") String bearerToken);
 

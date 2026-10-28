@@ -136,6 +136,8 @@
     <string name="hint_otp_code">Enter 6-digit code</string>
     <string name="button_verify">VERIFY</string>
     <string name="resend_code">Resend Code</string>
+    <string name="recovery_code_sent">A password reset code was sent to %1$s.</string>
+    <string name="error_recovery_failed">Something went wrong. Please try again.</string>
     <string name="resend_code_sent">A new code has been sent to your email.</string>
     <string name="error_otp_required">Please enter the 6-digit code.</string>
     <string name="account_created_message">Account created successfully! You can now log in.</string>
@@ -649,9 +651,9 @@
     <string name="dialog_no_amenity_title">No Amenities Selected</string>
     <string name="dialog_no_amenity_message">You haven\'t selected any amenities. Please select an amenity or tap Skip to continue without one.</string>
     <string name="button_loading">Loading…</string>
+    <string name="toast_availability_changed">Availability just changed, so your selection was updated.</string>
     <string name="toast_amenities_load_failed">We couldn\'t load amenities right now. Please try again.</string>
 
-    <string name="toast_availability_changed">Availability just changed, so your selection was updated.</string>
 
     <string name="hotel_billing_title">Summary</string>
     <string name="hotel_billing_subtitle">Please review your details before proceeding.</string>
