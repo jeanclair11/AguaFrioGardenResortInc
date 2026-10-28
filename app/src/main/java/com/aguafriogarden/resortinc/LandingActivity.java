@@ -390,6 +390,8 @@ public class LandingActivity extends Activity {
         notificationController = new NotificationController(this, n -> {
             if (n.type == NotificationStore.Type.CHAT) {
                 showModule(Section.CHAT);
+            } else if (n.type == NotificationStore.Type.FEEDBACK) {
+                showModule(Section.FEEDBACK);
             } else {
                 // ReservationStore-backed reservation details no longer exist (the Reserve tab's
                 // old ReservationFlowController module was fully replaced by ReserveCatalogController
@@ -639,6 +641,8 @@ public class LandingActivity extends Activity {
         } else if (section == Section.FEEDBACK) {
             content = feedbackController.getRootView();
             feedbackController.onShown();
+            // Opening Feedback shows the reply the alert is about, so it counts as read.
+            NotificationStore.markReadByType(this, NotificationStore.Type.FEEDBACK);
         } else if (section == Section.PROFILE) {
             content = profileController.getRootView();
             profileController.onShown();

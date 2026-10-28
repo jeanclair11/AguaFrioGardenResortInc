@@ -418,6 +418,7 @@
     <string name="reservation_booked_notification_title">Reservation Confirmed</string>
     <string name="reservation_booked_notification_body">Your reservation has been confirmed and is now booked.</string>
     <string name="notif_button_view_reservation">VIEW RESERVATION</string>
+    <string name="notif_button_view_feedback">VIEW RESPONSE</string>
     <string name="badge_count_overflow">9+</string>
 
     <string name="chip_room_availability">Check Room Availability</string>

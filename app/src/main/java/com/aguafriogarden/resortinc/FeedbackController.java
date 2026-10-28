@@ -47,6 +47,11 @@ final class FeedbackController {
     private int currentScreen = -1;
     private int selectedRating;
     private List<FeedbackEntryDto> entries = new ArrayList<>();
+    /** False until the first successful fetch: until then the history is unknown, not empty, so
+     *  the "no feedback yet" state must not show (it made a slow or failed load look like the
+     *  guest's submissions had disappeared). */
+    private boolean loaded = false;
+    private boolean loadFailureShown = false;
     private boolean refreshing = false;
     private boolean refreshQueued = false;
     /** Picks up admin replies / new entries while the history is on screen. Never touches the
@@ -122,11 +127,14 @@ final class FeedbackController {
                 refreshing = false;
                 runQueuedRefresh();
                 if (response.isSuccessful() && response.body() != null && response.body().feedback != null) {
-                    boolean unchanged = LiveSync.sameData(entries, response.body().feedback);
+                    boolean unchanged = loaded && LiveSync.sameData(entries, response.body().feedback);
                     entries = response.body().feedback;
+                    loaded = true;
                     if (!unchanged && currentScreen == SCREEN_MAIN && currentScreenView != null) {
                         bindMain(currentScreenView);
                     }
+                } else {
+                    reportInitialLoadFailure();
                 }
             }
 
@@ -134,10 +142,18 @@ final class FeedbackController {
             public void onFailure(Call<FeedbackListResponse> call, Throwable t) {
                 refreshing = false;
                 runQueuedRefresh();
-                // Silent: a background refresh failing (e.g. no connection) shouldn't
-                // interrupt the guest or clear what's already on screen.
+                // A background refresh failing (e.g. no connection) shouldn't interrupt the
+                // guest or clear what's already on screen; only the very first load says so.
+                reportInitialLoadFailure();
             }
         });
+    }
+
+    private void reportInitialLoadFailure() {
+        if (!loaded && !loadFailureShown) {
+            loadFailureShown = true;
+            Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+        }
     }
 
     private void runQueuedRefresh() {
@@ -156,7 +172,7 @@ final class FeedbackController {
         container.removeAllViews();
 
         boolean empty = entries.isEmpty();
-        v.findViewById(R.id.feedbackEmptyState).setVisibility(empty ? View.VISIBLE : View.GONE);
+        v.findViewById(R.id.feedbackEmptyState).setVisibility(empty && loaded ? View.VISIBLE : View.GONE);
         container.setVisibility(empty ? View.GONE : View.VISIBLE);
 
         LayoutInflater inflater = LayoutInflater.from(activity);

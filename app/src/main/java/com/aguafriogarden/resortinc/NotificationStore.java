@@ -33,7 +33,7 @@ final class NotificationStore {
      *  action button can route to the right module. GENERAL is anything staff raised on the
      *  website (payment received, checked in, ...), which has no in-app screen to route to. */
     enum Type {
-        RESERVATION, CHAT, GENERAL
+        RESERVATION, CHAT, FEEDBACK, GENERAL
     }
 
     static final class Notification {
@@ -267,9 +267,11 @@ final class NotificationStore {
 
     private static Notification fromDto(Context context, NotificationDto dto) {
         Type type = "chat".equals(dto.type) ? Type.CHAT
-                : "reservation".equals(dto.type) ? Type.RESERVATION : Type.GENERAL;
+                : "reservation".equals(dto.type) ? Type.RESERVATION
+                : "feedback".equals(dto.type) ? Type.FEEDBACK : Type.GENERAL;
         String button = type == Type.CHAT ? context.getString(R.string.notif_button_view_chat)
                 : type == Type.RESERVATION ? context.getString(R.string.notif_button_view_reservation)
+                : type == Type.FEEDBACK ? context.getString(R.string.notif_button_view_feedback)
                 : null;
         Notification n = new Notification(dto.title, dto.message, button, null, dto.created_at_ms,
                 type, dto.client_uuid);
