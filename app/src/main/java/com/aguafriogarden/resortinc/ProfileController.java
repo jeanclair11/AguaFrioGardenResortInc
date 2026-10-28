@@ -66,7 +66,7 @@ final class ProfileController {
 
     /** How often the open Profile/history screen re-reads the guest's records, so receptionist-side
      *  changes show up without reopening it. */
-    private static final long HISTORY_POLL_MS = 20000;
+    private static final long HISTORY_POLL_MS = 10000;
 
     private static final int REQUEST_ID_FRONT = 3001;
     private static final int REQUEST_ID_BACK = 3002;

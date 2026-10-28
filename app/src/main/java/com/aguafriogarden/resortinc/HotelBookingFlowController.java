@@ -309,6 +309,11 @@ final class HotelBookingFlowController {
     private List<AmenityAvailability> availableAmenities = new ArrayList<>();
     private final Map<Integer, Integer> amenityQuantities = new LinkedHashMap<>();
     private boolean isLoadingAmenities = false;
+    /** How often the on-screen selection/amenity/reservation-status screens re-check the server
+     *  for changes made elsewhere (see {@link #liveSyncTick}). */
+    private static final long LIVE_SYNC_MS = 8000L;
+    private LiveSync liveSync;
+    private boolean liveSyncInFlight = false;
     private int paymentOption = PAYMENT_NONE;
     private boolean termsChecked;
     private boolean cancellationChecked;
@@ -632,6 +637,239 @@ final class HotelBookingFlowController {
         boolean isDatesScreen = (screen == SCREEN_ROOM_DATES || screen == SCREEN_COTTAGE_DATES || screen == SCREEN_KTV_DATES)
                 && !(multiMode && multiIndex > 0);
         setBottomNavHidden.accept(!isDatesScreen);
+        updateLiveSync(screen);
+    }
+
+    // ---- Live sync: screens that show server data keep it current while on screen -----------
+
+    private static boolean isLiveSyncScreen(int screen) {
+        switch (screen) {
+            case SCREEN_ROOM_SELECTION:
+            case SCREEN_ROOM_BROWSE:
+            case SCREEN_COTTAGE_SELECTION:
+            case SCREEN_COTTAGE_BROWSE:
+            case SCREEN_KTV_SELECTION:
+            case SCREEN_KTV_BROWSE:
+            case SCREEN_AMENITY:
+            case SCREEN_RESERVATION_DETAILS:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private void updateLiveSync(int screen) {
+        if (isLiveSyncScreen(screen)) {
+            if (liveSync == null) {
+                liveSync = new LiveSync(root, LIVE_SYNC_MS, this::liveSyncTick);
+            }
+            liveSync.start();
+        } else if (liveSync != null) {
+            liveSync.stop();
+        }
+    }
+
+    /**
+     * Silent background re-fetch for whichever live screen is showing. The guest's own picks
+     * (quantities, dates, origin) are never reset — only the server-owned data is replaced, picks
+     * are clamped to what is still available, and the screen is re-bound in place only when
+     * something actually changed and the guest isn't mid-typing. Failures are ignored; the next
+     * tick retries.
+     */
+    private void liveSyncTick() {
+        if (liveSyncInFlight || currentScreenView == null || LiveSync.isUserTyping(currentScreenView)) {
+            return;
+        }
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            return;
+        }
+        String bearer = "Bearer " + token;
+        int screen = currentScreen;
+        View screenView = currentScreenView;
+        switch (screen) {
+            case SCREEN_ROOM_SELECTION:
+            case SCREEN_ROOM_BROWSE:
+                syncRoomAvailability(bearer, screen, screenView);
+                break;
+            case SCREEN_COTTAGE_SELECTION:
+            case SCREEN_COTTAGE_BROWSE:
+                syncCottageAvailability(bearer, screen, screenView);
+                break;
+            case SCREEN_KTV_SELECTION:
+            case SCREEN_KTV_BROWSE:
+                syncKtvUnits(screen, screenView);
+                break;
+            case SCREEN_AMENITY:
+                syncAmenities(bearer, screen, screenView);
+                break;
+            case SCREEN_RESERVATION_DETAILS:
+                refreshReservationStatus(screenView);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /** True while the screen a sync request was issued for is still the one on display. */
+    private boolean liveScreenStillCurrent(int screen, View screenView) {
+        return currentScreen == screen && currentScreenView == screenView
+                && !LiveSync.isUserTyping(screenView);
+    }
+
+    /** Lowers any pick above what the server now offers (or for an item that disappeared) and
+     *  seeds newly appeared items at 0. Returns whether a pick had to be changed. */
+    private static boolean clampPicks(Map<Integer, Integer> picks, Map<Integer, Integer> availableById) {
+        boolean adjusted = false;
+        for (Map.Entry<Integer, Integer> pick : picks.entrySet()) {
+            Integer available = availableById.get(pick.getKey());
+            if (available == null) {
+                available = 0;
+            }
+            if (pick.getValue() > available) {
+                pick.setValue(available);
+                adjusted = true;
+            }
+        }
+        for (Integer id : availableById.keySet()) {
+            if (!picks.containsKey(id)) {
+                picks.put(id, 0);
+            }
+        }
+        return adjusted;
+    }
+
+    private void applyLiveUpdate(int screen, View screenView, boolean selectionAdjusted) {
+        bindScreen(screen, screenView);
+        if (selectionAdjusted) {
+            Toast.makeText(activity, R.string.toast_availability_changed, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void syncRoomAvailability(String bearer, int screen, View screenView) {
+        if (checkInMillis < 0 || checkOutMillis < 0) {
+            return;
+        }
+        SimpleDateFormat day = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        liveSyncInFlight = true;
+        ApiClient.bookingApi().checkAvailability(bearer, day.format(new Date(checkInMillis)),
+                day.format(new Date(checkOutMillis)), adults, children)
+                .enqueue(new Callback<AvailabilityResponse>() {
+                    @Override
+                    public void onResponse(Call<AvailabilityResponse> call, Response<AvailabilityResponse> response) {
+                        liveSyncInFlight = false;
+                        if (!response.isSuccessful() || response.body() == null
+                                || response.body().room_types == null
+                                || !liveScreenStillCurrent(screen, screenView)
+                                || LiveSync.sameData(availableRoomTypes, response.body().room_types)) {
+                            return;
+                        }
+                        availableRoomTypes = response.body().room_types;
+                        Map<Integer, Integer> available = new LinkedHashMap<>();
+                        for (RoomTypeAvailability type : availableRoomTypes) {
+                            available.put(type.group_id, type.available_quantity);
+                        }
+                        applyLiveUpdate(screen, screenView, clampPicks(roomQuantities, available));
+                    }
+
+                    @Override
+                    public void onFailure(Call<AvailabilityResponse> call, Throwable t) {
+                        liveSyncInFlight = false;
+                    }
+                });
+    }
+
+    private void syncCottageAvailability(String bearer, int screen, View screenView) {
+        if (cottageDateMillis < 0) {
+            return;
+        }
+        String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(cottageDateMillis));
+        liveSyncInFlight = true;
+        ApiClient.bookingApi().checkCottageAvailability(bearer, dateStr, cottageUseKey())
+                .enqueue(new Callback<CottageAvailabilityResponse>() {
+                    @Override
+                    public void onResponse(Call<CottageAvailabilityResponse> call, Response<CottageAvailabilityResponse> response) {
+                        liveSyncInFlight = false;
+                        if (!response.isSuccessful() || response.body() == null
+                                || response.body().cottages == null
+                                || !liveScreenStillCurrent(screen, screenView)
+                                || LiveSync.sameData(cottageItems, response.body().cottages)) {
+                            return;
+                        }
+                        cottageItems = new ArrayList<>(response.body().cottages);
+                        applyLiveUpdate(screen, screenView, clampPicks(roomQuantities, availabilityOf(cottageItems)));
+                    }
+
+                    @Override
+                    public void onFailure(Call<CottageAvailabilityResponse> call, Throwable t) {
+                        liveSyncInFlight = false;
+                    }
+                });
+    }
+
+    private void syncKtvUnits(int screen, View screenView) {
+        SimpleDateFormat day = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        String eventDate = ktvDateMillis >= 0 ? day.format(new Date(ktvDateMillis)) : null;
+        String startTime = ktvStartHour >= 0
+                ? String.format(Locale.US, "%02d:%02d", ktvStartHour, ktvStartMinute) : null;
+        liveSyncInFlight = true;
+        ApiClient.bookingApi().getKtvUnits(eventDate, startTime, null).enqueue(new Callback<KtvUnitListResponse>() {
+            @Override
+            public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
+                liveSyncInFlight = false;
+                if (!response.isSuccessful() || response.body() == null || response.body().ktv_units == null
+                        || !liveScreenStillCurrent(screen, screenView)) {
+                    return;
+                }
+                List<CottageKtvOption> latest = new ArrayList<>(response.body().toOptions(ktvDurationHours));
+                if (LiveSync.sameData(ktvItems, latest)) {
+                    return;
+                }
+                ktvItems = latest;
+                applyLiveUpdate(screen, screenView, clampPicks(roomQuantities, availabilityOf(ktvItems)));
+            }
+
+            @Override
+            public void onFailure(Call<KtvUnitListResponse> call, Throwable t) {
+                liveSyncInFlight = false;
+            }
+        });
+    }
+
+    private static Map<Integer, Integer> availabilityOf(List<CottageKtvOption> items) {
+        Map<Integer, Integer> available = new LinkedHashMap<>();
+        for (CottageKtvOption item : items) {
+            available.put(item.group_id, item.available_quantity);
+        }
+        return available;
+    }
+
+    private void syncAmenities(String bearer, int screen, View screenView) {
+        liveSyncInFlight = true;
+        ApiClient.bookingApi().getAmenities(bearer).enqueue(new Callback<AmenityListResponse>() {
+            @Override
+            public void onResponse(Call<AmenityListResponse> call, Response<AmenityListResponse> response) {
+                liveSyncInFlight = false;
+                if (!response.isSuccessful() || response.body() == null || response.body().amenities == null
+                        || !liveScreenStillCurrent(screen, screenView)
+                        || LiveSync.sameData(availableAmenities, response.body().amenities)) {
+                    return;
+                }
+                availableAmenities = response.body().amenities;
+                // Unlimited / unspecified-stock amenities have no ceiling to clamp against.
+                Map<Integer, Integer> available = new LinkedHashMap<>();
+                for (AmenityAvailability amenity : availableAmenities) {
+                    available.put(amenity.id, amenity.unlimited || amenity.available_quantity == null
+                            ? Integer.MAX_VALUE : amenity.available_quantity);
+                }
+                applyLiveUpdate(screen, screenView, clampPicks(amenityQuantities, available));
+            }
+
+            @Override
+            public void onFailure(Call<AmenityListResponse> call, Throwable t) {
+                liveSyncInFlight = false;
+            }
+        });
     }
 
     private int layoutFor(int screen) {
@@ -4255,6 +4493,10 @@ final class HotelBookingFlowController {
     }
 
     void resetFlow() {
+        if (liveSync != null) {
+            liveSync.stop();
+        }
+        liveSyncInFlight = false;
         reservationDetailsExternalBack = null;
         checkInMillis = -1;
         checkOutMillis = -1;

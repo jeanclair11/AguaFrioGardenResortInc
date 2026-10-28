@@ -287,6 +287,9 @@ public class LandingActivity extends Activity {
             badgeHandler.post(badgeTick);
         }
         if (currentCategoryFetch != null) {
+            // Catch up on whatever changed while the app was in the background right away,
+            // rather than showing stale cards until the first poll tick.
+            currentCategoryFetch.run();
             startCategoryRefresh(currentCategoryFetch);
         }
     }
@@ -1030,15 +1033,19 @@ public class LandingActivity extends Activity {
         ApiClient.bookingApi().getRoomTypes().enqueue(new Callback<RoomTypeListResponse>() {
             @Override
             public void onResponse(Call<RoomTypeListResponse> call, Response<RoomTypeListResponse> response) {
-                List<RoomTypeAvailability> roomTypes = response.isSuccessful() && response.body() != null
-                        && response.body().room_types != null
-                        ? response.body().room_types : new ArrayList<>();
-                bindRoomTypes(container, emptyState, roomTypes);
+                boolean ok = response.isSuccessful() && response.body() != null
+                        && response.body().room_types != null;
+                if (!ok && hasLoadedOnce(container)) {
+                    return;
+                }
+                bindRoomTypes(container, emptyState, ok ? response.body().room_types : new ArrayList<>());
             }
 
             @Override
             public void onFailure(Call<RoomTypeListResponse> call, Throwable t) {
-                bindRoomTypes(container, emptyState, new ArrayList<>());
+                if (!hasLoadedOnce(container)) {
+                    bindRoomTypes(container, emptyState, new ArrayList<>());
+                }
             }
         });
     }
@@ -1047,15 +1054,20 @@ public class LandingActivity extends Activity {
         ApiClient.bookingApi().getCottageTypes().enqueue(new Callback<CottageTypeListResponse>() {
             @Override
             public void onResponse(Call<CottageTypeListResponse> call, Response<CottageTypeListResponse> response) {
-                List<CottageKtvOption> cottages = response.isSuccessful() && response.body() != null
-                        && response.body().cottages != null
-                        ? response.body().cottages : new ArrayList<>();
-                bindCottageKtvOptions(container, emptyState, cottages, getString(R.string.service_type_cottage), true, Section.COTTAGES);
+                boolean ok = response.isSuccessful() && response.body() != null
+                        && response.body().cottages != null;
+                if (!ok && hasLoadedOnce(container)) {
+                    return;
+                }
+                bindCottageKtvOptions(container, emptyState, ok ? response.body().cottages : new ArrayList<>(),
+                        getString(R.string.service_type_cottage), true, Section.COTTAGES);
             }
 
             @Override
             public void onFailure(Call<CottageTypeListResponse> call, Throwable t) {
-                bindCottageKtvOptions(container, emptyState, new ArrayList<>(), getString(R.string.service_type_cottage), true, Section.COTTAGES);
+                if (!hasLoadedOnce(container)) {
+                    bindCottageKtvOptions(container, emptyState, new ArrayList<>(), getString(R.string.service_type_cottage), true, Section.COTTAGES);
+                }
             }
         });
     }
@@ -1068,14 +1080,16 @@ public class LandingActivity extends Activity {
                 if (response.isSuccessful() && response.body() != null && response.body().ktv_units != null) {
                     bindCottageKtvOptions(container, emptyState, response.body().toOptions(0),
                             getString(R.string.service_type_ktv), true, Section.KTV);
-                } else {
+                } else if (!hasLoadedOnce(container)) {
                     fetchKtvTypesFallback(container, emptyState);
                 }
             }
 
             @Override
             public void onFailure(Call<KtvUnitListResponse> call, Throwable t) {
-                fetchKtvTypesFallback(container, emptyState);
+                if (!hasLoadedOnce(container)) {
+                    fetchKtvTypesFallback(container, emptyState);
+                }
             }
         });
     }
@@ -1092,12 +1106,34 @@ public class LandingActivity extends Activity {
 
             @Override
             public void onFailure(Call<KtvTypeListResponse> call, Throwable t) {
-                bindCottageKtvOptions(container, emptyState, new ArrayList<>(), getString(R.string.service_type_ktv), true, Section.KTV);
+                if (!hasLoadedOnce(container)) {
+                    bindCottageKtvOptions(container, emptyState, new ArrayList<>(), getString(R.string.service_type_ktv), true, Section.KTV);
+                }
             }
         });
     }
 
+    /** Whether a browse list has already been bound once; the background refresh uses this to
+     *  keep what's on screen when a later poll fails, instead of wiping it to "nothing here". */
+    private static boolean hasLoadedOnce(LinearLayout container) {
+        return container.getTag() != null;
+    }
+
+    /** Records the data just bound to a browse list; false when it is identical to what is
+     *  already showing, so the poll can skip rebuilding (and flickering) every card. */
+    private static boolean markBound(LinearLayout container, Object data) {
+        Object previous = container.getTag();
+        if (previous != null && LiveSync.sameData(previous, data)) {
+            return false;
+        }
+        container.setTag(data);
+        return true;
+    }
+
     private void bindRoomTypes(LinearLayout container, TextView emptyState, List<RoomTypeAvailability> roomTypes) {
+        if (!markBound(container, roomTypes)) {
+            return;
+        }
         emptyState.setVisibility(roomTypes.isEmpty() ? View.VISIBLE : View.GONE);
         container.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
@@ -1110,6 +1146,9 @@ public class LandingActivity extends Activity {
 
     private void bindCottageKtvOptions(LinearLayout container, TextView emptyState, List<CottageKtvOption> options,
                                         String fallbackCategory, boolean bookable, Section origin) {
+        if (!markBound(container, options)) {
+            return;
+        }
         emptyState.setVisibility(options.isEmpty() ? View.VISIBLE : View.GONE);
         container.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);

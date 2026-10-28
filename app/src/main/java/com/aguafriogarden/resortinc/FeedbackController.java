@@ -38,6 +38,7 @@ final class FeedbackController {
     private static final int SCREEN_WRITE = 1;
 
     private static final int MAX_MESSAGE_LENGTH = 500;
+    private static final long LIVE_SYNC_MS = 10000L;
 
     private final Activity activity;
     private final FrameLayout root;
@@ -46,12 +47,23 @@ final class FeedbackController {
     private int currentScreen = -1;
     private int selectedRating;
     private List<FeedbackEntryDto> entries = new ArrayList<>();
+    private boolean refreshing = false;
+    private boolean refreshQueued = false;
+    /** Picks up admin replies / new entries while the history is on screen. Never touches the
+     *  Write Feedback form, so a half-typed message is safe. */
+    private final LiveSync liveSync;
 
     FeedbackController(Activity activity) {
         this.activity = activity;
         root = new FrameLayout(activity);
+        liveSync = new LiveSync(root, LIVE_SYNC_MS, () -> {
+            if (currentScreen == SCREEN_MAIN) {
+                refresh();
+            }
+        });
         showScreen(SCREEN_MAIN);
         refresh();
+        liveSync.start();
     }
 
     View getRootView() {
@@ -97,12 +109,22 @@ final class FeedbackController {
         if (token == null) {
             return;
         }
+        if (refreshing) {
+            // A response already on its way may predate whatever triggered this call (e.g. a
+            // just-submitted entry), so re-run once it lands.
+            refreshQueued = true;
+            return;
+        }
+        refreshing = true;
         ApiClient.feedbackApi().getFeedback(token).enqueue(new Callback<FeedbackListResponse>() {
             @Override
             public void onResponse(Call<FeedbackListResponse> call, Response<FeedbackListResponse> response) {
+                refreshing = false;
+                runQueuedRefresh();
                 if (response.isSuccessful() && response.body() != null && response.body().feedback != null) {
+                    boolean unchanged = LiveSync.sameData(entries, response.body().feedback);
                     entries = response.body().feedback;
-                    if (currentScreen == SCREEN_MAIN && currentScreenView != null) {
+                    if (!unchanged && currentScreen == SCREEN_MAIN && currentScreenView != null) {
                         bindMain(currentScreenView);
                     }
                 }
@@ -110,10 +132,19 @@ final class FeedbackController {
 
             @Override
             public void onFailure(Call<FeedbackListResponse> call, Throwable t) {
+                refreshing = false;
+                runQueuedRefresh();
                 // Silent: a background refresh failing (e.g. no connection) shouldn't
                 // interrupt the guest or clear what's already on screen.
             }
         });
+    }
+
+    private void runQueuedRefresh() {
+        if (refreshQueued) {
+            refreshQueued = false;
+            refresh();
+        }
     }
 
     // ---- Main feedback screen ----------------------------------------
