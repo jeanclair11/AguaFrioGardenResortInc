@@ -805,5 +805,16 @@
     <string name="notification_mark_unread">MARK AS UNREAD</string>
     <string name="notification_archive">ARCHIVE</string>
     <string name="notification_unarchive">UNARCHIVE</string>
+    <string name="notification_tab_inbox_count">INBOX (%1$d)</string>
+    <string name="notification_more_options">More options</string>
+    <string name="notification_group_today">Today</string>
+    <string name="notification_group_yesterday">Yesterday</string>
+    <string name="notification_group_earlier">Earlier</string>
+    <string name="notification_yesterday_at">Yesterday, %1$s</string>
+    <string name="notification_menu_mark_all_read">Mark all as read</string>
+    <string name="notification_menu_mark_read">Mark as read</string>
+    <string name="notification_menu_mark_unread">Mark as unread</string>
+    <string name="notification_menu_archive">Archive</string>
+    <string name="notification_menu_unarchive">Unarchive</string>
 
 </resources>
