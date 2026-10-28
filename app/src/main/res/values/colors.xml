@@ -51,6 +51,8 @@
     <color name="light_card">#FFFFFF</color>
     <color name="light_raised">#FFFFFF</color>
     <color name="light_chat_bubble_other">#F1EEEA</color>
+    <color name="light_notification_unread">#FFF1E8</color>
+    <color name="dark_notification_unread">#2B3F66</color>
     <color name="light_top_bar_start">#FFFFFF</color>
     <color name="light_top_bar_end">#FFFFFF</color>
     <color name="light_on_top_bar">#382F22</color>

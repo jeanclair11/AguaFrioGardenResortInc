@@ -40,6 +40,7 @@ final class ProfileStore {
     private static final String KEY_AUTH_TOKEN = "auth_token";
     private static final String KEY_ACTIVE_RESERVATION_ID = "active_reservation_id";
     private static final String KEY_ACTIVE_RESERVATION_STATUS = "active_reservation_status";
+    private static final String KEY_CHAT_CURSOR = "chat_cursor";
 
     private ProfileStore() {
     }
@@ -254,6 +255,21 @@ final class ProfileStore {
 
     static void setActiveReservationStatus(Context context, String status) {
         prefs(context).edit().putString(KEY_ACTIVE_RESERVATION_STATUS, status).apply();
+    }
+
+    /** Id of the newest chat message ChatPollingService has already handled, or -1 on a fresh
+     *  login (so the existing thread is taken as history rather than alerted as new). Kept across
+     *  app restarts so a staff reply that arrived while the app was closed still alerts once. */
+    static long getChatCursor(Context context) {
+        return prefs(context).getLong(KEY_CHAT_CURSOR, -1L);
+    }
+
+    static void setChatCursor(Context context, long messageId) {
+        prefs(context).edit().putLong(KEY_CHAT_CURSOR, messageId).apply();
+    }
+
+    static void clearChatCursor(Context context) {
+        prefs(context).edit().remove(KEY_CHAT_CURSOR).apply();
     }
 
     static void clearActiveReservation(Context context) {

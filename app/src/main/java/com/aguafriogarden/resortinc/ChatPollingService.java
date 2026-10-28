@@ -51,7 +51,8 @@ public class ChatPollingService extends Service {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable pollRunnable = this::poll;
     private final Runnable reservationPollRunnable = this::pollReservationStatus;
-    private long cursor = 0L;
+    /** Newest chat message id already handled; -1 until the first poll of a fresh login. */
+    private long cursor = -1L;
     private boolean running;
 
     @Override
@@ -65,6 +66,7 @@ public class ChatPollingService extends Service {
         startForeground(NOTIFICATION_ID_SERVICE, buildServiceNotification());
         if (!running) {
             running = true;
+            cursor = ProfileStore.getChatCursor(this);
             handler.post(pollRunnable);
             handler.post(reservationPollRunnable);
         }
@@ -93,7 +95,7 @@ public class ChatPollingService extends Service {
             stopSelf();
             return;
         }
-        ApiClient.chatApi().poll("Bearer " + token, cursor).enqueue(new Callback<ChatHistoryResponse>() {
+        ApiClient.chatApi().poll("Bearer " + token, Math.max(cursor, 0L)).enqueue(new Callback<ChatHistoryResponse>() {
             @Override
             public void onResponse(Call<ChatHistoryResponse> call, Response<ChatHistoryResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().messages != null) {
@@ -220,27 +222,56 @@ public class ChatPollingService extends Service {
     }
 
     private void handleIncoming(List<ChatMessageDto> messages) {
+        boolean firstPoll = cursor < 0;
         for (ChatMessageDto dto : messages) {
             cursor = Math.max(cursor, dto.id);
         }
-        int newCount = UnreadChatStore.registerIncoming(messages);
-        if (newCount > 0) {
-            notifyNewMessages();
+        cursor = Math.max(cursor, 0L);
+        // Logged out while the request was in flight: don't write the old guest's cursor back.
+        if (!ProfileStore.getAuthToken(this).isEmpty()) {
+            ProfileStore.setChatCursor(this, cursor);
         }
+        if (firstPoll) {
+            // First poll after a fresh login: the thread so far is history, not new messages.
+            return;
+        }
+
+        ChatMessageDto latest = null;
+        int incomingCount = 0;
+        for (ChatMessageDto dto : messages) {
+            if (!"guest".equals(dto.sender_type)) {
+                incomingCount++;
+                latest = dto;
+            }
+        }
+        if (latest == null) {
+            return;
+        }
+
+        // Every staff message gets an Alerts entry — even one that arrives while the guest has the
+        // Chat tab open (they see it live there, so it's recorded as already read, with no system
+        // notification and no badge). Otherwise a reply received in the chat left no trace.
+        boolean seenLive = UnreadChatStore.isChatVisible();
+        UnreadChatStore.registerIncoming(messages);
+        notifyNewMessages(latest, incomingCount, seenLive);
     }
 
-    private void notifyNewMessages() {
-        int total = UnreadChatStore.unreadCount();
-        String body = total == 1
-                ? getString(R.string.chat_new_message_body_one)
-                : getString(R.string.chat_new_message_body_many, total);
+    private void notifyNewMessages(ChatMessageDto latest, int incomingCount, boolean seenLive) {
+        String text = latest.body == null ? "" : latest.body.trim();
+        if (text.length() > 140) {
+            text = text.substring(0, 137) + "...";
+        }
+        String body = incomingCount > 1 ? getString(R.string.chat_new_message_body_many, incomingCount)
+                : text.isEmpty() ? getString(R.string.chat_new_message_body_one) : text;
 
-        NotificationStore.push(this, new NotificationStore.Notification(
+        NotificationStore.Notification notification = new NotificationStore.Notification(
                 getString(R.string.chat_new_message_title), body,
                 getString(R.string.notif_button_view_chat), null, System.currentTimeMillis(),
-                NotificationStore.Type.CHAT));
+                NotificationStore.Type.CHAT);
+        notification.isRead = seenLive;
+        NotificationStore.push(this, notification);
 
-        if (ProfileStore.isNotificationsEnabled(this)) {
+        if (!seenLive && ProfileStore.isNotificationsEnabled(this)) {
             postSystemNotification(body);
         }
     }

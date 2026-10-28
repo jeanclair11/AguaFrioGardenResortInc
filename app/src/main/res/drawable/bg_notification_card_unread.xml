@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Alerts tab card for an unread notification: accent-tinted with an accent border. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="?attr/notificationUnreadFill" />
+    <stroke
+        android:width="1.5dp"
+        android:color="?attr/accentPrimary" />
+    <corners android:radius="18dp" />
+</shape>

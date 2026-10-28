@@ -453,6 +453,7 @@ public class LandingActivity extends Activity {
         stopService(new Intent(this, ChatPollingService.class));
         ProfileStore.clearAuthToken(this);
         ProfileStore.clearActiveReservation(this);
+        ProfileStore.clearChatCursor(this);
         badgeHandler.removeCallbacks(badgeTick);
         leaveCategoryBrowse();
         loggedIn = false;

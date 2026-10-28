@@ -38,6 +38,7 @@
         <item name="surfaceCard">@color/light_card</item>
         <item name="surfaceRaised">@color/light_raised</item>
         <item name="chatBubbleOther">@color/light_chat_bubble_other</item>
+        <item name="notificationUnreadFill">@color/light_notification_unread</item>
         <item name="topBarGradientStart">@color/light_top_bar_start</item>
         <item name="topBarGradientEnd">@color/light_top_bar_end</item>
         <item name="onTopBar">@color/light_on_top_bar</item>
@@ -100,6 +101,7 @@
         <item name="surfaceCard">@color/dark_card</item>
         <item name="surfaceRaised">@color/dark_raised</item>
         <item name="chatBubbleOther">@color/dark_raised</item>
+        <item name="notificationUnreadFill">@color/dark_notification_unread</item>
         <item name="topBarGradientStart">@color/dark_top_bar_start</item>
         <item name="topBarGradientEnd">@color/dark_top_bar_end</item>
         <item name="onTopBar">@color/dark_on_top_bar</item>

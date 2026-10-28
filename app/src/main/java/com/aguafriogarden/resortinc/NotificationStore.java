@@ -41,7 +41,9 @@ final class NotificationStore {
         final String message;
         final String buttonLabel;
         final String targetReference;
-        final long timestampMillis;
+        /** The phone's clock until the server stores the alert, then the server's (see
+         *  {@link #adoptServerTime}) so every alert is ordered on one clock. */
+        long timestampMillis;
         final Type type;
         /** Idempotency key for the upload; null for rows that originated on the server. */
         final String clientUuid;
@@ -106,7 +108,8 @@ final class NotificationStore {
         return ALL;
     }
 
-    /** The Alerts tab's two lists: Inbox (not archived) or Archived. */
+    /** The Alerts tab's two lists: Inbox (not archived) or Archived, newest first. Sorted here, on
+     *  every read, so no code path that adds or updates an alert can leave the list out of order. */
     static List<Notification> byArchived(boolean archived) {
         List<Notification> result = new ArrayList<>();
         for (Notification n : ALL) {
@@ -114,7 +117,20 @@ final class NotificationStore {
                 result.add(n);
             }
         }
+        result.sort(NEWEST_FIRST);
         return result;
+    }
+
+    /** Newest first; the server id breaks ties, since ids only ever increase. */
+    private static final java.util.Comparator<Notification> NEWEST_FIRST = (a, b) -> {
+        int byTime = Long.compare(b.timestampMillis, a.timestampMillis);
+        return byTime != 0 ? byTime : Long.compare(b.serverId, a.serverId);
+    };
+
+    private static void adoptServerTime(Notification n, NotificationDto dto) {
+        if (dto.created_at_ms > 0) {
+            n.timestampMillis = dto.created_at_ms;
+        }
     }
 
     /** Unread, un-archived — archiving marks a notification read, so it never counts here. */
@@ -251,13 +267,14 @@ final class NotificationStore {
                 ALL.add(n);
             } else {
                 n.serverId = dto.id;
+                adoptServerTime(n, dto);
                 if (pendingUpdates == 0) {
                     n.isRead = dto.is_read;
                     n.isArchived = dto.is_archived;
                 }
             }
         }
-        ALL.sort((a, b) -> Long.compare(b.timestampMillis, a.timestampMillis));
+        ALL.sort(NEWEST_FIRST);
         for (Notification n : new ArrayList<>(ALL)) {
             if (n.serverId == 0 && !n.uploading && !n.localOnly) {
                 upload(context, n);
@@ -295,6 +312,7 @@ final class NotificationStore {
                 n.uploading = false;
                 if (response.isSuccessful() && response.body() != null && response.body().notification != null) {
                     n.serverId = response.body().notification.id;
+                    adoptServerTime(n, response.body().notification);
                     // Read/archived before the upload finished: the server row starts unread.
                     if (n.isRead || n.isArchived) {
                         sendState(context, n);

@@ -78,6 +78,8 @@ final class NotificationController {
         LayoutInflater inflater = LayoutInflater.from(activity);
         for (NotificationStore.Notification n : notifications) {
             View card = inflater.inflate(R.layout.view_notification_card, container, false);
+            card.setBackgroundResource(n.isRead ? R.drawable.bg_notification_card_read
+                    : R.drawable.bg_notification_card_unread);
             TextView title = card.findViewById(R.id.notificationTitle);
             title.setText(n.title);
             title.setTypeface(null, n.isRead ? android.graphics.Typeface.NORMAL : android.graphics.Typeface.BOLD);
