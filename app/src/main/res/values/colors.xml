@@ -50,6 +50,7 @@
     <color name="light_gradient_end">#FFFFFF</color>
     <color name="light_card">#FFFFFF</color>
     <color name="light_raised">#FFFFFF</color>
+    <color name="light_chat_bubble_other">#F1EEEA</color>
     <color name="light_top_bar_start">#FFFFFF</color>
     <color name="light_top_bar_end">#FFFFFF</color>
     <color name="light_on_top_bar">#382F22</color>

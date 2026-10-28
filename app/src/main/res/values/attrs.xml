@@ -11,6 +11,9 @@
     <attr name="browsePageBackground" format="color|reference" />
     <attr name="surfaceCard" format="color|reference" />
     <attr name="surfaceRaised" format="color|reference" />
+    <!-- Staff/receptionist chat bubble. Its own attr because Light Mode's surfaceRaised is pure
+         white, the same as the screen, which made the bubble invisible. -->
+    <attr name="chatBubbleOther" format="color|reference" />
 
     <!-- Top app bar gradient + its content color -->
     <attr name="topBarGradientStart" format="color|reference" />
