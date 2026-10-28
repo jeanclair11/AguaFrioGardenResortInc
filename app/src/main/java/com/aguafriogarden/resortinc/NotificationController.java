@@ -163,22 +163,6 @@ final class NotificationController {
                 .setText(n.isArchived ? R.string.notification_unarchive : R.string.notification_archive);
         card.findViewById(R.id.notificationArchiveToggle).setOnClickListener(v -> toggleArchived(n));
 
-        card.findViewById(R.id.notificationMenuButton).setOnClickListener(anchor -> {
-            PopupMenu menu = new PopupMenu(activity, anchor);
-            menu.getMenu().add(0, 0, 0, n.isRead ? R.string.notification_menu_mark_unread
-                    : R.string.notification_menu_mark_read);
-            menu.getMenu().add(0, 1, 1, n.isArchived ? R.string.notification_menu_unarchive
-                    : R.string.notification_menu_archive);
-            menu.setOnMenuItemClickListener(item -> {
-                if (item.getItemId() == 0) {
-                    toggleRead(n);
-                } else {
-                    toggleArchived(n);
-                }
-                return true;
-            });
-            menu.show();
-        });
         return card;
     }
 
