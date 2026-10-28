@@ -219,7 +219,7 @@ final class NotificationController {
     private String timestampLabel(NotificationStore.Notification n, int group) {
         Date when = new Date(n.timestampMillis);
         if (group == GROUP_TODAY) {
-            return DateUtils.getRelativeTimeSpanString(n.timestampMillis, System.currentTimeMillis(),
+            return DateUtils.getRelativeTimeSpanString(n.timestampMillis, NotificationStore.now(),
                     DateUtils.MINUTE_IN_MILLIS).toString();
         }
         String time = DateFormat.getTimeFormat(activity).format(when);
@@ -231,6 +231,7 @@ final class NotificationController {
 
     private static long startOfDay(int dayOffset) {
         Calendar c = Calendar.getInstance();
+        c.setTimeInMillis(NotificationStore.now());
         c.set(Calendar.HOUR_OF_DAY, 0);
         c.set(Calendar.MINUTE, 0);
         c.set(Calendar.SECOND, 0);

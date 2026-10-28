@@ -85,6 +85,16 @@ final class NotificationStore {
 
     private static Runnable changeListener;
 
+    /** Server clock minus the phone's, learned on each refresh. Alert times come from the server,
+     *  so "x minutes ago" and the Today/Yesterday grouping must be measured against the server's
+     *  idea of now — a phone clock a few minutes fast made a just-sent alert read "22 minutes ago". */
+    private static long clockOffsetMs;
+
+    /** The current time on the server's clock (the phone's own clock until the first refresh). */
+    static long now() {
+        return System.currentTimeMillis() + clockOffsetMs;
+    }
+
     /** Called (on the main thread) whenever the list or any flag changes after a server round
      *  trip; the Alerts screen sets it while visible. Pass null to clear. */
     static void setChangeListener(Runnable listener) {
@@ -217,6 +227,7 @@ final class NotificationStore {
     static void clear() {
         ALL.clear();
         pendingUpdates = 0;
+        clockOffsetMs = 0;
     }
 
     /** Fetches the server copy, merges it into the cache, and retries any alert whose upload
@@ -235,6 +246,9 @@ final class NotificationStore {
                     return;
                 }
                 if (response.isSuccessful() && response.body() != null && response.body().notifications != null) {
+                    if (response.body().server_time_ms > 0) {
+                        clockOffsetMs = response.body().server_time_ms - System.currentTimeMillis();
+                    }
                     merge(app, response.body().notifications);
                     notifyChanged();
                 }

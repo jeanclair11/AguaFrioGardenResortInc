@@ -188,7 +188,7 @@ public class ChatPollingService extends Service {
     private void pushReservationAlert(String title, String body) {
         NotificationStore.push(this, new NotificationStore.Notification(
                 title, body, getString(R.string.notif_button_view_reservation), null,
-                System.currentTimeMillis(), NotificationStore.Type.RESERVATION));
+                NotificationStore.now(), NotificationStore.Type.RESERVATION));
         postSystemIfEnabled(title, body);
     }
 
@@ -266,7 +266,7 @@ public class ChatPollingService extends Service {
 
         NotificationStore.Notification notification = new NotificationStore.Notification(
                 getString(R.string.chat_new_message_title), body,
-                getString(R.string.notif_button_view_chat), null, System.currentTimeMillis(),
+                getString(R.string.notif_button_view_chat), null, NotificationStore.now(),
                 NotificationStore.Type.CHAT);
         notification.isRead = seenLive;
         NotificationStore.push(this, notification);
