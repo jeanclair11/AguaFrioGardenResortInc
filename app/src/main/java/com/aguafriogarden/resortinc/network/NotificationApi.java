@@ -38,6 +38,13 @@ public interface NotificationApi {
             @Field("is_read") Integer isRead,
             @Field("is_archived") Integer isArchived);
 
+    /** The Profile screen's "Enable Notifications" switch; 1/0 for the same reason as above. */
+    @FormUrlEncoded
+    @PATCH("notifications/settings")
+    Call<MessageResponse> updateSettings(
+            @Header("Authorization") String bearerToken,
+            @Field("notifications_enabled") int enabled);
+
     @POST("notifications/read-all")
     Call<MessageResponse> readAll(@Header("Authorization") String bearerToken);
 }

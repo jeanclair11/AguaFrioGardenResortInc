@@ -166,7 +166,7 @@ final class FeedbackController {
     // ---- Main feedback screen ----------------------------------------
 
     private void bindMain(View v) {
-        v.findViewById(R.id.writeFeedbackButton).setOnClickListener(view -> showScreen(SCREEN_WRITE));
+        v.findViewById(R.id.writeFeedbackButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_WRITE)));
 
         LinearLayout container = v.findViewById(R.id.feedbackListContainer);
         container.removeAllViews();
@@ -240,7 +240,7 @@ final class FeedbackController {
 
         View header = v.findViewById(R.id.headerBar);
         ((TextView) header.findViewById(R.id.headerTitle)).setText(R.string.write_feedback_title);
-        header.findViewById(R.id.headerBackButton).setOnClickListener(view -> showScreen(SCREEN_MAIN));
+        header.findViewById(R.id.headerBackButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_MAIN)));
 
         int[] starIds = {R.id.fwStar1, R.id.fwStar2, R.id.fwStar3, R.id.fwStar4, R.id.fwStar5};
         for (int i = 0; i < starIds.length; i++) {
@@ -262,7 +262,7 @@ final class FeedbackController {
             v.findViewById(R.id.fwMessageError).setVisibility(View.GONE);
         });
 
-        v.findViewById(R.id.fwSubmitButton).setOnClickListener(view -> attemptSubmit(v));
+        v.findViewById(R.id.fwSubmitButton).setOnClickListener(ClickGuard.wrap(view -> attemptSubmit(v)));
     }
 
     private void updateStarSelector(View v, int[] starIds) {
@@ -339,10 +339,10 @@ final class FeedbackController {
             dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
             ThemeManager.applyGlassEffect(dialog.getWindow());
         }
-        dialogView.findViewById(R.id.feedbackSuccessOkButton).setOnClickListener(view -> {
+        dialogView.findViewById(R.id.feedbackSuccessOkButton).setOnClickListener(ClickGuard.wrap(view -> {
             dialog.dismiss();
             showScreen(SCREEN_MAIN);
-        });
+        }));
         dialog.show();
     }
 

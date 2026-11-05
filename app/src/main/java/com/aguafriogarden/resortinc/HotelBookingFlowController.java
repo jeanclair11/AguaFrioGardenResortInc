@@ -1057,15 +1057,15 @@ final class HotelBookingFlowController {
             checkInError.setVisibility(View.GONE);
             checkOutError.setVisibility(View.GONE);
         });
-        v.findViewById(R.id.roomDatesCheckInField).setOnClickListener(openDatePicker);
-        v.findViewById(R.id.roomDatesCheckOutField).setOnClickListener(openDatePicker);
+        v.findViewById(R.id.roomDatesCheckInField).setOnClickListener(ClickGuard.wrap(openDatePicker));
+        v.findViewById(R.id.roomDatesCheckOutField).setOnClickListener(ClickGuard.wrap(openDatePicker));
 
         AuthUiUtils.bindQuantityStepper(adultsValue, v.findViewById(R.id.roomDatesAdultsMinus),
                 v.findViewById(R.id.roomDatesAdultsPlus), adults, 0, Integer.MAX_VALUE, value -> adults = value);
         AuthUiUtils.bindQuantityStepper(childrenValue, v.findViewById(R.id.roomDatesChildrenMinus),
                 v.findViewById(R.id.roomDatesChildrenPlus), children, 0, Integer.MAX_VALUE, value -> children = value);
 
-        v.findViewById(R.id.roomDatesNextButton).setOnClickListener(view -> {
+        v.findViewById(R.id.roomDatesNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             boolean valid = true;
             if (checkInMillis < 0) {
                 showError(checkInError, R.string.error_check_in_required);
@@ -1089,7 +1089,7 @@ final class HotelBookingFlowController {
             if (valid) {
                 fetchAvailabilityForRoomSelection(v);
             }
-        });
+        }));
     }
 
     /**
@@ -1308,12 +1308,12 @@ final class HotelBookingFlowController {
             }
         });
 
-        dateField.setOnClickListener(view -> GlassDatePicker.showDatePickerDialog(
+        dateField.setOnClickListener(ClickGuard.wrap(view -> GlassDatePicker.showDatePickerDialog(
                 activity, cottageDateMillis, System.currentTimeMillis() - 1000L, millis -> {
                     cottageDateMillis = millis;
                     updateCottageDateField(dateText);
                     dateError.setVisibility(View.GONE);
-                }));
+                })));
 
         AuthUiUtils.bindQuantityStepper(adultsValue, v.findViewById(R.id.cottageDatesAdultsMinus),
                 v.findViewById(R.id.cottageDatesAdultsPlus), cottageAdults, 1, Integer.MAX_VALUE, value -> {
@@ -1326,7 +1326,7 @@ final class HotelBookingFlowController {
                     totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
                 });
 
-        v.findViewById(R.id.cottageDatesNextButton).setOnClickListener(view -> {
+        v.findViewById(R.id.cottageDatesNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             boolean valid = true;
             if (cottageDateMillis < 0) {
                 showError(dateError, R.string.error_date_required);
@@ -1340,7 +1340,7 @@ final class HotelBookingFlowController {
             if (valid) {
                 proceedToCottageSelection(v);
             }
-        });
+        }));
     }
 
     /** Maps the guest's Cottage Use choice (see cottageRateType) to the backend's day/night/
@@ -1487,15 +1487,15 @@ final class HotelBookingFlowController {
         if (multiMode && multiIndex > 0) {
             dateField.setAlpha(0.6f);
         } else {
-            dateField.setOnClickListener(view -> GlassDatePicker.showDatePickerDialog(
+            dateField.setOnClickListener(ClickGuard.wrap(view -> GlassDatePicker.showDatePickerDialog(
                     activity, ktvDateMillis, System.currentTimeMillis() - 1000L, millis -> {
                         ktvDateMillis = millis;
                         updateKtvDateField(dateText);
                         dateError.setVisibility(View.GONE);
-                    }));
+                    })));
         }
 
-        startTimeField.setOnClickListener(view -> {
+        startTimeField.setOnClickListener(ClickGuard.wrap(view -> {
             Calendar now = Calendar.getInstance();
             int initialHour = ktvStartHour >= 0 ? ktvStartHour : now.get(Calendar.HOUR_OF_DAY);
             int initialMinute = ktvStartMinute >= 0 ? ktvStartMinute : now.get(Calendar.MINUTE);
@@ -1508,12 +1508,12 @@ final class HotelBookingFlowController {
             }, initialHour, initialMinute, false);
             ThemeManager.applyGlassEffect(dialog.getWindow());
             dialog.show();
-        });
+        }));
 
         AuthUiUtils.bindQuantityStepper(guestCountValue, v.findViewById(R.id.ktvDatesGuestCountMinus),
                 v.findViewById(R.id.ktvDatesGuestCountPlus), ktvGuestCount, 1, Integer.MAX_VALUE, value -> ktvGuestCount = value);
 
-        v.findViewById(R.id.ktvDatesNextButton).setOnClickListener(view -> {
+        v.findViewById(R.id.ktvDatesNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             boolean valid = true;
             if (ktvDurationHours <= 0) {
                 Toast.makeText(activity, R.string.toast_ktv_no_rates, Toast.LENGTH_LONG).show();
@@ -1537,7 +1537,7 @@ final class HotelBookingFlowController {
             if (valid) {
                 proceedToKtvSelection(v);
             }
-        });
+        }));
     }
 
     /** Ensures the Cottages & KTV catalog is loaded (see {@link #fetchCottagesKtvData}) before
@@ -1745,10 +1745,10 @@ final class HotelBookingFlowController {
                 otherContainer.addView(card);
             }
             addAnotherButton.setVisibility(View.VISIBLE);
-            addAnotherButton.setOnClickListener(view -> showScreen(SCREEN_ROOM_BROWSE));
+            addAnotherButton.setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_ROOM_BROWSE)));
         }
 
-        v.findViewById(R.id.itemSelectionNextButton).setOnClickListener(view -> {
+        v.findViewById(R.id.itemSelectionNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             int total = 0;
             for (RoomTypeAvailability room : availableRoomTypes) {
                 if (roomQuantities.containsKey(room.group_id)) {
@@ -1764,7 +1764,7 @@ final class HotelBookingFlowController {
                 return;
             }
             showScreen(SCREEN_REVIEW);
-        });
+        }));
     }
 
     /**
@@ -1797,7 +1797,7 @@ final class HotelBookingFlowController {
             container.addView(card);
         }
 
-        v.findViewById(R.id.itemBrowseNextButton).setOnClickListener(view -> showScreen(SCREEN_ROOM_SELECTION));
+        v.findViewById(R.id.itemBrowseNextButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_ROOM_SELECTION)));
     }
 
     /**
@@ -1882,10 +1882,10 @@ final class HotelBookingFlowController {
                 otherContainer.addView(card);
             }
             addAnotherButton.setVisibility(View.VISIBLE);
-            addAnotherButton.setOnClickListener(view -> showScreen(SCREEN_COTTAGE_BROWSE));
+            addAnotherButton.setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_COTTAGE_BROWSE)));
         }
 
-        v.findViewById(R.id.itemSelectionNextButton).setOnClickListener(view -> {
+        v.findViewById(R.id.itemSelectionNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             int total = 0;
             for (CottageKtvOption item : cottageItems) {
                 if (roomQuantities.containsKey(item.group_id)) {
@@ -1901,7 +1901,7 @@ final class HotelBookingFlowController {
                 return;
             }
             showScreen(SCREEN_COTTAGE_REVIEW);
-        });
+        }));
     }
 
     /**
@@ -1930,7 +1930,7 @@ final class HotelBookingFlowController {
             container.addView(card);
         }
 
-        v.findViewById(R.id.itemBrowseNextButton).setOnClickListener(view -> showScreen(SCREEN_COTTAGE_SELECTION));
+        v.findViewById(R.id.itemBrowseNextButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_COTTAGE_SELECTION)));
     }
 
     /**
@@ -1973,10 +1973,10 @@ final class HotelBookingFlowController {
         AuthUiUtils.afterTextChanged(specialRequestField,
                 () -> specialRequest = specialRequestField.getText().toString());
 
-        v.findViewById(R.id.hotelReviewNextButton).setOnClickListener(view -> {
+        v.findViewById(R.id.hotelReviewNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             activeContinuation = CONTINUATION_COTTAGE;
             fetchAmenities(v);
-        });
+        }));
     }
 
     private String cottageRateTypeLabel() {
@@ -2134,7 +2134,7 @@ final class HotelBookingFlowController {
         termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
         cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
 
-        v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(view -> {
+        v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (paymentOption == PAYMENT_NONE) {
                 Toast.makeText(activity, R.string.toast_select_payment_option, Toast.LENGTH_LONG).show();
                 return;
@@ -2144,7 +2144,7 @@ final class HotelBookingFlowController {
                 return;
             }
             showScreen(SCREEN_COTTAGE_PAYMENT);
-        });
+        }));
     }
 
     /**
@@ -2186,15 +2186,15 @@ final class HotelBookingFlowController {
         });
         AuthUiUtils.afterTextChanged(referenceField, () -> referenceNumberText = referenceField.getText().toString());
 
-        v.findViewById(R.id.paymentScreenshotDropzone).setOnClickListener(view -> {
+        v.findViewById(R.id.paymentScreenshotDropzone).setOnClickListener(ClickGuard.wrap(view -> {
             Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
             activity.startActivityForResult(intent, REQUEST_PAYMENT_SCREENSHOT);
-        });
+        }));
         if (screenshotUri != null) {
             showScreenshotPreview(v);
         }
 
-        v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(view -> {
+        v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (amountPaidText.trim().isEmpty()) {
                 Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
                 return;
@@ -2212,7 +2212,7 @@ final class HotelBookingFlowController {
                 return;
             }
             submitSingleFacilityBooking(v, FAC_COTTAGE);
-        });
+        }));
     }
 
     private int computeCottageGrandTotal() {
@@ -2302,10 +2302,10 @@ final class HotelBookingFlowController {
                 otherContainer.addView(card);
             }
             addAnotherButton.setVisibility(View.VISIBLE);
-            addAnotherButton.setOnClickListener(view -> showScreen(SCREEN_KTV_BROWSE));
+            addAnotherButton.setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_KTV_BROWSE)));
         }
 
-        v.findViewById(R.id.itemSelectionNextButton).setOnClickListener(view -> {
+        v.findViewById(R.id.itemSelectionNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             int total = 0;
             for (CottageKtvOption item : ktvItems) {
                 if (roomQuantities.containsKey(item.group_id)) {
@@ -2329,7 +2329,7 @@ final class HotelBookingFlowController {
                 return;
             }
             showScreen(SCREEN_KTV_REVIEW);
-        });
+        }));
     }
 
     /**
@@ -2359,7 +2359,7 @@ final class HotelBookingFlowController {
             container.addView(card);
         }
 
-        v.findViewById(R.id.itemBrowseNextButton).setOnClickListener(view -> showScreen(SCREEN_KTV_SELECTION));
+        v.findViewById(R.id.itemBrowseNextButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_KTV_SELECTION)));
     }
 
     /**
@@ -2403,10 +2403,10 @@ final class HotelBookingFlowController {
         AuthUiUtils.afterTextChanged(specialRequestField,
                 () -> specialRequest = specialRequestField.getText().toString());
 
-        v.findViewById(R.id.hotelReviewNextButton).setOnClickListener(view -> {
+        v.findViewById(R.id.hotelReviewNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             activeContinuation = CONTINUATION_KTV;
             fetchAmenities(v);
-        });
+        }));
     }
 
     private String ktvDurationLabel() {
@@ -2535,7 +2535,7 @@ final class HotelBookingFlowController {
         termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
         cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
 
-        v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(view -> {
+        v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (paymentOption == PAYMENT_NONE) {
                 Toast.makeText(activity, R.string.toast_select_payment_option, Toast.LENGTH_LONG).show();
                 return;
@@ -2545,7 +2545,7 @@ final class HotelBookingFlowController {
                 return;
             }
             showScreen(SCREEN_KTV_PAYMENT);
-        });
+        }));
     }
 
     /**
@@ -2587,15 +2587,15 @@ final class HotelBookingFlowController {
         });
         AuthUiUtils.afterTextChanged(referenceField, () -> referenceNumberText = referenceField.getText().toString());
 
-        v.findViewById(R.id.paymentScreenshotDropzone).setOnClickListener(view -> {
+        v.findViewById(R.id.paymentScreenshotDropzone).setOnClickListener(ClickGuard.wrap(view -> {
             Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
             activity.startActivityForResult(intent, REQUEST_PAYMENT_SCREENSHOT);
-        });
+        }));
         if (screenshotUri != null) {
             showScreenshotPreview(v);
         }
 
-        v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(view -> {
+        v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (amountPaidText.trim().isEmpty()) {
                 Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
                 return;
@@ -2613,7 +2613,7 @@ final class HotelBookingFlowController {
                 return;
             }
             submitSingleFacilityBooking(v, FAC_KTV);
-        });
+        }));
     }
 
     private int computeKtvGrandTotal() {
@@ -2782,7 +2782,7 @@ final class HotelBookingFlowController {
         // Hotel Rooms, Cottages and KTV Rooms all submit a real reservation request to the shared
         // backend (submitReservationRequest / submitCottageReservationRequest /
         // submitSingleFacilityReservation).
-        v.findViewById(R.id.reservationSummaryReserveButton).setOnClickListener(view -> {
+        v.findViewById(R.id.reservationSummaryReserveButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (activeContinuation == CONTINUATION_COTTAGE) {
                 submitCottageReservationRequest(v);
                 return;
@@ -2792,7 +2792,7 @@ final class HotelBookingFlowController {
                 return;
             }
             submitReservationRequest(v);
-        });
+        }));
     }
 
     /**
@@ -2931,14 +2931,14 @@ final class HotelBookingFlowController {
     }
 
     private void bindReservationConfirmed(View v) {
-        v.findViewById(R.id.reservationConfirmedViewButton).setOnClickListener(view -> {
+        v.findViewById(R.id.reservationConfirmedViewButton).setOnClickListener(ClickGuard.wrap(view -> {
             reservationDetailsBackTarget = datesScreenForContinuation();
             showScreen(SCREEN_RESERVATION_DETAILS);
-        });
-        v.findViewById(R.id.reservationConfirmedHomeButton).setOnClickListener(view -> {
+        }));
+        v.findViewById(R.id.reservationConfirmedHomeButton).setOnClickListener(ClickGuard.wrap(view -> {
             resetFlow();
             onBackToHome.run();
-        });
+        }));
     }
 
     /**
@@ -3057,7 +3057,7 @@ final class HotelBookingFlowController {
                 && !isReservationExpired();
         Button payNowButton = v.findViewById(R.id.reservationDetailsPayNowButton);
         payNowButton.setVisibility(canPayNow ? View.VISIBLE : View.GONE);
-        payNowButton.setOnClickListener(view -> showScreen(SCREEN_RESERVATION_PAYMENT));
+        payNowButton.setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_RESERVATION_PAYMENT)));
 
         // Cancel is guest-driven (unlike Booked, which stays receptionist-only) — available any
         // time the reservation is still Pending, whether or not payment has been submitted yet;
@@ -3065,7 +3065,7 @@ final class HotelBookingFlowController {
         boolean canCancel = reservationStatus == RES_STATUS_PENDING && !isReservationExpired();
         Button cancelButton = v.findViewById(R.id.reservationDetailsCancelButton);
         cancelButton.setVisibility(canCancel ? View.VISIBLE : View.GONE);
-        cancelButton.setOnClickListener(view -> showCancelConfirmDialog());
+        cancelButton.setOnClickListener(ClickGuard.wrap(view -> showCancelConfirmDialog()));
     }
 
     /**
@@ -3173,7 +3173,7 @@ final class HotelBookingFlowController {
         // Overriding the positive button's listener after show() (rather than in
         // setPositiveButton above) is what lets an empty reason re-prompt instead of the dialog
         // auto-dismissing — AlertDialog always dismisses on a setPositiveButton click otherwise.
-        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(ClickGuard.wrap(view -> {
             String reason = reasonField.getText().toString().trim();
             if (reason.isEmpty()) {
                 Toast.makeText(activity, R.string.toast_cancellation_reason_required, Toast.LENGTH_LONG).show();
@@ -3196,7 +3196,7 @@ final class HotelBookingFlowController {
             reservationCancelledBy = "guest";
             dialog.dismiss();
             showScreen(SCREEN_RESERVATION_DETAILS);
-        }));
+        })));
         dialog.show();
     }
 
@@ -3360,12 +3360,12 @@ final class HotelBookingFlowController {
     }
 
     /**
-     * Reservation flow's own mock Payment screen (Pay Now on Reservation Details) — reuses the
+     * Reservation flow's own Payment screen (Pay Now on Reservation Details) — reuses the
      * Book flow's view_hotel_payment.xml (GCash QR + amount paid/reference/screenshot fields) but
-     * always collects the fixed 30% down payment, not a full/partial choice, and has no backend
-     * endpoint to submit to yet (see submitReservation for the real one). Completing it just marks
-     * reservationPaymentSubmitted so Reservation Details shows "awaiting verification" and hides
-     * this button, matching what a receptionist would need to confirm before Booked.
+     * always collects the fixed 30% down payment, not a full/partial choice. Completing it submits
+     * the payment (see submitReservationPayment), then marks reservationPaymentSubmitted so
+     * Reservation Details shows "awaiting verification" and hides this button, matching what a
+     * receptionist would need to confirm before Booked.
      */
     private void bindReservationPayment(View v) {
         bindHeader(v, R.id.hotelPaymentHeaderBar, R.string.hotel_payment_title, () -> showScreen(SCREEN_RESERVATION_DETAILS));
@@ -3410,17 +3410,17 @@ final class HotelBookingFlowController {
         });
         AuthUiUtils.afterTextChanged(referenceField, () -> referenceNumberText = referenceField.getText().toString());
 
-        v.findViewById(R.id.paymentScreenshotDropzone).setOnClickListener(view -> {
+        v.findViewById(R.id.paymentScreenshotDropzone).setOnClickListener(ClickGuard.wrap(view -> {
             Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
             activity.startActivityForResult(intent, REQUEST_PAYMENT_SCREENSHOT);
-        });
+        }));
         if (screenshotUri != null) {
             showScreenshotPreview(v);
         }
 
         Button completeButton = v.findViewById(R.id.hotelPaymentCompleteButton);
         completeButton.setText(R.string.button_complete_reservation_payment);
-        completeButton.setOnClickListener(view -> {
+        completeButton.setOnClickListener(ClickGuard.wrap(view -> {
             if (amountPaidText.trim().isEmpty()) {
                 Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
                 return;
@@ -3437,21 +3437,16 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
                 return;
             }
-            if (activeContinuation != CONTINUATION_NONE) {
-                reservationPaymentSubmitted = true;
-                reservationPaymentSubmittedAtMillis = System.currentTimeMillis();
-                showScreen(SCREEN_RESERVATION_PAYMENT_CONFIRMED);
-                return;
-            }
             submitReservationPayment(v);
-        });
+        }));
     }
 
     /**
-     * Hotel Rooms only (see reservationAdvanceReservationId) — submits payment for the Pending
-     * reservation submitReservationRequest() created, promoting it into a real booking on the
-     * shared backend (visible in Booking Management). Always the fixed 30% down payment, matching
-     * bindReservationPayment's own doc comment.
+     * Submits payment for the Pending reservation on the shared backend (reservationAdvanceReservationId),
+     * promoting it into a real booking visible in Booking Management. Used for every category —
+     * Hotel Rooms, Cottage, KTV and multi-facility — since the server's payment endpoint works on any
+     * reservation by ID. Always the fixed 30% down payment, matching bindReservationPayment's own
+     * doc comment.
      */
     private void submitReservationPayment(View paymentView) {
         String token = ProfileStore.getAuthToken(activity);
@@ -3513,12 +3508,12 @@ final class HotelBookingFlowController {
     }
 
     private void bindReservationPaymentConfirmed(View v) {
-        v.findViewById(R.id.reservationPaymentConfirmedReceiptButton).setOnClickListener(view ->
-                showScreen(SCREEN_RESERVATION_DETAILS));
-        v.findViewById(R.id.reservationPaymentConfirmedHomeButton).setOnClickListener(view -> {
+        v.findViewById(R.id.reservationPaymentConfirmedReceiptButton).setOnClickListener(ClickGuard.wrap(view ->
+                showScreen(SCREEN_RESERVATION_DETAILS)));
+        v.findViewById(R.id.reservationPaymentConfirmedHomeButton).setOnClickListener(ClickGuard.wrap(view -> {
             resetFlow();
             onBackToHome.run();
-        });
+        }));
     }
 
     /** Captures the four reservationXxx() helpers' current output into the reservationSnapshotXxx
@@ -3961,14 +3956,14 @@ final class HotelBookingFlowController {
         AuthUiUtils.afterTextChanged(specialRequestField,
                 () -> specialRequest = specialRequestField.getText().toString());
 
-        v.findViewById(R.id.hotelReviewNextButton).setOnClickListener(view -> {
+        v.findViewById(R.id.hotelReviewNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             activeContinuation = CONTINUATION_NONE;
             // reserveMode is already set correctly by showRoomDatesEntry right before this
             // screen, whether entered from a scoped Room Overview (selectionOriginVariantId >= 0)
             // or the Book/Reserve tabs' picker (selectionOriginVariantId == -1, no pre-chosen
             // room) — every entry point sets it explicitly now, so nothing here should touch it.
             fetchAmenities(v);
-        });
+        }));
     }
 
     /** Loads real add-on amenities from the shared backend, then advances to Choose Amenity. */
@@ -4063,8 +4058,8 @@ final class HotelBookingFlowController {
             container.addView(card);
         }
 
-        v.findViewById(R.id.hotelAmenitySkipButton).setOnClickListener(view -> finishAmenityStep(view));
-        v.findViewById(R.id.hotelAmenityNextButton).setOnClickListener(view -> {
+        v.findViewById(R.id.hotelAmenitySkipButton).setOnClickListener(ClickGuard.wrap(view -> finishAmenityStep(view)));
+        v.findViewById(R.id.hotelAmenityNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (totalFromMap(amenityQuantities) == 0) {
                 AlertDialog dialog = new AlertDialog.Builder(activity)
                         .setTitle(R.string.dialog_no_amenity_title)
@@ -4076,7 +4071,7 @@ final class HotelBookingFlowController {
                 return;
             }
             finishAmenityStep(view);
-        });
+        }));
     }
 
     /**
@@ -4232,7 +4227,7 @@ final class HotelBookingFlowController {
         termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
         cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
 
-        v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(view -> {
+        v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (paymentOption == PAYMENT_NONE) {
                 Toast.makeText(activity, R.string.toast_select_payment_option, Toast.LENGTH_LONG).show();
                 return;
@@ -4242,7 +4237,7 @@ final class HotelBookingFlowController {
                 return;
             }
             showScreen(SCREEN_PAYMENT);
-        });
+        }));
     }
 
     private void updatePaymentOptionCards(View fullCard, View partialCard) {
@@ -4287,15 +4282,15 @@ final class HotelBookingFlowController {
         });
         AuthUiUtils.afterTextChanged(referenceField, () -> referenceNumberText = referenceField.getText().toString());
 
-        v.findViewById(R.id.paymentScreenshotDropzone).setOnClickListener(view -> {
+        v.findViewById(R.id.paymentScreenshotDropzone).setOnClickListener(ClickGuard.wrap(view -> {
             Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
             activity.startActivityForResult(intent, REQUEST_PAYMENT_SCREENSHOT);
-        });
+        }));
         if (screenshotUri != null) {
             showScreenshotPreview(v);
         }
 
-        v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(view -> {
+        v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (amountPaidText.trim().isEmpty()) {
                 Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
                 return;
@@ -4313,7 +4308,7 @@ final class HotelBookingFlowController {
                 return;
             }
             submitReservation(v);
-        });
+        }));
     }
 
     /**
@@ -4450,12 +4445,12 @@ final class HotelBookingFlowController {
 
     private void bindSuccess(View v) {
         ((TextView) v.findViewById(R.id.successBookingReference)).setText(bookingReference);
-        v.findViewById(R.id.successViewBookingButton).setOnClickListener(view ->
-                Toast.makeText(activity, R.string.toast_view_booking_placeholder, Toast.LENGTH_LONG).show());
-        v.findViewById(R.id.successBackToHomeButton).setOnClickListener(view -> {
+        v.findViewById(R.id.successViewBookingButton).setOnClickListener(ClickGuard.wrap(view ->
+                Toast.makeText(activity, R.string.toast_view_booking_placeholder, Toast.LENGTH_LONG).show()));
+        v.findViewById(R.id.successBackToHomeButton).setOnClickListener(ClickGuard.wrap(view -> {
             resetFlow();
             onBackToHome.run();
-        });
+        }));
     }
 
     private static final class StatusPresentation {
@@ -4879,13 +4874,13 @@ final class HotelBookingFlowController {
         AuthUiUtils.afterTextChanged(specialRequestField,
                 () -> specialRequest = specialRequestField.getText().toString());
 
-        v.findViewById(R.id.hotelReviewNextButton).setOnClickListener(view -> {
+        v.findViewById(R.id.hotelReviewNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (multiQueue.contains(FAC_ROOM)) {
                 fetchAmenities(v);
             } else {
                 showScreen(billingScreenForContinuation());
             }
-        });
+        }));
     }
 
     /** Combined Book-flow Billing Summary: one Accommodation card holding every facility's own
@@ -4946,7 +4941,7 @@ final class HotelBookingFlowController {
         termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
         cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
 
-        v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(view -> {
+        v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (paymentOption == PAYMENT_NONE) {
                 Toast.makeText(activity, R.string.toast_select_payment_option, Toast.LENGTH_LONG).show();
                 return;
@@ -4956,7 +4951,7 @@ final class HotelBookingFlowController {
                 return;
             }
             showScreen(SCREEN_MULTI_PAYMENT);
-        });
+        }));
     }
 
     /**
@@ -4995,15 +4990,15 @@ final class HotelBookingFlowController {
         });
         AuthUiUtils.afterTextChanged(referenceField, () -> referenceNumberText = referenceField.getText().toString());
 
-        v.findViewById(R.id.paymentScreenshotDropzone).setOnClickListener(view -> {
+        v.findViewById(R.id.paymentScreenshotDropzone).setOnClickListener(ClickGuard.wrap(view -> {
             Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
             activity.startActivityForResult(intent, REQUEST_PAYMENT_SCREENSHOT);
-        });
+        }));
         if (screenshotUri != null) {
             showScreenshotPreview(v);
         }
 
-        v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(view -> {
+        v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (amountPaidText.trim().isEmpty()) {
                 Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
                 return;
@@ -5021,7 +5016,7 @@ final class HotelBookingFlowController {
                 return;
             }
             submitMultiBooking(v);
-        });
+        }));
     }
 
     /** Combined Reserve-flow Summary: every facility in one list, one total, one RESERVE button. */
@@ -5061,7 +5056,7 @@ final class HotelBookingFlowController {
         termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
         cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
 
-        v.findViewById(R.id.reservationSummaryReserveButton).setOnClickListener(view -> submitMultiReservation(v));
+        v.findViewById(R.id.reservationSummaryReserveButton).setOnClickListener(ClickGuard.wrap(view -> submitMultiReservation(v)));
     }
 
     /** Adds one facility's block to a multi-facility request, as bracket-notation keys
@@ -5290,7 +5285,7 @@ final class HotelBookingFlowController {
     private void bindHeader(View v, int headerBarId, int titleRes, Runnable onBack) {
         View header = v.findViewById(headerBarId);
         ((TextView) header.findViewById(R.id.headerTitle)).setText(titleRes);
-        header.findViewById(R.id.headerBackButton).setOnClickListener(view -> onBack.run());
+        header.findViewById(R.id.headerBackButton).setOnClickListener(ClickGuard.wrap(view -> onBack.run()));
     }
 
     private void bindRow(View row, int labelRes, String value) {

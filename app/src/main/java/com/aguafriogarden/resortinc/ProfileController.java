@@ -12,6 +12,7 @@ import android.text.InputFilter;
 import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -39,8 +40,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.IntConsumer;
 
 /**
  * Drives the "Me" tab's Profile screen and its sub-screens (Personal
@@ -273,12 +276,12 @@ final class ProfileController {
     private void bindMain(View v) {
         boolean light = ThemeManager.mode(activity) == ThemeManager.MODE_LIGHT;
 
-        v.findViewById(R.id.profileBackButton).setOnClickListener(view -> onBackToHome.run());
+        v.findViewById(R.id.profileBackButton).setOnClickListener(ClickGuard.wrap(view -> onBackToHome.run()));
 
         bindAvatar(v.findViewById(R.id.profileAvatar));
         View.OnClickListener changeAvatar = view -> pickImage(REQUEST_AVATAR);
-        v.findViewById(R.id.profileAvatar).setOnClickListener(changeAvatar);
-        v.findViewById(R.id.profileChangeAvatarButton).setOnClickListener(changeAvatar);
+        v.findViewById(R.id.profileAvatar).setOnClickListener(ClickGuard.wrap(changeAvatar));
+        v.findViewById(R.id.profileChangeAvatarButton).setOnClickListener(ClickGuard.wrap(changeAvatar));
 
         ((TextView) v.findViewById(R.id.profileName)).setText(ProfileStore.getFullName(activity));
 
@@ -340,7 +343,7 @@ final class ProfileController {
         Switch notificationsSwitch = notificationsRow.findViewById(R.id.rowSwitch);
         notificationsSwitch.setChecked(ProfileStore.isNotificationsEnabled(activity));
         notificationsSwitch.setOnCheckedChangeListener((btn, checked) ->
-                ProfileStore.setNotificationsEnabled(activity, checked));
+                NotificationStore.setNotificationsEnabled(activity, checked));
 
         View darkModeRow = v.findViewById(R.id.rowDarkMode);
         bindSwitchRowLabels(darkModeRow, R.drawable.ic_moon,
@@ -350,7 +353,7 @@ final class ProfileController {
         darkModeSwitch.setOnCheckedChangeListener((btn, checked) -> ThemeManager.setMode(
                 activity, checked ? ThemeManager.MODE_DARK : ThemeManager.MODE_LIGHT));
 
-        v.findViewById(R.id.logoutRow).setOnClickListener(view -> onLogout.run());
+        v.findViewById(R.id.logoutRow).setOnClickListener(ClickGuard.wrap(view -> onLogout.run()));
     }
 
     // ---- My Reservations / My Bookings (live from GET /api/booking/my-bookings) ---------------
@@ -383,13 +386,13 @@ final class ProfileController {
                 int count = tab == ReservationHistory.TAB_PAST ? 0 : ReservationHistory.count(historyData, section, tab);
                 badge.setText(String.valueOf(count));
                 badge.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
-                shortcut.setOnClickListener(view -> openHistory(sectionFinal, tabFinal));
+                shortcut.setOnClickListener(ClickGuard.wrap(view -> openHistory(sectionFinal, tabFinal)));
             }
         }
-        v.findViewById(R.id.historyReservationsViewAll).setOnClickListener(
-                view -> openHistory(ReservationHistory.SECTION_RESERVATIONS, ReservationHistory.TAB_CURRENT));
-        v.findViewById(R.id.historyBookingsViewAll).setOnClickListener(
-                view -> openHistory(ReservationHistory.SECTION_BOOKINGS, ReservationHistory.TAB_CURRENT));
+        v.findViewById(R.id.historyReservationsViewAll).setOnClickListener(ClickGuard.wrap(
+                view -> openHistory(ReservationHistory.SECTION_RESERVATIONS, ReservationHistory.TAB_CURRENT)));
+        v.findViewById(R.id.historyBookingsViewAll).setOnClickListener(ClickGuard.wrap(
+                view -> openHistory(ReservationHistory.SECTION_BOOKINGS, ReservationHistory.TAB_CURRENT)));
     }
 
     private void openHistory(int section, int tab) {
@@ -475,7 +478,7 @@ final class ProfileController {
         ((TextView) card.findViewById(R.id.reservationCardReference)).setText(summary.booking_reference);
         ((TextView) card.findViewById(R.id.reservationCardTotal)).setText(activity.getString(
                 R.string.format_currency, NumberFormat.getInstance(Locale.US).format(Math.round(summary.subtotal))));
-        card.setOnClickListener(view -> onOpenReservation.accept(summary));
+        card.setOnClickListener(ClickGuard.wrap(view -> onOpenReservation.accept(summary)));
         return card;
     }
 
@@ -504,6 +507,7 @@ final class ProfileController {
         if (!hotel && !cottage && !ktv && !hall) {
             hotel = "hotel".equals(summary.service_type);
             cottage = "cottage".equals(summary.service_type);
+            ktv = "ktv".equals(summary.service_type);
             hall = "hall".equals(summary.service_type);
         }
         List<String> names = new ArrayList<>();
@@ -606,7 +610,7 @@ final class ProfileController {
         } else {
             badge.setVisibility(View.GONE);
         }
-        row.setOnClickListener(view -> onClick.run());
+        row.setOnClickListener(ClickGuard.wrap(view -> onClick.run()));
     }
 
     private void bindSwitchRowLabels(View row, int iconRes, int titleRes, int subtitleRes) {
@@ -618,7 +622,7 @@ final class ProfileController {
     private void bindSuccess(View v, int titleRes, int messageRes, Runnable onBack) {
         ((TextView) v.findViewById(R.id.successTitle)).setText(titleRes);
         ((TextView) v.findViewById(R.id.successMessage)).setText(messageRes);
-        v.findViewById(R.id.successButton).setOnClickListener(view -> onBack.run());
+        v.findViewById(R.id.successButton).setOnClickListener(ClickGuard.wrap(view -> onBack.run()));
     }
 
     // ---- Personal Information ----------------------------------------
@@ -629,9 +633,7 @@ final class ProfileController {
         ((EditText) v.findViewById(R.id.piFirstNameField)).setText(ProfileStore.getFirstName(activity));
         ((EditText) v.findViewById(R.id.piMiddleNameField)).setText(ProfileStore.getMiddleName(activity));
         ((EditText) v.findViewById(R.id.piLastNameField)).setText(ProfileStore.getLastName(activity));
-        ((EditText) v.findViewById(R.id.piProvinceField)).setText(ProfileStore.getProvince(activity));
-        ((EditText) v.findViewById(R.id.piCityField)).setText(ProfileStore.getCity(activity));
-        ((EditText) v.findViewById(R.id.piBarangayField)).setText(ProfileStore.getBarangay(activity));
+        setUpAddressSpinners(v);
         ((EditText) v.findViewById(R.id.piUsernameField)).setText(ProfileStore.getUsername(activity));
         ((EditText) v.findViewById(R.id.piEmailField)).setText(ProfileStore.getEmail(activity));
 
@@ -640,22 +642,156 @@ final class ProfileController {
 
         EditText birthDate = v.findViewById(R.id.piBirthDateField);
         birthDate.setText(ProfileStore.getBirthDate(activity));
-        birthDate.setOnClickListener(view -> showPastDatePicker(birthDate.getText().toString(), date -> {
+        birthDate.setOnClickListener(ClickGuard.wrap(view -> showPastDatePicker(birthDate.getText().toString(), date -> {
             birthDate.setText(date);
             v.findViewById(R.id.piBirthDateError).setVisibility(View.GONE);
-        }));
+        })));
 
         EditText phoneNumber = v.findViewById(R.id.piPhoneNumberField);
         phoneNumber.setFilters(new InputFilter[]{DIGITS_ONLY_FILTER, new InputFilter.LengthFilter(PHONE_NUMBER_LENGTH)});
         phoneNumber.setText(ProfileStore.getContactNumber(activity));
 
-        v.findViewById(R.id.piCancelButton).setOnClickListener(view -> showScreen(SCREEN_MAIN));
-        v.findViewById(R.id.piChangeButton).setOnClickListener(view -> {
+        v.findViewById(R.id.piCancelButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_MAIN)));
+        v.findViewById(R.id.piChangeButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (validatePersonalInfo(v)) {
                 savePersonalInfo(v);
                 showScreen(SCREEN_PERSONAL_INFO_SUCCESS);
             }
+        }));
+    }
+
+    /**
+     * The address last applied to the spinners. Spinner reports a selection after every
+     * setSelection(), including the one that restores the saved value, so a report that matches
+     * this is not a user change and must not clear the levels below it.
+     */
+    private static final class AddressSelection {
+        String province = "";
+        String city = "";
+    }
+
+    /**
+     * Wires Province -> City/Municipality -> Barangay: City lists only the chosen province's
+     * cities, Barangay only the chosen city's, and each stays disabled until the one above is
+     * picked. The saved address is restored by name; a saved value the dataset doesn't contain
+     * (e.g. free text from before these were dropdowns) falls back to the prompt.
+     */
+    private void setUpAddressSpinners(View v) {
+        Spinner provinceSpinner = v.findViewById(R.id.piProvinceSpinner);
+        AddressSelection applied = new AddressSelection();
+        String savedProvince = ProfileStore.getProvince(activity);
+        String savedCity = ProfileStore.getCity(activity);
+        String savedBarangay = ProfileStore.getBarangay(activity);
+
+        resetAddressSpinner(v.findViewById(R.id.piCitySpinner), R.string.city_prompt_select_province_first);
+        resetAddressSpinner(v.findViewById(R.id.piBarangaySpinner), R.string.barangay_prompt_select_city_first);
+
+        AddressRepository.getProvinces(activity, provinces -> {
+            List<String> options = withPrompt(R.string.province_prompt, provinces);
+            provinceSpinner.setAdapter(new AuthSpinnerAdapter(activity, options));
+
+            int restoreIndex = Math.max(0, options.indexOf(savedProvince));
+            provinceSpinner.setSelection(restoreIndex);
+            applied.province = restoreIndex > 0 ? savedProvince : "";
+            if (restoreIndex > 0) {
+                loadCities(v, applied, savedProvince, savedCity, savedBarangay);
+            }
+
+            onPositionSelected(provinceSpinner, position -> {
+                String picked = position > 0 ? options.get(position) : "";
+                if (picked.equals(applied.province)) {
+                    return;
+                }
+                applied.province = picked;
+                applied.city = "";
+                if (position > 0) {
+                    loadCities(v, applied, picked, "", "");
+                } else {
+                    resetAddressSpinner(v.findViewById(R.id.piCitySpinner), R.string.city_prompt_select_province_first);
+                    resetAddressSpinner(v.findViewById(R.id.piBarangaySpinner), R.string.barangay_prompt_select_city_first);
+                }
+            });
         });
+    }
+
+    private void loadCities(View v, AddressSelection applied, String province, String restoreCity,
+            String restoreBarangay) {
+        Spinner citySpinner = v.findViewById(R.id.piCitySpinner);
+        citySpinner.setOnItemSelectedListener(null);
+        AddressRepository.getCities(activity, province, cities -> {
+            List<String> options = withPrompt(R.string.city_prompt, cities);
+            citySpinner.setEnabled(true);
+            citySpinner.setAdapter(new AuthSpinnerAdapter(activity, options));
+
+            int restoreIndex = Math.max(0, options.indexOf(restoreCity));
+            citySpinner.setSelection(restoreIndex);
+            applied.city = restoreIndex > 0 ? restoreCity : "";
+            if (restoreIndex > 0) {
+                loadBarangays(v, province, restoreCity, restoreBarangay);
+            } else {
+                resetAddressSpinner(v.findViewById(R.id.piBarangaySpinner), R.string.barangay_prompt_select_city_first);
+            }
+
+            onPositionSelected(citySpinner, position -> {
+                String picked = position > 0 ? options.get(position) : "";
+                if (picked.equals(applied.city)) {
+                    return;
+                }
+                applied.city = picked;
+                if (position > 0) {
+                    loadBarangays(v, province, picked, "");
+                } else {
+                    resetAddressSpinner(v.findViewById(R.id.piBarangaySpinner), R.string.barangay_prompt_select_city_first);
+                }
+            });
+        });
+    }
+
+    private void loadBarangays(View v, String province, String city, String restoreBarangay) {
+        Spinner barangaySpinner = v.findViewById(R.id.piBarangaySpinner);
+        barangaySpinner.setOnItemSelectedListener(null);
+        AddressRepository.getBarangays(activity, province, city, barangays -> {
+            List<String> options = withPrompt(R.string.barangay_prompt, barangays);
+            barangaySpinner.setEnabled(true);
+            barangaySpinner.setAdapter(new AuthSpinnerAdapter(activity, options));
+            barangaySpinner.setSelection(Math.max(0, options.indexOf(restoreBarangay)));
+        });
+    }
+
+    /** A locked dropdown showing only "Select a ... first". */
+    private void resetAddressSpinner(Spinner spinner, int promptRes) {
+        spinner.setOnItemSelectedListener(null);
+        spinner.setEnabled(false);
+        spinner.setAdapter(new AuthSpinnerAdapter(activity,
+                Collections.singletonList(activity.getString(promptRes))));
+        spinner.setSelection(0);
+    }
+
+    private List<String> withPrompt(int promptRes, List<String> choices) {
+        List<String> options = new ArrayList<>();
+        options.add(activity.getString(promptRes));
+        options.addAll(choices);
+        return options;
+    }
+
+    private static void onPositionSelected(Spinner spinner, IntConsumer onPosition) {
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                onPosition.accept(position);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
+    }
+
+    /** The chosen option's text, or "" while the dropdown is locked or still on its prompt. */
+    private String selectedOption(View v, int spinnerId) {
+        Spinner spinner = v.findViewById(spinnerId);
+        return spinner.isEnabled() && spinner.getSelectedItemPosition() > 0
+                ? (String) spinner.getSelectedItem() : "";
     }
 
     private boolean validatePersonalInfo(View v) {
@@ -666,9 +802,9 @@ final class ProfileController {
         String lastName = fieldText(v, R.id.piLastNameField);
         String birthDate = fieldText(v, R.id.piBirthDateField);
         String phoneNumber = fieldText(v, R.id.piPhoneNumberField);
-        String province = fieldText(v, R.id.piProvinceField);
-        String city = fieldText(v, R.id.piCityField);
-        String barangay = fieldText(v, R.id.piBarangayField);
+        String province = selectedOption(v, R.id.piProvinceSpinner);
+        String city = selectedOption(v, R.id.piCitySpinner);
+        String barangay = selectedOption(v, R.id.piBarangaySpinner);
         String username = fieldText(v, R.id.piUsernameField);
         String email = fieldText(v, R.id.piEmailField);
         int genderPos = ((Spinner) v.findViewById(R.id.piGenderSpinner)).getSelectedItemPosition();
@@ -712,9 +848,9 @@ final class ProfileController {
                 genderPos,
                 fieldText(v, R.id.piBirthDateField),
                 fieldText(v, R.id.piPhoneNumberField),
-                fieldText(v, R.id.piProvinceField),
-                fieldText(v, R.id.piCityField),
-                fieldText(v, R.id.piBarangayField),
+                selectedOption(v, R.id.piProvinceSpinner),
+                selectedOption(v, R.id.piCitySpinner),
+                selectedOption(v, R.id.piBarangaySpinner),
                 fieldText(v, R.id.piUsernameField),
                 fieldText(v, R.id.piEmailField));
     }
@@ -740,8 +876,8 @@ final class ProfileController {
         });
         updatePasswordRequirements(v, "");
 
-        v.findViewById(R.id.cpCancelButton).setOnClickListener(view -> showScreen(SCREEN_MAIN));
-        v.findViewById(R.id.cpUpdateButton).setOnClickListener(view -> {
+        v.findViewById(R.id.cpCancelButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_MAIN)));
+        v.findViewById(R.id.cpUpdateButton).setOnClickListener(ClickGuard.wrap(view -> {
             boolean valid = true;
             String currentPw = current.getText().toString();
             String newPw = newPassword.getText().toString();
@@ -759,7 +895,7 @@ final class ProfileController {
                 ProfileStore.setPassword(activity, newPw);
                 showScreen(SCREEN_CHANGE_PASSWORD_SUCCESS);
             }
-        });
+        }));
     }
 
     private void updatePasswordRequirements(View v, String password) {
@@ -827,9 +963,9 @@ final class ProfileController {
                     activity.getString(R.string.id_number_format, ProfileStore.getIdNumber(activity)));
         }
 
-        v.findViewById(R.id.viUploadNewIdButton).setOnClickListener(view -> showScreen(SCREEN_UPLOAD_ID));
-        v.findViewById(R.id.viGuidelinesButton).setOnClickListener(view ->
-                Toast.makeText(activity, R.string.coming_soon_toast, Toast.LENGTH_SHORT).show());
+        v.findViewById(R.id.viUploadNewIdButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_UPLOAD_ID)));
+        v.findViewById(R.id.viGuidelinesButton).setOnClickListener(ClickGuard.wrap(view ->
+                Toast.makeText(activity, R.string.coming_soon_toast, Toast.LENGTH_SHORT).show()));
     }
 
     // ---- Upload New ID ----------------------------------------
@@ -844,14 +980,14 @@ final class ProfileController {
         setUpPromptedSpinner(v.findViewById(R.id.uiIdTypeSpinner), R.string.id_type_prompt,
                 R.array.id_type_options, 0);
 
-        v.findViewById(R.id.uiFrontDropzone).setOnClickListener(view -> pickImage(REQUEST_ID_FRONT));
-        v.findViewById(R.id.uiBackDropzone).setOnClickListener(view -> pickImage(REQUEST_ID_BACK));
+        v.findViewById(R.id.uiFrontDropzone).setOnClickListener(ClickGuard.wrap(view -> pickImage(REQUEST_ID_FRONT)));
+        v.findViewById(R.id.uiBackDropzone).setOnClickListener(ClickGuard.wrap(view -> pickImage(REQUEST_ID_BACK)));
 
         EditText expiry = v.findViewById(R.id.uiExpiryField);
-        expiry.setOnClickListener(view -> showFutureDatePicker(date -> expiry.setText(date)));
+        expiry.setOnClickListener(ClickGuard.wrap(view -> showFutureDatePicker(date -> expiry.setText(date))));
 
-        v.findViewById(R.id.uiCancelButton).setOnClickListener(view -> showScreen(SCREEN_VALID_ID));
-        v.findViewById(R.id.uiSubmitButton).setOnClickListener(view -> {
+        v.findViewById(R.id.uiCancelButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_VALID_ID)));
+        v.findViewById(R.id.uiSubmitButton).setOnClickListener(ClickGuard.wrap(view -> {
             boolean valid = true;
             int idTypePos = ((Spinner) v.findViewById(R.id.uiIdTypeSpinner)).getSelectedItemPosition();
             String idNumber = fieldText(v, R.id.uiIdNumberField);
@@ -868,7 +1004,7 @@ final class ProfileController {
                 Toast.makeText(activity, R.string.id_submitted_message, Toast.LENGTH_LONG).show();
                 showScreen(SCREEN_VALID_ID);
             }
-        });
+        }));
     }
 
     private void pickImage(int requestCode) {
@@ -881,7 +1017,7 @@ final class ProfileController {
     private void bindHeader(View v, int titleRes, Runnable onBack) {
         View header = v.findViewById(R.id.headerBar);
         ((TextView) header.findViewById(R.id.headerTitle)).setText(titleRes);
-        header.findViewById(R.id.headerBackButton).setOnClickListener(view -> onBack.run());
+        header.findViewById(R.id.headerBackButton).setOnClickListener(ClickGuard.wrap(view -> onBack.run()));
     }
 
     private void setUpPromptedSpinner(Spinner spinner, int promptRes, int optionsRes, int selection) {

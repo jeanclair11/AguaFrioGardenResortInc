@@ -130,10 +130,9 @@
 
         <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_location" />
-            <EditText
-                android:id="@+id/piProvinceField"
-                style="@style/AuthInputEditText"
-                android:hint="@string/hint_province" />
+            <Spinner
+                android:id="@+id/piProvinceSpinner"
+                style="@style/AuthSpinner" />
         </com.aguafriogarden.resortinc.AuthInputField>
         <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piProvinceError" style="@style/AuthFieldError" />
 
@@ -144,10 +143,9 @@
 
         <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_location" />
-            <EditText
-                android:id="@+id/piCityField"
-                style="@style/AuthInputEditText"
-                android:hint="@string/hint_city" />
+            <Spinner
+                android:id="@+id/piCitySpinner"
+                style="@style/AuthSpinner" />
         </com.aguafriogarden.resortinc.AuthInputField>
         <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piCityError" style="@style/AuthFieldError" />
 
@@ -158,10 +156,9 @@
 
         <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_location" />
-            <EditText
-                android:id="@+id/piBarangayField"
-                style="@style/AuthInputEditText"
-                android:hint="@string/hint_barangay" />
+            <Spinner
+                android:id="@+id/piBarangaySpinner"
+                style="@style/AuthSpinner" />
         </com.aguafriogarden.resortinc.AuthInputField>
         <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/piBarangayError" style="@style/AuthFieldError" />
 

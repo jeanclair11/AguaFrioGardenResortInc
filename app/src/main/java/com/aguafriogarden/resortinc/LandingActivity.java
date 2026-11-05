@@ -82,6 +82,8 @@ public class LandingActivity extends Activity {
     private static final String STATE_SECTION = "section";
 
     private SwipeNavigationContainer landingContentContainer;
+    /** Bumped by every swapContent(); a transition's end action only runs while it is still the latest. */
+    private int swapGeneration;
     private ScrollView landingHomeScroll;
     private HorizontalScrollView navBar;
     private View headerBar;
@@ -190,10 +192,10 @@ public class LandingActivity extends Activity {
         topNavItems[1].setOnClickListener(v -> showCategory(Section.ROOMS));
         topNavItems[2].setOnClickListener(v -> showCategory(Section.COTTAGES));
         topNavItems[3].setOnClickListener(v -> showCategory(Section.KTV));
-        landingLogInButton.setOnClickListener(v -> openLogin());
+        landingLogInButton.setOnClickListener(ClickGuard.wrap(v -> openLogin()));
         landingBellCluster.setOnClickListener(v -> showModule(Section.ALERTS));
         profileButton.setOnClickListener(v -> showModule(Section.PROFILE));
-        findViewById(R.id.shareAppButton).setOnClickListener(v -> shareApp());
+        findViewById(R.id.shareAppButton).setOnClickListener(ClickGuard.wrap(v -> shareApp()));
 
         landingContentContainer.setOnSwipeListener(new SwipeNavigationContainer.OnSwipeListener() {
             @Override
@@ -217,6 +219,10 @@ public class LandingActivity extends Activity {
             showModule(Section.CHAT);
         } else if (loggedIn && ChatPollingService.EXTRA_VALUE_RESERVE.equals(openModule)) {
             showModule(Section.RESERVE);
+        } else if (loggedIn && ChatPollingService.EXTRA_VALUE_FEEDBACK.equals(openModule)) {
+            showModule(Section.FEEDBACK);
+        } else if (loggedIn && ChatPollingService.EXTRA_VALUE_ALERTS.equals(openModule)) {
+            showModule(Section.ALERTS);
         }
 
         // Predictive back (API 33+, on by targetSdk here) never calls onBackPressed() below
@@ -454,6 +460,8 @@ public class LandingActivity extends Activity {
         ProfileStore.clearAuthToken(this);
         ProfileStore.clearActiveReservation(this);
         ProfileStore.clearChatCursor(this);
+        ProfileStore.clearAlertCursor(this);
+        ProfileStore.setNotificationsSyncPending(this, false);
         badgeHandler.removeCallbacks(badgeTick);
         leaveCategoryBrowse();
         loggedIn = false;
@@ -801,18 +809,43 @@ public class LandingActivity extends Activity {
      * a directionless fade.
      */
     private void swapContent(View newContent, boolean showTopNavBar, int slideDirection) {
+        // A rapid follow-up tap or swipe can retrigger this before the previous transition's
+        // withEndAction has run, while both its screens are still children. Finish that
+        // transition right here instead: bumping the generation turns its pending end action
+        // into a no-op (otherwise it could later remove a screen that is being shown again),
+        // cancelling and resetting both properties normalizes whichever one it didn't touch
+        // (fade never resets translationX, slide never resets alpha) so a persisted view like
+        // landingHomeScroll can't get stuck off-screen or invisible, and only the screen it was
+        // heading to (the newest child) is kept.
+        int generation = ++swapGeneration;
+        for (int i = 0; i < landingContentContainer.getChildCount(); i++) {
+            View child = landingContentContainer.getChildAt(i);
+            child.animate().cancel();
+            child.setAlpha(1f);
+            child.setTranslationX(0f);
+        }
+        while (landingContentContainer.getChildCount() > 1) {
+            landingContentContainer.removeViewAt(0);
+        }
+
+        newContent.animate().cancel();
+        newContent.setAlpha(1f);
+        newContent.setTranslationX(0f);
+
+        // Already the screen showing (e.g. a double tap on the same tab): addView would throw
+        // "child already has a parent", and the old-children cleanup below would remove it.
+        if (newContent.getParent() == landingContentContainer) {
+            setNavBarPresent(showTopNavBar);
+            return;
+        }
+        if (newContent.getParent() instanceof ViewGroup) {
+            ((ViewGroup) newContent.getParent()).removeView(newContent);
+        }
+
         List<View> oldChildren = new ArrayList<>();
         for (int i = 0; i < landingContentContainer.getChildCount(); i++) {
             oldChildren.add(landingContentContainer.getChildAt(i));
         }
-        // A rapid follow-up swipe can retrigger this before the previous transition's
-        // withEndAction has run; cancelling first and resetting both properties normalizes
-        // whichever one the previous transition didn't touch (fade never resets translationX,
-        // slide never resets alpha), so a persisted view like landingHomeScroll can't get stuck
-        // off-screen or invisible from a leftover animation value.
-        newContent.animate().cancel();
-        newContent.setAlpha(1f);
-        newContent.setTranslationX(0f);
 
         landingContentContainer.addView(newContent);
         if (newContent instanceof ScrollView) {
@@ -827,6 +860,9 @@ public class LandingActivity extends Activity {
                     .setDuration(CONTENT_FADE_MS)
                     .setInterpolator(new DecelerateInterpolator())
                     .withEndAction(() -> {
+                        if (generation != swapGeneration) {
+                            return;
+                        }
                         for (View old : oldChildren) {
                             landingContentContainer.removeView(old);
                         }
@@ -842,6 +878,9 @@ public class LandingActivity extends Activity {
                 .setDuration(CONTENT_SLIDE_MS)
                 .setInterpolator(new DecelerateInterpolator())
                 .withEndAction(() -> {
+                    if (generation != swapGeneration) {
+                        return;
+                    }
                     for (View old : oldChildren) {
                         landingContentContainer.removeView(old);
                         old.setTranslationX(0f);
@@ -1288,17 +1327,17 @@ public class LandingActivity extends Activity {
         View bookButton = card.findViewById(R.id.roomTypeCardBookButton);
         bookButton.setVisibility(bookable ? View.VISIBLE : View.GONE);
         if (bookable) {
-            bookButton.setOnClickListener(v -> handleCardTap(origin, roomTypeName, categoryName,
+            bookButton.setOnClickListener(ClickGuard.wrap(v -> handleCardTap(origin, roomTypeName, categoryName,
                     capacity, description, pricePerNight, variantId, imagePathForStorage, priceBreakdown, availableQty,
-                    PendingRoomSelection.PURPOSE_BOOK));
+                    PendingRoomSelection.PURPOSE_BOOK)));
         }
 
         View reserveButton = card.findViewById(R.id.roomTypeCardReserveButton);
         reserveButton.setVisibility(bookable ? View.VISIBLE : View.GONE);
         if (bookable) {
-            reserveButton.setOnClickListener(v -> handleCardTap(origin, roomTypeName, categoryName,
+            reserveButton.setOnClickListener(ClickGuard.wrap(v -> handleCardTap(origin, roomTypeName, categoryName,
                     capacity, description, pricePerNight, variantId, imagePathForStorage, priceBreakdown, availableQty,
-                    PendingRoomSelection.PURPOSE_RESERVE));
+                    PendingRoomSelection.PURPOSE_RESERVE)));
         }
     }
 
@@ -1366,7 +1405,7 @@ public class LandingActivity extends Activity {
         navBar.post(() -> v.setPadding(v.getPaddingLeft(), v.getPaddingTop() + navBar.getHeight(),
                 v.getPaddingRight(), v.getPaddingBottom()));
         ((TextView) v.findViewById(R.id.roomOverviewHeaderTitle)).setText(headerTitleRes);
-        v.findViewById(R.id.roomOverviewBackButton).setOnClickListener(view -> showCategory(roomOverviewOrigin));
+        v.findViewById(R.id.roomOverviewBackButton).setOnClickListener(ClickGuard.wrap(view -> showCategory(roomOverviewOrigin)));
 
         // Image
         ImageView imageView = v.findViewById(R.id.roomOverviewImage);
@@ -1421,7 +1460,7 @@ public class LandingActivity extends Activity {
         Button ctaButton = v.findViewById(R.id.roomOverviewBookNowButton);
         boolean reserve = room.purpose == PendingRoomSelection.PURPOSE_RESERVE;
         ctaButton.setText(reserve ? R.string.button_reserve_now : R.string.button_book_now);
-        ctaButton.setOnClickListener(view -> {
+        ctaButton.setOnClickListener(ClickGuard.wrap(view -> {
             Runnable backToThisOverview = () -> showRoomOverview(room);
             if (reserve) {
                 reserveCatalog.showHotelFlow(room.type, room.variantId, backToThisOverview);
@@ -1433,7 +1472,7 @@ public class LandingActivity extends Activity {
             // The wizard's own Dates screen (its "first interface") re-shows the bottom nav;
             // every screen past that hides it again — see HotelBookingFlowController#showScreen,
             // which now owns this for every entry point, not just this one.
-        });
+        }));
 
         setBottomNavHidden(false);
         swapContent(v, true);

@@ -92,14 +92,14 @@ public final class GlassDatePicker {
         monthPicker.setOnValueChangedListener((picker, oldVal, newVal) -> updateDays.run());
         yearPicker.setOnValueChangedListener((picker, oldVal, newVal) -> updateDays.run());
 
-        dialog.findViewById(R.id.btnCancel).setOnClickListener(v -> dialog.dismiss());
-        dialog.findViewById(R.id.btnOk).setOnClickListener(v -> {
+        dialog.findViewById(R.id.btnCancel).setOnClickListener(ClickGuard.wrap(v -> dialog.dismiss()));
+        dialog.findViewById(R.id.btnOk).setOnClickListener(ClickGuard.wrap(v -> {
             Calendar result = Calendar.getInstance();
             result.set(yearPicker.getValue(), monthPicker.getValue(), dayPicker.getValue(), 0, 0, 0);
             result.set(Calendar.MILLISECOND, 0);
             callback.onDatePicked(result.getTimeInMillis());
             dialog.dismiss();
-        });
+        }));
 
         dialog.show();
     }
@@ -217,13 +217,13 @@ public final class GlassDatePicker {
             adapter.notifyDataSetChanged();
         });
 
-        dialog.findViewById(R.id.btnCancel).setOnClickListener(v -> dialog.dismiss());
-        dialog.findViewById(R.id.btnOk).setOnClickListener(v -> {
+        dialog.findViewById(R.id.btnCancel).setOnClickListener(ClickGuard.wrap(v -> dialog.dismiss()));
+        dialog.findViewById(R.id.btnOk).setOnClickListener(ClickGuard.wrap(v -> {
             if (selectedStart.getTimeInMillis() != -1) {
                 callback.onDatePicked(selectedStart.getTimeInMillis());
                 dialog.dismiss();
             }
-        });
+        }));
 
         dialog.show();
     }

@@ -420,10 +420,10 @@ public class MainActivity extends Activity {
         ImageView toggle = card.findViewById(R.id.passwordToggle);
         AuthUiUtils.attachPasswordToggle(password, toggle);
 
-        card.findViewById(R.id.forgotPassword).setOnClickListener(v ->
-                showScreen(SCREEN_RECOVERY, true));
-        card.findViewById(R.id.goToSignUp).setOnClickListener(v ->
-                showScreen(SCREEN_SIGN_UP, true));
+        card.findViewById(R.id.forgotPassword).setOnClickListener(ClickGuard.wrap(v ->
+                showScreen(SCREEN_RECOVERY, true)));
+        card.findViewById(R.id.goToSignUp).setOnClickListener(ClickGuard.wrap(v ->
+                showScreen(SCREEN_SIGN_UP, true)));
 
         // Editing a field clears its stale error.
         AuthUiUtils.afterTextChanged(username, () -> {
@@ -446,7 +446,7 @@ public class MainActivity extends Activity {
             return false;
         });
 
-        loginButton.setOnClickListener(v -> attemptLogin(card));
+        loginButton.setOnClickListener(ClickGuard.wrap(v -> attemptLogin(card)));
         updateLoginButton(card);
     }
 
@@ -716,7 +716,7 @@ public class MainActivity extends Activity {
 
         EditText birthDate = card.findViewById(R.id.birthDateField);
         birthDate.setText(s.birthDate);
-        birthDate.setOnClickListener(v -> showDatePicker(birthDate));
+        birthDate.setOnClickListener(ClickGuard.wrap(v -> showDatePicker(birthDate)));
 
         EditText phoneNumber = card.findViewById(R.id.phoneNumberField);
         phoneNumber.setFilters(new InputFilter[]{DIGITS_ONLY_FILTER, new InputFilter.LengthFilter(PHONE_NUMBER_LENGTH)});
@@ -724,20 +724,20 @@ public class MainActivity extends Activity {
 
         setUpAddressSpinners(card);
 
-        card.findViewById(R.id.signUp1BackButton).setOnClickListener(v -> {
+        card.findViewById(R.id.signUp1BackButton).setOnClickListener(ClickGuard.wrap(v -> {
             saveSignUpStep1(card);
             showScreen(SCREEN_LOGIN, true);
-        });
-        card.findViewById(R.id.goToLogin).setOnClickListener(v -> {
+        }));
+        card.findViewById(R.id.goToLogin).setOnClickListener(ClickGuard.wrap(v -> {
             saveSignUpStep1(card);
             showScreen(SCREEN_LOGIN, true);
-        });
-        card.findViewById(R.id.signUp1ProceedButton).setOnClickListener(v -> {
+        }));
+        card.findViewById(R.id.signUp1ProceedButton).setOnClickListener(ClickGuard.wrap(v -> {
             saveSignUpStep1(card);
             if (validateSignUpStep1(card)) {
                 showScreen(SCREEN_SIGN_UP_2, true);
             }
-        });
+        }));
     }
 
     private void saveSignUpStep1(View card) {
@@ -801,16 +801,16 @@ public class MainActivity extends Activity {
         AuthUiUtils.afterTextChanged(password, () ->
                 AuthUiUtils.updatePasswordStrength(password.getText().toString(), strengthText));
 
-        card.findViewById(R.id.signUp2BackButton).setOnClickListener(v -> {
+        card.findViewById(R.id.signUp2BackButton).setOnClickListener(ClickGuard.wrap(v -> {
             saveSignUpStep2(card);
             showScreen(SCREEN_SIGN_UP, true);
-        });
-        card.findViewById(R.id.signUp2ProceedButton).setOnClickListener(v -> {
+        }));
+        card.findViewById(R.id.signUp2ProceedButton).setOnClickListener(ClickGuard.wrap(v -> {
             saveSignUpStep2(card);
             if (validateSignUpStep2(card)) {
                 showScreen(SCREEN_SIGN_UP_3, true);
             }
-        });
+        }));
     }
 
     private void saveSignUpStep2(View card) {
@@ -869,15 +869,15 @@ public class MainActivity extends Activity {
             }
         });
 
-        card.findViewById(R.id.uploadGovIdButton).setOnClickListener(v -> pickImage(PICK_IMAGE_GOV_ID));
-        card.findViewById(R.id.captureGovIdButton).setOnClickListener(v -> captureGovId());
-        card.findViewById(R.id.uploadProfileButton).setOnClickListener(v -> pickImage(PICK_IMAGE_PROFILE));
+        card.findViewById(R.id.uploadGovIdButton).setOnClickListener(ClickGuard.wrap(v -> pickImage(PICK_IMAGE_GOV_ID)));
+        card.findViewById(R.id.captureGovIdButton).setOnClickListener(ClickGuard.wrap(v -> captureGovId()));
+        card.findViewById(R.id.uploadProfileButton).setOnClickListener(ClickGuard.wrap(v -> pickImage(PICK_IMAGE_PROFILE)));
 
-        card.findViewById(R.id.signUp3BackButton).setOnClickListener(v -> {
+        card.findViewById(R.id.signUp3BackButton).setOnClickListener(ClickGuard.wrap(v -> {
             saveSignUpStep3(card);
             showScreen(SCREEN_SIGN_UP_2, true);
-        });
-        createButton.setOnClickListener(v -> attemptCreateAccount(card));
+        }));
+        createButton.setOnClickListener(ClickGuard.wrap(v -> attemptCreateAccount(card)));
     }
 
     private void saveSignUpStep3(View card) {
@@ -1097,8 +1097,8 @@ public class MainActivity extends Activity {
 
         AuthUiUtils.afterTextChanged(otpField, () -> otpError.setVisibility(View.GONE));
 
-        card.findViewById(R.id.verifyOtpButton).setOnClickListener(v -> attemptVerifyOtp(card));
-        card.findViewById(R.id.resendOtpButton).setOnClickListener(v -> attemptResendOtp(card));
+        card.findViewById(R.id.verifyOtpButton).setOnClickListener(ClickGuard.wrap(v -> attemptVerifyOtp(card)));
+        card.findViewById(R.id.resendOtpButton).setOnClickListener(ClickGuard.wrap(v -> attemptResendOtp(card)));
     }
 
     private void attemptVerifyOtp(View card) {
@@ -1262,11 +1262,11 @@ public class MainActivity extends Activity {
         EditText emailField = card.findViewById(R.id.emailField);
         emailField.setText(recoveryState.email);
 
-        card.findViewById(R.id.backToLogin).setOnClickListener(v ->
-                showScreen(SCREEN_LOGIN, true));
+        card.findViewById(R.id.backToLogin).setOnClickListener(ClickGuard.wrap(v ->
+                showScreen(SCREEN_LOGIN, true)));
 
         View sendButton = card.findViewById(R.id.sendOtpButton);
-        sendButton.setOnClickListener(v -> {
+        sendButton.setOnClickListener(ClickGuard.wrap(v -> {
             String email = emailField.getText().toString().trim();
             if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
                 Toast.makeText(this, R.string.error_email_invalid, Toast.LENGTH_SHORT).show();
@@ -1298,7 +1298,7 @@ public class MainActivity extends Activity {
                     Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_LONG).show();
                 }
             });
-        });
+        }));
     }
 
     private void setRecoveryBusy(View button, boolean busy) {
@@ -1325,10 +1325,10 @@ public class MainActivity extends Activity {
 
         AuthUiUtils.setupOtpBoxes(boxes, () -> otpError.setVisibility(View.GONE));
 
-        card.findViewById(R.id.backToLogin).setOnClickListener(v ->
-                showScreen(SCREEN_LOGIN, true));
+        card.findViewById(R.id.backToLogin).setOnClickListener(ClickGuard.wrap(v ->
+                showScreen(SCREEN_LOGIN, true)));
 
-        card.findViewById(R.id.verifyOtpButton).setOnClickListener(v -> {
+        card.findViewById(R.id.verifyOtpButton).setOnClickListener(ClickGuard.wrap(v -> {
             StringBuilder sb = new StringBuilder();
             for (EditText box : boxes) sb.append(box.getText().toString().trim());
             String otp = sb.toString();
@@ -1361,9 +1361,9 @@ public class MainActivity extends Activity {
                     Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_LONG).show();
                 }
             });
-        });
+        }));
 
-        card.findViewById(R.id.resendOtpButton).setOnClickListener(v ->
+        card.findViewById(R.id.resendOtpButton).setOnClickListener(ClickGuard.wrap(v ->
                 ApiClient.authApi().resendResetCode(recoveryState.resetToken).enqueue(new Callback<MessageResponse>() {
                     @Override
                     public void onResponse(Call<MessageResponse> call, Response<MessageResponse> response) {
@@ -1379,7 +1379,7 @@ public class MainActivity extends Activity {
                     public void onFailure(Call<MessageResponse> call, Throwable t) {
                         Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_SHORT).show();
                     }
-                }));
+                })));
     }
 
     private void bindRecoveryResetCard(View card) {
@@ -1390,10 +1390,10 @@ public class MainActivity extends Activity {
         AuthUiUtils.attachPasswordToggle(newPass, card.findViewById(R.id.newPasswordToggle));
         AuthUiUtils.attachPasswordToggle(confirmPass, card.findViewById(R.id.confirmPasswordToggle));
 
-        card.findViewById(R.id.backToLogin).setOnClickListener(v ->
-                showScreen(SCREEN_LOGIN, true));
+        card.findViewById(R.id.backToLogin).setOnClickListener(ClickGuard.wrap(v ->
+                showScreen(SCREEN_LOGIN, true)));
 
-        card.findViewById(R.id.resetPasswordButton).setOnClickListener(v -> {
+        card.findViewById(R.id.resetPasswordButton).setOnClickListener(ClickGuard.wrap(v -> {
             String p1 = newPass.getText().toString();
             String p2 = confirmPass.getText().toString();
 
@@ -1431,7 +1431,7 @@ public class MainActivity extends Activity {
                     Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_LONG).show();
                 }
             });
-        });
+        }));
 
         AuthUiUtils.afterTextChanged(newPass, () -> error.setVisibility(View.GONE));
         AuthUiUtils.afterTextChanged(confirmPass, () -> error.setVisibility(View.GONE));

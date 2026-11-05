@@ -41,6 +41,8 @@ final class ProfileStore {
     private static final String KEY_ACTIVE_RESERVATION_ID = "active_reservation_id";
     private static final String KEY_ACTIVE_RESERVATION_STATUS = "active_reservation_status";
     private static final String KEY_CHAT_CURSOR = "chat_cursor";
+    private static final String KEY_ALERT_CURSOR = "alert_cursor";
+    private static final String KEY_NOTIFICATIONS_SYNC_PENDING = "notifications_sync_pending";
 
     private ProfileStore() {
     }
@@ -165,6 +167,16 @@ final class ProfileStore {
         prefs(context).edit().putBoolean(KEY_NOTIFICATIONS_ENABLED, enabled).apply();
     }
 
+    /** True while the guest's last change to the Enable Notifications switch hasn't reached the
+     *  server yet; until it does, the server's value must not overwrite the local one. */
+    static boolean isNotificationsSyncPending(Context context) {
+        return prefs(context).getBoolean(KEY_NOTIFICATIONS_SYNC_PENDING, false);
+    }
+
+    static void setNotificationsSyncPending(Context context, boolean pending) {
+        prefs(context).edit().putBoolean(KEY_NOTIFICATIONS_SYNC_PENDING, pending).apply();
+    }
+
     /** Whether a valid ID has ever been submitted (upload date is the source of truth). */
     static boolean hasIdSubmission(Context context) {
         return !getIdUploadDate(context).isEmpty();
@@ -270,6 +282,21 @@ final class ProfileStore {
 
     static void clearChatCursor(Context context) {
         prefs(context).edit().remove(KEY_CHAT_CURSOR).apply();
+    }
+
+    /** Highest server alert id already shown or taken as history, or -1 on a fresh login (so the
+     *  existing feed isn't announced as new). Kept across restarts so an alert staff raised while
+     *  the app was closed still produces one system notification. */
+    static long getAlertCursor(Context context) {
+        return prefs(context).getLong(KEY_ALERT_CURSOR, -1L);
+    }
+
+    static void setAlertCursor(Context context, long alertId) {
+        prefs(context).edit().putLong(KEY_ALERT_CURSOR, alertId).apply();
+    }
+
+    static void clearAlertCursor(Context context) {
+        prefs(context).edit().remove(KEY_ALERT_CURSOR).apply();
     }
 
     static void clearActiveReservation(Context context) {

@@ -417,6 +417,8 @@
     <string name="reservation_cancelled_notification_body_no_reason">Your reservation was cancelled by the resort.</string>
     <string name="reservation_booked_notification_title">Reservation Confirmed</string>
     <string name="reservation_booked_notification_body">Your reservation has been confirmed and is now booked.</string>
+    <string name="guest_alerts_channel_name">Resort updates</string>
+    <string name="guest_alerts_channel_desc">Updates from the resort staff, such as payments received and replies to your feedback</string>
     <string name="notif_button_view_reservation">VIEW RESERVATION</string>
     <string name="notif_button_view_feedback">VIEW RESPONSE</string>
     <string name="badge_count_overflow">9+</string>

@@ -75,7 +75,7 @@ final class AddOnFacilityPrompt {
                 .setNegativeButton(R.string.button_no, (d, w) -> listener.onDecided(new ArrayList<>()))
                 .create();
         // Positive click handled manually so an empty selection keeps the dialog open.
-        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(ClickGuard.wrap(view -> {
             List<Integer> extras = new ArrayList<>();
             for (int i = 0; i < checked.length; i++) {
                 if (checked[i]) {
@@ -88,7 +88,7 @@ final class AddOnFacilityPrompt {
             }
             dialog.dismiss();
             listener.onDecided(extras);
-        }));
+        })));
         dialog.show();
     }
 }

@@ -228,6 +228,7 @@ final class NotificationStore {
         ALL.clear();
         pendingUpdates = 0;
         clockOffsetMs = 0;
+        settingInFlight = false;
     }
 
     /** Fetches the server copy, merges it into the cache, and retries any alert whose upload
@@ -249,7 +250,9 @@ final class NotificationStore {
                     if (response.body().server_time_ms > 0) {
                         clockOffsetMs = response.body().server_time_ms - System.currentTimeMillis();
                     }
-                    merge(app, response.body().notifications);
+                    syncNotificationsSetting(app, response.body().notifications_enabled);
+                    List<Notification> arrived = merge(app, response.body().notifications);
+                    announceArrivals(app, response.body().notifications, arrived);
                     notifyChanged();
                 }
             }
@@ -260,7 +263,92 @@ final class NotificationStore {
         });
     }
 
-    private static void merge(Context context, List<NotificationDto> dtos) {
+    /** True while a PATCH of the Enable Notifications switch is on its way to the server. */
+    private static boolean settingInFlight;
+
+    /** The Profile screen's switch: saved on the phone straight away, then sent to the server (the
+     *  same flag the website's profile page uses), so staff actions stop creating alerts for a guest
+     *  who turned them off. If the request fails the change stays pending and is retried on the
+     *  next refresh instead of being lost. */
+    static void setNotificationsEnabled(Context context, boolean enabled) {
+        Context app = context.getApplicationContext();
+        ProfileStore.setNotificationsEnabled(app, enabled);
+        ProfileStore.setNotificationsSyncPending(app, true);
+        sendNotificationsSetting(app);
+    }
+
+    private static void sendNotificationsSetting(Context app) {
+        String token = ProfileStore.getAuthToken(app);
+        if (token.isEmpty() || settingInFlight) {
+            return;
+        }
+        boolean sent = ProfileStore.isNotificationsEnabled(app);
+        settingInFlight = true;
+        ApiClient.notificationApi().updateSettings("Bearer " + token, sent ? 1 : 0)
+                .enqueue(new Callback<MessageResponse>() {
+                    @Override
+                    public void onResponse(Call<MessageResponse> call, Response<MessageResponse> response) {
+                        settingInFlight = false;
+                        if (ProfileStore.getAuthToken(app).isEmpty() || !response.isSuccessful()) {
+                            return; // stays pending (or the session is gone)
+                        }
+                        if (ProfileStore.isNotificationsEnabled(app) == sent) {
+                            ProfileStore.setNotificationsSyncPending(app, false);
+                        } else {
+                            sendNotificationsSetting(app); // flipped again while this was in flight
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<MessageResponse> call, Throwable t) {
+                        settingInFlight = false;
+                    }
+                });
+    }
+
+    /** Called with each refresh: retries an unsent change, otherwise adopts the server's value so a
+     *  switch flipped on the website (or on another device) shows up here. A null value means the
+     *  backend can't report it, so the phone's own choice stands. */
+    private static void syncNotificationsSetting(Context app, Boolean serverValue) {
+        if (ProfileStore.isNotificationsSyncPending(app)) {
+            sendNotificationsSetting(app);
+        } else if (serverValue != null && !settingInFlight) {
+            ProfileStore.setNotificationsEnabled(app, serverValue);
+        }
+    }
+
+    /**
+     * Raises a system notification for each alert staff created that this device hasn't announced
+     * yet (the ones website actions produce — the app's own chat/cancellation alerts already raised
+     * theirs). "Announced" is a persisted high-water mark of server ids: the first refresh after a
+     * login only sets it, so the existing feed isn't replayed as new, and it survives restarts so an
+     * alert that arrived while the app was closed still fires once. Chat rows are skipped — the chat
+     * poll notifies those itself.
+     */
+    private static void announceArrivals(Context context, List<NotificationDto> dtos,
+            List<Notification> arrived) {
+        long maxId = 0;
+        for (NotificationDto dto : dtos) {
+            maxId = Math.max(maxId, dto.id);
+        }
+        long cursor = ProfileStore.getAlertCursor(context);
+        if (cursor < 0) {
+            ProfileStore.setAlertCursor(context, maxId);
+            return;
+        }
+        for (Notification n : arrived) {
+            if (n.serverId > cursor && !n.isRead && !n.isArchived && n.type != Type.CHAT) {
+                ChatPollingService.postAlertNotification(context, n);
+            }
+        }
+        if (maxId > cursor) {
+            ProfileStore.setAlertCursor(context, maxId);
+        }
+    }
+
+    /** Returns the cache entries this merge created from server rows the device hadn't seen. */
+    private static List<Notification> merge(Context context, List<NotificationDto> dtos) {
+        List<Notification> created = new ArrayList<>();
         Map<Long, Notification> byId = new HashMap<>();
         Map<String, Notification> byUuid = new HashMap<>();
         for (Notification n : ALL) {
@@ -279,6 +367,7 @@ final class NotificationStore {
             if (n == null) {
                 n = fromDto(context, dto);
                 ALL.add(n);
+                created.add(n);
             } else {
                 n.serverId = dto.id;
                 adoptServerTime(n, dto);
@@ -294,6 +383,7 @@ final class NotificationStore {
                 upload(context, n);
             }
         }
+        return created;
     }
 
     private static Notification fromDto(Context context, NotificationDto dto) {
