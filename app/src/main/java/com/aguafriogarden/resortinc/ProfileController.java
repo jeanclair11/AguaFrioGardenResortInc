@@ -66,6 +66,7 @@ final class ProfileController {
     private static final int SCREEN_VALID_ID = 5;
     private static final int SCREEN_UPLOAD_ID = 6;
     private static final int SCREEN_HISTORY = 7;
+    private static final int SCREEN_STATEMENT = 8;
 
     /** How often the open Profile/history screen re-reads the guest's records, so receptionist-side
      *  changes show up without reopening it. */
@@ -149,6 +150,7 @@ final class ProfileController {
             case SCREEN_CHANGE_PASSWORD_SUCCESS:
             case SCREEN_VALID_ID:
             case SCREEN_HISTORY:
+            case SCREEN_STATEMENT:
                 showScreen(SCREEN_MAIN);
                 return true;
             case SCREEN_UPLOAD_ID:
@@ -217,7 +219,7 @@ final class ProfileController {
         root.removeAllViews();
         root.addView(v);
         currentScreenView = v;
-        if (screen == SCREEN_MAIN || screen == SCREEN_HISTORY) {
+        if (screen == SCREEN_MAIN || screen == SCREEN_HISTORY || screen == SCREEN_STATEMENT) {
             startHistoryPolling();
         }
     }
@@ -237,6 +239,8 @@ final class ProfileController {
                 return R.layout.view_upload_new_id;
             case SCREEN_HISTORY:
                 return R.layout.view_profile_history;
+            case SCREEN_STATEMENT:
+                return R.layout.view_profile_statement;
             default:
                 return R.layout.view_profile_main;
         }
@@ -266,6 +270,9 @@ final class ProfileController {
                 break;
             case SCREEN_HISTORY:
                 bindHistory(v);
+                break;
+            case SCREEN_STATEMENT:
+                bindStatement(v);
                 break;
             default:
                 bindMain(v);
@@ -338,6 +345,9 @@ final class ProfileController {
         bindActionRow(v.findViewById(R.id.rowValidId), R.drawable.ic_id_card,
                 R.string.row_valid_id_title, R.string.row_valid_id_subtitle,
                 idBadgeText, idBadgeBg, () -> showScreen(SCREEN_VALID_ID));
+        bindActionRow(v.findViewById(R.id.rowStatement), R.drawable.ic_payment,
+                R.string.row_statement_title, R.string.row_statement_subtitle,
+                null, 0, () -> showScreen(SCREEN_STATEMENT));
 
         View notificationsRow = v.findViewById(R.id.rowNotifications);
         bindSwitchRowLabels(notificationsRow, R.drawable.ic_bell,
@@ -362,7 +372,7 @@ final class ProfileController {
 
     /** Called when the Profile tab is (re)shown — re-reads the guest's records right away. */
     void onShown() {
-        if (currentScreen == SCREEN_MAIN || currentScreen == SCREEN_HISTORY) {
+        if (currentScreen == SCREEN_MAIN || currentScreen == SCREEN_HISTORY || currentScreen == SCREEN_STATEMENT) {
             fetchHistory();
             startHistoryPolling();
         }
@@ -470,6 +480,151 @@ final class ProfileController {
         for (ReservationSummary summary : bucket) {
             container.addView(buildHistoryCard(inflater, container, summary));
         }
+    }
+
+    // ---- Statement of Account -----------------------------------------------
+
+    private void bindStatement(View v) {
+        bindHeader(v, R.string.statement_title, () -> showScreen(SCREEN_MAIN));
+        renderStatement(v);
+        fetchHistory();
+    }
+
+    /** One card per paid-for booking (kind "reservation" - the ones that have a bill), newest
+     *  first as the server returns them; cancelled bookings are listed but left out of the
+     *  totals at the top. */
+    private void renderStatement(View v) {
+        LinearLayout container = v.findViewById(R.id.statementContainer);
+        container.removeAllViews();
+        double billed = 0;
+        double paid = 0;
+        double balance = 0;
+        int count = 0;
+        LayoutInflater inflater = LayoutInflater.from(activity);
+        for (ReservationSummary summary : historyData) {
+            if (!"reservation".equals(summary.kind)) {
+                continue;
+            }
+            count++;
+            if (!summary.cancelled) {
+                billed += summary.subtotal;
+                paid += summary.amount_paid;
+                balance += summary.remaining_balance;
+            }
+            container.addView(buildStatementCard(inflater, container, summary));
+        }
+        v.findViewById(R.id.statementEmptyState).setVisibility(count == 0 ? View.VISIBLE : View.GONE);
+        ((TextView) v.findViewById(R.id.statementTotalBilled)).setText(money(billed));
+        ((TextView) v.findViewById(R.id.statementTotalPaid)).setText(money(paid));
+        ((TextView) v.findViewById(R.id.statementBalanceDue)).setText(money(balance));
+    }
+
+    private View buildStatementCard(LayoutInflater inflater, LinearLayout parent, ReservationSummary summary) {
+        // Reuses the history card for the booking's own title/dates/reference/status, then adds
+        // the money breakdown and its payment lines underneath.
+        View card = buildHistoryCard(inflater, parent, summary);
+        card.findViewById(R.id.reservationCardTotal).setVisibility(View.GONE);
+        LinearLayout lines = (LinearLayout) card;
+
+        addStatementRow(lines, R.string.statement_line_total, money(summary.subtotal), R.attr.textPrimary, true);
+        addStatementRow(lines, R.string.statement_line_paid, money(summary.amount_paid), R.attr.successText, false);
+        addStatementRow(lines, R.string.statement_line_balance, money(summary.remaining_balance), R.attr.textPrimary, false);
+
+        if (summary.payments == null || summary.payments.isEmpty()) {
+            TextView none = statementText(R.attr.textMuted, 12, false);
+            none.setText(R.string.statement_no_payments);
+            none.setPadding(0, dp(10), 0, 0);
+            lines.addView(none);
+            return card;
+        }
+        for (ReservationSummary.PaymentLine payment : summary.payments) {
+            View divider = new View(activity);
+            LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+            dividerParams.topMargin = dp(10);
+            divider.setLayoutParams(dividerParams);
+            divider.setBackgroundColor(ThemeManager.color(activity, R.attr.textMuted));
+            divider.setAlpha(0.25f);
+            lines.addView(divider);
+
+            LinearLayout row = new LinearLayout(activity);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setPadding(0, dp(8), 0, 0);
+            LinearLayout left = new LinearLayout(activity);
+            left.setOrientation(LinearLayout.VERTICAL);
+            left.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            TextView what = statementText(R.attr.textPrimary, 13, true);
+            what.setText(activity.getString(R.string.statement_payment_line,
+                    methodLabel(payment.method), paymentDate(payment)));
+            left.addView(what);
+            if (payment.reference_number != null && !payment.reference_number.isEmpty()) {
+                TextView ref = statementText(R.attr.textMuted, 12, false);
+                ref.setText(activity.getString(R.string.statement_reference_line, payment.reference_number));
+                left.addView(ref);
+            }
+            boolean verified = "verified".equals(payment.status);
+            boolean cancelled = "cancelled".equals(payment.status);
+            TextView state = statementText(verified ? R.attr.successText
+                    : cancelled ? R.attr.errorText : R.attr.accentPrimary, 12, true);
+            state.setText(verified ? R.string.statement_payment_verified
+                    : cancelled ? R.string.statement_payment_cancelled
+                    : R.string.statement_payment_pending);
+            left.addView(state);
+            row.addView(left);
+            TextView amount = statementText(R.attr.textPrimary, 14, true);
+            amount.setText(money(payment.amount));
+            row.addView(amount);
+            lines.addView(row);
+        }
+        return card;
+    }
+
+    private void addStatementRow(LinearLayout parent, int labelRes, String value, int valueColorAttr, boolean first) {
+        LinearLayout row = new LinearLayout(activity);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(0, dp(first ? 10 : 2), 0, 0);
+        TextView label = statementText(R.attr.textMuted, 13, false);
+        label.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        label.setText(labelRes);
+        TextView amount = statementText(valueColorAttr, 13, true);
+        amount.setText(value);
+        row.addView(label);
+        row.addView(amount);
+        parent.addView(row);
+    }
+
+    private TextView statementText(int colorAttr, int sp, boolean bold) {
+        TextView t = new TextView(activity);
+        t.setTextColor(ThemeManager.color(activity, colorAttr));
+        t.setTextSize(sp);
+        if (bold) {
+            t.setTypeface(t.getTypeface(), android.graphics.Typeface.BOLD);
+        }
+        return t;
+    }
+
+    private String methodLabel(String method) {
+        if ("gcash".equalsIgnoreCase(method)) {
+            return activity.getString(R.string.statement_method_gcash);
+        }
+        if (method == null || method.isEmpty()) {
+            return "";
+        }
+        return method.substring(0, 1).toUpperCase(Locale.US) + method.substring(1);
+    }
+
+    private String paymentDate(ReservationSummary.PaymentLine payment) {
+        long date = ReservationHistory.parseDate(payment.date);
+        return date > 0 ? new SimpleDateFormat("MMM d, yyyy", Locale.US).format(new java.util.Date(date)) : "";
+    }
+
+    private String money(double amount) {
+        return activity.getString(R.string.format_currency,
+                NumberFormat.getInstance(Locale.US).format(Math.round(amount)));
+    }
+
+    private int dp(int value) {
+        return Math.round(value * activity.getResources().getDisplayMetrics().density);
     }
 
     private View buildHistoryCard(LayoutInflater inflater, android.view.ViewGroup parent, ReservationSummary summary) {
@@ -599,6 +754,8 @@ final class ProfileController {
             bindHistoryCard(currentScreenView);
         } else if (currentScreen == SCREEN_HISTORY) {
             renderHistory(currentScreenView);
+        } else if (currentScreen == SCREEN_STATEMENT) {
+            renderStatement(currentScreenView);
         }
     }
 
@@ -611,7 +768,8 @@ final class ProfileController {
     }
 
     private void historyPollTick() {
-        boolean onHistoryScreen = currentScreen == SCREEN_MAIN || currentScreen == SCREEN_HISTORY;
+        boolean onHistoryScreen = currentScreen == SCREEN_MAIN || currentScreen == SCREEN_HISTORY
+                || currentScreen == SCREEN_STATEMENT;
         if (!onHistoryScreen || !root.isAttachedToWindow()) {
             historyPolling = false;
             return;

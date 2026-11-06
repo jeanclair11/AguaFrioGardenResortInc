@@ -323,8 +323,8 @@ final class HotelBookingFlowController {
     private String bookingReference = "";
     private String reservationReferenceNo = "";
     // Server id of the Pending AdvanceReservation created by submitReservationRequest() — targets
-    // the payReservation() call. Hotel Rooms only (see activeContinuation guard at both call
-    // sites); Cottage/KTV Reserve has no backend endpoint yet so this stays -1 for them.
+    // the payReservation() call. Set for every category (Hotel, Cottage, KTV and multi-facility
+    // Reserve); stays -1 only for a reservation opened from history that is already paid.
     private int reservationAdvanceReservationId = -1;
     // Reservation lifecycle state (see resolveReservationStatus) — reservationStatus only ever
     // becomes RES_STATUS_PENDING in this app today (no receptionist system to move it to
@@ -2094,10 +2094,8 @@ final class HotelBookingFlowController {
 
     /**
      * Cottage flow's own Payment screen — reuses view_hotel_payment.xml. Amount Paid/Reference
-     * Number/screenshot validation is identical to bindPayment, but Complete Booking is a
-     * placeholder for now: reserve() has no field for a cottage's rate type/date/time, so wiring
-     * a real submission here would either silently drop that data or need a backend change
-     * first (flagged, not assumed).
+     * Number/screenshot validation is identical to bindPayment; Complete Booking submits through
+     * submitSingleFacilityBooking (the same real multipart booking request as the other Book flows).
      */
     private void bindCottagePayment(View v) {
         bindHeader(v, R.id.hotelPaymentHeaderBar, R.string.hotel_payment_title, () -> showScreen(SCREEN_COTTAGE_BILLING));
