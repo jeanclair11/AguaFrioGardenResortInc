@@ -1265,7 +1265,7 @@ final class HotelBookingFlowController {
 
     /** Cottage Use dropdown order — index must match R.array.cottage_use_options exactly. */
     private static final String[] COTTAGE_USE_OPTIONS =
-            {ReservationCatalog.RATE_TYPE_DAY, ReservationCatalog.RATE_TYPE_NIGHT, ReservationCatalog.RATE_TYPE_OVERNIGHT};
+            {ReservationCatalog.RATE_TYPE_DAY, ReservationCatalog.RATE_TYPE_NIGHT};
 
     /**
      * Focused Cottage Use/date/adults/children/Next form for Cottage Overview's "Book Now" (see

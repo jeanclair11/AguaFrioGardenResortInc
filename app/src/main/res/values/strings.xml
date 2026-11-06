@@ -52,7 +52,7 @@
     <string name="landing_gallery_next">Next image</string>
     <string name="landing_about_resort_title">Agua Frio Garden Resort, Inc.</string>
     <string name="landing_about_resort_body">Welcome to Agua Frio Garden Resort, Inc., located at Purok Ramos, Barangay Sta. Cruz, Koronadal City, South Cotabato. We offer a welcoming destination where families, friends, and groups can relax, enjoy quality time together, and create memorable experiences.</string>
-    <string name="landing_about_resort_body2">Discover our resort facilities and services, including swimming pools, cottages for day-use and overnight stays, hotel room accommodations, KTV rooms, and dining services. Whether you\'re planning a family getaway, a gathering with friends, or a special celebration, Agua Frio Garden Resort offers a relaxing environment for your leisure and recreation needs.</string>
+    <string name="landing_about_resort_body2">Discover our resort facilities and services, including swimming pools, cottages for day-use and night-use, hotel room accommodations, KTV rooms, and dining services. Whether you\'re planning a family getaway, a gathering with friends, or a special celebration, Agua Frio Garden Resort offers a relaxing environment for your leisure and recreation needs.</string>
     <string name="landing_contact_title">Official Contact Information</string>
     <string name="landing_contact_phone">+63 933 819 9018</string>
     <string name="landing_contact_email">aguafrioinc@gmail.com</string>
@@ -597,7 +597,6 @@
     <string-array name="cottage_use_options">
         <item>@string/rate_type_day</item>
         <item>@string/rate_type_night</item>
-        <item>@string/rate_type_overnight</item>
     </string-array>
     <string name="label_total_guest">Total Guest</string>
     <string name="label_start_time">Start Time</string>

@@ -1263,10 +1263,14 @@ public class LandingActivity extends Activity {
     private String formatPriceBreakdown(List<PriceBreakdownEntry> entries) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < entries.size(); i++) {
-            if (i > 0) {
+            PriceBreakdownEntry entry = entries.get(i);
+            // Overnight is no longer offered for Cottages — hide its price line.
+            if (ReservationCatalog.RATE_TYPE_OVERNIGHT.equals(entry.label)) {
+                continue;
+            }
+            if (sb.length() > 0) {
                 sb.append('\n');
             }
-            PriceBreakdownEntry entry = entries.get(i);
             sb.append(getString(R.string.format_price_breakdown_line, entry.label, formatMoney(entry.amount)));
         }
         return sb.toString();
