@@ -163,29 +163,33 @@
 
             </com.aguafriogarden.resortinc.AuthInputField>
 
-            <!-- Duration: one radio option per session length configured in KTV Room Management
-                 (filled in from code — see HotelBookingFlowController#bindKtvDurationOptions) -->
+            <!-- Duration: fixed by resort policy (3 hours), informational only — the value itself
+                 is enforced in HotelBookingFlowController#KTV_SESSION_HOURS -->
             <TextView
                 style="@style/FieldLabel"
                 android:layout_marginTop="18dp"
                 android:text="@string/label_duration" />
 
-            <RadioGroup
-                android:id="@+id/ktvDatesDurationGroup"
+            <com.aguafriogarden.resortinc.AuthInputField
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:orientation="vertical" />
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_auth_input"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="14dp">
 
-            <TextView
-                android:id="@+id/ktvDatesDurationEmpty"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="@string/label_ktv_no_rates"
-                android:textColor="?attr/textOnScreenMuted"
-                android:textSize="13sp"
-                android:visibility="gone" />
+                <TextView
+                    android:id="@+id/ktvDatesDurationInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textColor="?attr/textPrimary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+            </com.aguafriogarden.resortinc.AuthInputField>
 
             <!-- Guest Count -->
             <TextView

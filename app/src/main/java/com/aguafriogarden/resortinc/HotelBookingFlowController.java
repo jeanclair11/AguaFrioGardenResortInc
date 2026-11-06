@@ -27,8 +27,6 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.RadioButton;
-import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -292,10 +290,12 @@ final class HotelBookingFlowController {
 
     private List<CottageKtvOption> cottageItems = new ArrayList<>();
     private List<CottageKtvOption> ktvItems = new ArrayList<>();
-    /** The chosen KTV session length and the lengths on offer — both come only from the price
-     *  packages configured in KTV Room Management (nothing hardcoded); 0/empty until loaded. */
-    private int ktvDurationHours = 0;
-    private List<Integer> ktvDurationOptions = new ArrayList<>();
+    /** Resort policy: every KTV session (Book and Reserve) is exactly 3 hours. The guest can't
+     *  pick or change it — ktvDurationHours is final, so it feeds availability/pricing lookups,
+     *  the end-time calc, the Review/Billing rows and the submitted ktv[duration_hours] with
+     *  this one value. */
+    private static final int KTV_SESSION_HOURS = 3;
+    private final int ktvDurationHours = KTV_SESSION_HOURS;
     private boolean isLoadingCottageKtv = false;
     private boolean cottageKtvLoaded = false;
     /** Guards fetchCottageAvailability() (Cottage's own live, date+Cottage Use-scoped check —
@@ -1481,7 +1481,8 @@ final class HotelBookingFlowController {
         updateKtvDateField(dateText);
         updateKtvStartTimeField(startTimeText);
         updateKtvDatesEndTimeAndDuration(v);
-        bindKtvDurationOptions(v);
+        ((TextView) v.findViewById(R.id.ktvDatesDurationInfo))
+                .setText(activity.getString(R.string.format_ktv_session_hours, KTV_SESSION_HOURS));
         // In the multi-facility flow the date is carried over from the first facility and isn't
         // asked for again — only the session details (rate type, start time, guests) are.
         if (multiMode && multiIndex > 0) {
@@ -1515,10 +1516,6 @@ final class HotelBookingFlowController {
 
         v.findViewById(R.id.ktvDatesNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             boolean valid = true;
-            if (ktvDurationHours <= 0) {
-                Toast.makeText(activity, R.string.toast_ktv_no_rates, Toast.LENGTH_LONG).show();
-                valid = false;
-            }
             if (ktvDateMillis < 0) {
                 showError(dateError, R.string.error_date_required);
                 valid = false;
@@ -1582,66 +1579,6 @@ final class HotelBookingFlowController {
                 return;
             }
         }
-    }
-
-    /** Duration radio options: one per session length KTV Room Management has a price package
-     *  for, fetched live from the units endpoint each time this screen opens (so admin changes
-     *  show up). With none configured, no options are shown. */
-    private void bindKtvDurationOptions(View v) {
-        RadioGroup group = v.findViewById(R.id.ktvDatesDurationGroup);
-        Runnable render = () -> {
-            group.setOnCheckedChangeListener(null);
-            group.removeAllViews();
-            for (int hours : ktvDurationOptions) {
-                RadioButton option = new RadioButton(activity);
-                option.setId(View.generateViewId());
-                option.setTag(hours);
-                option.setText(activity.getString(R.string.format_duration_hours, hours));
-                option.setTextColor(ThemeManager.color(activity, R.attr.textPrimary));
-                option.setTextSize(13);
-                option.setButtonTintList(android.content.res.ColorStateList.valueOf(
-                        ThemeManager.color(activity, R.attr.accentPrimary)));
-                RadioGroup.LayoutParams params = new RadioGroup.LayoutParams(
-                        RadioGroup.LayoutParams.WRAP_CONTENT, RadioGroup.LayoutParams.WRAP_CONTENT);
-                params.topMargin = group.getChildCount() == 0 ? 0 : (int) (8 * activity.getResources().getDisplayMetrics().density);
-                group.addView(option, params);
-                if (hours == ktvDurationHours) {
-                    group.check(option.getId());
-                }
-            }
-            group.setOnCheckedChangeListener((g, checkedId) -> {
-                View checked = g.findViewById(checkedId);
-                if (checked != null && checked.getTag() instanceof Integer) {
-                    ktvDurationHours = (Integer) checked.getTag();
-                    updateKtvDatesEndTimeAndDuration(v);
-                }
-            });
-            boolean none = ktvDurationOptions.isEmpty();
-            group.setVisibility(none ? View.GONE : View.VISIBLE);
-            v.findViewById(R.id.ktvDatesDurationEmpty).setVisibility(none ? View.VISIBLE : View.GONE);
-            updateKtvDatesEndTimeAndDuration(v);
-        };
-        render.run();
-
-        ApiClient.bookingApi().getKtvUnits(null, null, null).enqueue(new Callback<KtvUnitListResponse>() {
-            @Override
-            public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
-                if (!response.isSuccessful() || response.body() == null || !v.isAttachedToWindow()) {
-                    return;
-                }
-                List<Integer> options = response.body().durationOptions();
-                ktvDurationOptions = options;
-                if (!options.contains(ktvDurationHours)) {
-                    ktvDurationHours = options.isEmpty() ? 0 : options.get(0);
-                }
-                render.run();
-            }
-
-            @Override
-            public void onFailure(Call<KtvUnitListResponse> call, Throwable t) {
-                // Keeps whatever was last loaded; nothing is invented.
-            }
-        });
     }
 
     private void updateKtvDatesEndTimeAndDuration(View v) {
@@ -4531,8 +4468,6 @@ final class HotelBookingFlowController {
         ktvStartHour = -1;
         ktvStartMinute = -1;
         ktvGuestCount = 1;
-        ktvDurationHours = 0;
-        ktvDurationOptions = new ArrayList<>();
         cottageItems = new ArrayList<>();
         ktvItems = new ArrayList<>();
         isLoadingCottageKtv = false;
