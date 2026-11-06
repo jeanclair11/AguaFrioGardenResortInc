@@ -26,7 +26,6 @@ import android.window.OnBackInvokedDispatcher;
 import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.CottageKtvOption;
 import com.aguafriogarden.resortinc.network.CottageTypeListResponse;
-import com.aguafriogarden.resortinc.network.KtvTypeListResponse;
 import com.aguafriogarden.resortinc.network.KtvUnitListResponse;
 import com.aguafriogarden.resortinc.network.PriceBreakdownEntry;
 import com.aguafriogarden.resortinc.network.RoomTypeAvailability;
@@ -1127,39 +1126,20 @@ public class LandingActivity extends Activity {
     }
 
     private void fetchKtvTypes(LinearLayout container, TextView emptyState) {
-        // Actual KTV units (booking/ktv-units); falls back to the Type list if that call fails.
+        // KTV Rooms are listed as individual units (booking/ktv-units), never grouped by Type.
         ApiClient.bookingApi().getKtvUnits(new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date()), null, null).enqueue(new Callback<KtvUnitListResponse>() {
             @Override
             public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().ktv_units != null) {
-                    bindCottageKtvOptions(container, emptyState, response.body().toOptions(0),
-                            getString(R.string.service_type_ktv), true, Section.KTV);
-                } else if (!hasLoadedOnce(container)) {
-                    fetchKtvTypesFallback(container, emptyState);
+                boolean ok = response.isSuccessful() && response.body() != null && response.body().ktv_units != null;
+                if (!ok && hasLoadedOnce(container)) {
+                    return;
                 }
+                bindCottageKtvOptions(container, emptyState, ok ? response.body().toOptions(0) : new ArrayList<>(),
+                        getString(R.string.service_type_ktv), true, Section.KTV);
             }
 
             @Override
             public void onFailure(Call<KtvUnitListResponse> call, Throwable t) {
-                if (!hasLoadedOnce(container)) {
-                    fetchKtvTypesFallback(container, emptyState);
-                }
-            }
-        });
-    }
-
-    private void fetchKtvTypesFallback(LinearLayout container, TextView emptyState) {
-        ApiClient.bookingApi().getKtvTypes().enqueue(new Callback<KtvTypeListResponse>() {
-            @Override
-            public void onResponse(Call<KtvTypeListResponse> call, Response<KtvTypeListResponse> response) {
-                List<CottageKtvOption> ktvRooms = response.isSuccessful() && response.body() != null
-                        && response.body().ktv_rooms != null
-                        ? response.body().ktv_rooms : new ArrayList<>();
-                bindCottageKtvOptions(container, emptyState, ktvRooms, getString(R.string.service_type_ktv), true, Section.KTV);
-            }
-
-            @Override
-            public void onFailure(Call<KtvTypeListResponse> call, Throwable t) {
                 if (!hasLoadedOnce(container)) {
                     bindCottageKtvOptions(container, emptyState, new ArrayList<>(), getString(R.string.service_type_ktv), true, Section.KTV);
                 }
@@ -1184,7 +1164,14 @@ public class LandingActivity extends Activity {
         return true;
     }
 
-    private void bindRoomTypes(LinearLayout container, TextView emptyState, List<RoomTypeAvailability> roomTypes) {
+    private void bindRoomTypes(LinearLayout container, TextView emptyState, List<RoomTypeAvailability> allRoomTypes) {
+        // A room type with no available unit is not listed at all.
+        List<RoomTypeAvailability> roomTypes = new ArrayList<>();
+        for (RoomTypeAvailability roomType : allRoomTypes) {
+            if (roomType.available_quantity > 0) {
+                roomTypes.add(roomType);
+            }
+        }
         if (!markBound(container, roomTypes)) {
             return;
         }
@@ -1198,8 +1185,15 @@ public class LandingActivity extends Activity {
         }
     }
 
-    private void bindCottageKtvOptions(LinearLayout container, TextView emptyState, List<CottageKtvOption> options,
+    private void bindCottageKtvOptions(LinearLayout container, TextView emptyState, List<CottageKtvOption> allOptions,
                                         String fallbackCategory, boolean bookable, Section origin) {
+        // A cottage type / KTV unit that is not available is not listed at all.
+        List<CottageKtvOption> options = new ArrayList<>();
+        for (CottageKtvOption option : allOptions) {
+            if (option.available_quantity > 0) {
+                options.add(option);
+            }
+        }
         if (!markBound(container, options)) {
             return;
         }

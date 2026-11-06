@@ -637,6 +637,9 @@
     <string name="unavailable_room_message">This room is unavailable for your selected dates.</string>
     <string name="unavailable_cottage_message">This cottage is unavailable for your selected schedule.</string>
     <string name="unavailable_ktv_message">This KTV room is unavailable for your selected schedule.</string>
+    <string name="empty_room_selection">No rooms are available for your selected dates and guests. Please go back and try different ones.</string>
+    <string name="empty_cottage_selection">No cottages are available for your selected date and schedule. Please go back and try a different one.</string>
+    <string name="empty_ktv_selection">No KTV rooms are available for your selected schedule. Please go back and try a different one.</string>
     <string name="toast_feature_coming_soon">This feature is coming soon.</string>
 
     <!-- "Add Another ..." browse screens (see HotelBookingFlowController's bindRoomBrowse/

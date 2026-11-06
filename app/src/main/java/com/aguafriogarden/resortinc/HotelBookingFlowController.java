@@ -1672,7 +1672,8 @@ final class HotelBookingFlowController {
         LayoutInflater inflater = LayoutInflater.from(activity);
         FrameLayout originSlot = v.findViewById(R.id.itemSelectionOriginSlot);
         originSlot.removeAllViews();
-        if (origin != null) {
+        // An unavailable choice is not shown at all (no greyed-out card) — only what can be booked.
+        if (origin != null && originAvailable) {
             int pricePerNight = (int) Math.round(origin.price_per_night);
             View card = buildSelectableCard(inflater, originSlot, origin.image_path,
                     formatShowcaseName(origin.variant_name, origin.category_name), origin.capacity, false, origin.description,
@@ -1703,6 +1704,9 @@ final class HotelBookingFlowController {
                         room.group_id, room.available_quantity, R.string.unit_label_room, false, false,
                         R.string.unavailable_room_message, () -> bindRoomSelection(v));
                 otherContainer.addView(card);
+            }
+            if (otherContainer.getChildCount() == 0) {
+                addNothingAvailableNotice(otherContainer, R.string.empty_room_selection);
             }
         } else {
             // The origin is available: only list room types the guest has already added via the
@@ -1814,7 +1818,8 @@ final class HotelBookingFlowController {
         LayoutInflater inflater = LayoutInflater.from(activity);
         FrameLayout originSlot = v.findViewById(R.id.itemSelectionOriginSlot);
         originSlot.removeAllViews();
-        if (origin != null) {
+        // An unavailable choice is not shown at all (no greyed-out card) — only what can be booked.
+        if (origin != null && originAvailable) {
             View card = buildSelectableCard(inflater, originSlot, origin.image_path,
                     formatShowcaseName(origin.variant_name, null), origin.capacity, true, origin.description,
                     activity.getString(R.string.format_price_with_unit, formatMoney((int) Math.round(resolvedItemPrice(origin))), resolvedItemPriceUnit(origin)),
@@ -1842,6 +1847,9 @@ final class HotelBookingFlowController {
                         item.group_id, item.available_quantity, R.string.unit_label_cottage, false, false,
                         R.string.unavailable_cottage_message, () -> bindCottageSelection(v));
                 otherContainer.addView(card);
+            }
+            if (otherContainer.getChildCount() == 0) {
+                addNothingAvailableNotice(otherContainer, R.string.empty_cottage_selection);
             }
         } else {
             // The origin is available: only list cottage types the guest has already added via
@@ -2231,7 +2239,8 @@ final class HotelBookingFlowController {
         LayoutInflater inflater = LayoutInflater.from(activity);
         FrameLayout originSlot = v.findViewById(R.id.itemSelectionOriginSlot);
         originSlot.removeAllViews();
-        if (origin != null) {
+        // An unavailable choice is not shown at all (no greyed-out card) — only what can be booked.
+        if (origin != null && originAvailable) {
             View card = buildSelectableCard(inflater, originSlot, origin.image_path,
                     formatShowcaseName(origin.variant_name, null), origin.capacity, false, origin.description,
                     activity.getString(R.string.format_price_with_unit, formatMoney((int) Math.round(resolvedItemPrice(origin))), resolvedItemPriceUnit(origin)),
@@ -2260,6 +2269,9 @@ final class HotelBookingFlowController {
                         item.group_id, item.available_quantity, R.string.unit_label_ktv_room, false, false,
                         R.string.unavailable_ktv_message, () -> bindKtvSelection(v));
                 otherContainer.addView(card);
+            }
+            if (otherContainer.getChildCount() == 0) {
+                addNothingAvailableNotice(otherContainer, R.string.empty_ktv_selection);
             }
         } else {
             // The origin is available: only list KTV rooms the guest has already added via the
@@ -3788,17 +3800,13 @@ final class HotelBookingFlowController {
                 if (response.body().cottages != null) {
                     cottageItems.addAll(response.body().cottages);
                 }
-                if (response.body().ktv_rooms != null) {
-                    ktvItems.addAll(response.body().ktv_rooms);
-                }
                 for (CottageKtvOption item : cottageItems) {
                     if (!roomQuantities.containsKey(item.group_id)) {
                         roomQuantities.put(item.group_id, 0);
                     }
                 }
-                // KTV is shown as its actual units (booking/ktv-units, checked against the chosen
-                // slot), not Types; the catalog's Type list stays only as a fallback if that call
-                // fails or the route isn't live yet.
+                // KTV is shown only as its actual units (booking/ktv-units, checked against the chosen
+                // slot) — never grouped by Type — so ktvItems stays empty if that call fails.
                 SimpleDateFormat day = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
                 String eventDate = ktvDateMillis >= 0 ? day.format(new Date(ktvDateMillis)) : null;
                 String startTime = ktvStartHour >= 0
@@ -3836,6 +3844,19 @@ final class HotelBookingFlowController {
             }
         }
         onLoaded.run();
+    }
+
+    /** Shown on a selection screen when nothing at all is available for the guest's dates/schedule
+     *  (unavailable options are never listed, so the screen would otherwise be blank). */
+    private void addNothingAvailableNotice(LinearLayout container, int messageRes) {
+        TextView notice = new TextView(activity);
+        notice.setText(messageRes);
+        notice.setTextSize(14f);
+        notice.setTextColor(ThemeManager.color(activity, R.attr.textMuted));
+        notice.setGravity(android.view.Gravity.CENTER);
+        notice.setPadding(0, 32, 0, 32);
+        container.addView(notice, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
     }
 
     /** A room passes the guest-count filter if its listed capacity covers the party, OR if its
