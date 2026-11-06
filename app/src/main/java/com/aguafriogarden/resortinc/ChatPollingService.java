@@ -180,7 +180,12 @@ public class ChatPollingService extends Service {
         String body = reason != null && !reason.trim().isEmpty()
                 ? getString(R.string.reservation_cancelled_notification_body_with_reason, reason)
                 : getString(R.string.reservation_cancelled_notification_body_no_reason);
-        pushReservationAlert(getString(R.string.reservation_cancelled_notification_title), body);
+        // Not stored in the Alerts feed: the front desk cancelling a reservation already creates a
+        // "Reservation Cancelled" guest notification on the server, which the next refresh brings in
+        // — storing this one too would show the same event twice. Only the system notification is
+        // raised here (the server's row replaces it, same slot, if it arrives first).
+        postSystemIfEnabled(getString(R.string.reservation_cancelled_notification_title), body);
+        NotificationStore.refresh(this);
     }
 
     /** Not stored in the Alerts feed: the front desk confirming a reservation already creates a
@@ -190,13 +195,6 @@ public class ChatPollingService extends Service {
         postSystemIfEnabled(getString(R.string.reservation_booked_notification_title),
                 getString(R.string.reservation_booked_notification_body));
         NotificationStore.refresh(this);
-    }
-
-    private void pushReservationAlert(String title, String body) {
-        NotificationStore.push(this, new NotificationStore.Notification(
-                title, body, getString(R.string.notif_button_view_reservation), null,
-                NotificationStore.now(), NotificationStore.Type.RESERVATION));
-        postSystemIfEnabled(title, body);
     }
 
     private void postSystemIfEnabled(String title, String body) {

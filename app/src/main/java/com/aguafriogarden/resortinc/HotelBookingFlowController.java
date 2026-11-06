@@ -2844,7 +2844,7 @@ final class HotelBookingFlowController {
                     reservationCancelledAtMillis = -1;
                     reservationCancelReason = "";
                     snapshotReservationDisplayData();
-                    showScreen(SCREEN_RESERVATION_CONFIRMED);
+                    showReservationSubmitted();
                 } else if (response.code() == 401) {
                     Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
                 } else {
@@ -2911,7 +2911,7 @@ final class HotelBookingFlowController {
                     reservationCancelledAtMillis = -1;
                     reservationCancelReason = "";
                     snapshotReservationDisplayData();
-                    showScreen(SCREEN_RESERVATION_CONFIRMED);
+                    showReservationSubmitted();
                 } else if (response.code() == 401) {
                     Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
                 } else {
@@ -3140,6 +3140,23 @@ final class HotelBookingFlowController {
         } catch (java.text.ParseException e) {
             return System.currentTimeMillis();
         }
+    }
+
+    /**
+     * Every Reserve submission (single-facility and multi-facility) ends here: the Payment
+     * Reminder is shown first, and the "Reservation Request Submitted" screen only appears once
+     * the guest has acknowledged it. Not cancelable, so the reminder can't be skipped by tapping
+     * outside the dialog; Back is likewise absorbed by the dialog.
+     */
+    private void showReservationSubmitted() {
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setTitle(R.string.reservation_payment_reminder_title)
+                .setMessage(R.string.reservation_payment_reminder_message)
+                .setCancelable(false)
+                .setPositiveButton(R.string.button_ok, (d, which) -> showScreen(SCREEN_RESERVATION_CONFIRMED))
+                .create();
+        ThemeManager.applyGlassEffect(dialog.getWindow());
+        dialog.show();
     }
 
     /** Cancel button, step 1: a plain Yes/No confirmation before asking for a reason. */
@@ -5202,7 +5219,7 @@ final class HotelBookingFlowController {
         }
         snapshotReservationDisplayData();
         multiMode = false;
-        showScreen(SCREEN_RESERVATION_CONFIRMED);
+        showReservationSubmitted();
     }
 
     /**

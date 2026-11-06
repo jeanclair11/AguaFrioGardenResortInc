@@ -20,9 +20,9 @@ import java.util.Locale;
 import java.util.function.Consumer;
 
 /**
- * Renders the Alerts tab as a list of in-app notifications pushed by
- * {@link ChatPollingService} (new chat messages, and reservation status changes like a
- * receptionist-side cancellation) or raised by front-desk actions on the website, grouped under
+ * Renders the Alerts tab as a list of in-app notifications: new chat messages pushed by
+ * {@link ChatPollingService}, and the ones the server raises (reservation and booking status
+ * changes, the day-before booking reminder, front-desk actions on the website), grouped under
  * Today / Yesterday / Earlier. The guest can mark each one read/unread and archive/unarchive it
  * (from the card's bottom row or its three-dot menu); {@link NotificationStore} syncs those
  * changes with the backend.

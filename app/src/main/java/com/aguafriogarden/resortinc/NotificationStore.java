@@ -22,8 +22,9 @@ import retrofit2.Response;
  * The guest's notification feed for the Alerts tab, kept in sync with the backend's
  * guest_notifications table (Api\NotificationController): the in-memory list is a cache of the
  * server copy, so read/unread and archived state follow the guest across devices. Alerts the app
- * raises itself (new chat message, receptionist-side cancellation — see ChatPollingService) are
- * uploaded when pushed; ones staff actions raise on the website arrive through {@link #refresh}.
+ * raises itself (a new chat message — see ChatPollingService) are uploaded when pushed; ones the
+ * server raises (staff actions on the website, a reservation cancelled/expired/confirmed, the
+ * day-before booking reminder) arrive through {@link #refresh}.
  * State changes apply locally first and are sent to the server in the background; a failed
  * update is reverted by re-fetching the server copy.
  */

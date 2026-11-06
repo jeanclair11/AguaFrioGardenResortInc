@@ -736,6 +736,8 @@
     <!-- Reservation Summary's RESERVE button confirmation (see
          HotelBookingFlowController#bindReservationConfirmed) — a terminal, mock "request
          submitted" screen, no real backend endpoint yet. -->
+    <string name="reservation_payment_reminder_title">Payment Reminder</string>
+    <string name="reservation_payment_reminder_message">Please complete your payment within 7 days. Please note that your reservation may be forfeited if another guest completes the payment before you. You will receive a notification if another guest has already paid for the same reservation.</string>
     <string name="reservation_confirmed_title">Reservation Request Submitted</string>
     <string name="reservation_confirmed_message">Your reservation request has been successfully submitted. Please settle the required thirty percent (30%) down payment within seven (7) calendar days to secure and confirm your reservation.\n\nOur staff will verify your payment and reservation details. You will receive a confirmation notification once your reservation has been successfully confirmed.</string>
     <string name="button_view_reservation">View Reservation</string>
