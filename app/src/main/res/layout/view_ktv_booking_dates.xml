@@ -163,8 +163,9 @@
 
             </com.aguafriogarden.resortinc.AuthInputField>
 
-            <!-- Duration: fixed by resort policy (3 hours), informational only — the value itself
-                 is enforced in HotelBookingFlowController#KTV_SESSION_HOURS -->
+            <!-- Duration: read-only. The length comes from the price packages configured in KTV Room
+                 Management (see HotelBookingFlowController#loadKtvSessionHours); the guest cannot
+                 change it. -->
             <TextView
                 style="@style/FieldLabel"
                 android:layout_marginTop="18dp"

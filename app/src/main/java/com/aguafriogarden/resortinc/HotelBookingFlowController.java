@@ -290,12 +290,11 @@ final class HotelBookingFlowController {
 
     private List<CottageKtvOption> cottageItems = new ArrayList<>();
     private List<CottageKtvOption> ktvItems = new ArrayList<>();
-    /** Resort policy: every KTV session (Book and Reserve) is exactly 3 hours. The guest can't
-     *  pick or change it — ktvDurationHours is final, so it feeds availability/pricing lookups,
-     *  the end-time calc, the Review/Billing rows and the submitted ktv[duration_hours] with
-     *  this one value. */
-    private static final int KTV_SESSION_HOURS = 3;
-    private final int ktvDurationHours = KTV_SESSION_HOURS;
+    /** The KTV session length (Book and Reserve). The guest never picks it: it is taken from the
+     *  session length HR configured in KTV Room Management (the price packages' hours — see
+     *  #loadKtvSessionHours) and feeds availability/pricing lookups, the end-time calc, the
+     *  Review/Billing rows and the submitted ktv[duration_hours]. 0 until loaded. */
+    private int ktvDurationHours = 0;
     private boolean isLoadingCottageKtv = false;
     private boolean cottageKtvLoaded = false;
     /** Guards fetchCottageAvailability() (Cottage's own live, date+Cottage Use-scoped check —
@@ -1489,8 +1488,7 @@ final class HotelBookingFlowController {
         updateKtvDateField(dateText);
         updateKtvStartTimeField(startTimeText);
         updateKtvDatesEndTimeAndDuration(v);
-        ((TextView) v.findViewById(R.id.ktvDatesDurationInfo))
-                .setText(activity.getString(R.string.format_ktv_session_hours, KTV_SESSION_HOURS));
+        loadKtvSessionHours(v);
         // In the multi-facility flow the date is carried over from the first facility and isn't
         // asked for again — only the session details (rate type, start time, guests) are.
         if (multiMode && multiIndex > 0) {
@@ -1524,6 +1522,10 @@ final class HotelBookingFlowController {
 
         v.findViewById(R.id.ktvDatesNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             boolean valid = true;
+            if (ktvDurationHours <= 0) {
+                Toast.makeText(activity, R.string.toast_ktv_no_rates, Toast.LENGTH_LONG).show();
+                valid = false;
+            }
             if (ktvDateMillis < 0) {
                 showError(dateError, R.string.error_date_required);
                 valid = false;
@@ -1587,6 +1589,39 @@ final class HotelBookingFlowController {
                 return;
             }
         }
+    }
+
+    /** Sets the session length from what HR configured in KTV Room Management: the hours of the
+     *  KTV price packages, fetched live each time this screen opens (so admin changes show up).
+     *  Shown read-only — there is no control to change it. If the configured packages don't all
+     *  share one length, the shortest (the base session) is used; with none configured the guest
+     *  is told rates are unavailable and Next is blocked. */
+    private void loadKtvSessionHours(View v) {
+        TextView info = v.findViewById(R.id.ktvDatesDurationInfo);
+        Runnable render = () -> {
+            info.setText(ktvDurationHours > 0
+                    ? activity.getString(R.string.format_ktv_session_hours, ktvDurationHours)
+                    : activity.getString(R.string.label_ktv_no_rates));
+            updateKtvDatesEndTimeAndDuration(v);
+        };
+        render.run();
+
+        ApiClient.bookingApi().getKtvUnits(null, null, null).enqueue(new Callback<KtvUnitListResponse>() {
+            @Override
+            public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
+                if (!response.isSuccessful() || response.body() == null || !v.isAttachedToWindow()) {
+                    return;
+                }
+                List<Integer> configured = response.body().durationOptions(); // ascending
+                ktvDurationHours = configured.isEmpty() ? 0 : configured.get(0);
+                render.run();
+            }
+
+            @Override
+            public void onFailure(Call<KtvUnitListResponse> call, Throwable t) {
+                // Keeps whatever was last loaded; nothing is invented.
+            }
+        });
     }
 
     private void updateKtvDatesEndTimeAndDuration(View v) {
@@ -4483,6 +4518,7 @@ final class HotelBookingFlowController {
         ktvStartMinute = -1;
         ktvGuestCount = 1;
         cottageItems = new ArrayList<>();
+        ktvDurationHours = 0;
         ktvItems = new ArrayList<>();
         isLoadingCottageKtv = false;
         cottageKtvLoaded = false;
