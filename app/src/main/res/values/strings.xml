@@ -730,7 +730,6 @@
     <string name="label_booking_reference">Booking Reference</string>
     <string name="button_view_booking">View Booking</string>
     <string name="button_back_to_home">Back to Home</string>
-    <string name="toast_view_booking_placeholder">Your booking history isn\'t available yet — check back soon!</string>
 
     <!-- Reservation Summary's RESERVE button confirmation (see
          HotelBookingFlowController#bindReservationConfirmed) — a terminal, mock "request

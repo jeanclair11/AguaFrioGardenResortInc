@@ -387,7 +387,8 @@ public class LandingActivity extends Activity {
 
         reserveCatalog = new ReserveCatalogController(this, this::showHome, this::setBottomNavHidden);
         bookingCatalog = new BookingCatalogController(this,
-                () -> showModule(Section.RESERVE), this::showHome, this::setBottomNavHidden);
+                () -> showModule(Section.RESERVE), this::showHome, this::openBookingInHistory,
+                this::setBottomNavHidden);
         dashboardHome = new DashboardHomeController(this);
         profileController = new ProfileController(this, this::showHome, this::logout, this::bindHeaderAvatar,
                 this::openHistoryReservation);
@@ -675,6 +676,12 @@ public class LandingActivity extends Activity {
             showModule(Section.RESERVE);
             reserveCatalog.showReservationDetails(summary, backToProfile);
         }
+    }
+
+    /** Book flow success screen's View Booking: opens that booking in Profile's history. */
+    private void openBookingInHistory(String reference) {
+        showModule(Section.PROFILE);
+        profileController.showBookingByReference(reference);
     }
 
     private void leavingChat() {

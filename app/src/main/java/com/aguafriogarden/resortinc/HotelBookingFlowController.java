@@ -357,6 +357,14 @@ final class HotelBookingFlowController {
     /** Set when Reservation Details was opened from the Profile page's history (see
      *  openReservationFromHistory); Back then returns there instead of to a flow screen. */
     private Runnable reservationDetailsExternalBack = null;
+    /** Success screen's View Booking: receives the new booking's reference and should open it in
+     *  the guest's history (set by BookingCatalogController; null = button does nothing). */
+    private Consumer<String> onViewBooking = null;
+
+    void setOnViewBooking(Consumer<String> onViewBooking) {
+        this.onViewBooking = onViewBooking;
+    }
+
     HotelBookingFlowController(Activity activity, Runnable onBookNowOtherCategory, Runnable onBackToHome,
                                 Consumer<Boolean> setBottomNavHidden) {
         this.activity = activity;
@@ -4399,8 +4407,16 @@ final class HotelBookingFlowController {
 
     private void bindSuccess(View v) {
         ((TextView) v.findViewById(R.id.successBookingReference)).setText(bookingReference);
-        v.findViewById(R.id.successViewBookingButton).setOnClickListener(ClickGuard.wrap(view ->
-                Toast.makeText(activity, R.string.toast_view_booking_placeholder, Toast.LENGTH_LONG).show()));
+        v.findViewById(R.id.successViewBookingButton).setOnClickListener(ClickGuard.wrap(view -> {
+            if (onViewBooking == null) {
+                return;
+            }
+            // Same reset-then-leave pairing as Back to Home; capture the reference first since
+            // resetFlow() clears it.
+            String reference = bookingReference;
+            resetFlow();
+            onViewBooking.accept(reference);
+        }));
         v.findViewById(R.id.successBackToHomeButton).setOnClickListener(ClickGuard.wrap(view -> {
             resetFlow();
             onBackToHome.run();

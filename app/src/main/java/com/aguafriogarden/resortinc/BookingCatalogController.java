@@ -29,6 +29,7 @@ final class BookingCatalogController {
     private final Activity activity;
     private final Runnable onBookNow;
     private final Runnable onBackToHome;
+    private final Consumer<String> onViewBooking;
     private final Consumer<Boolean> setBottomNavHidden;
     private final FrameLayout root;
 
@@ -36,8 +37,9 @@ final class BookingCatalogController {
     private HotelBookingFlowController hotelBookingFlow;
 
     BookingCatalogController(Activity activity, Runnable onBookNow, Runnable onBackToHome,
-                              Consumer<Boolean> setBottomNavHidden) {
+                              Consumer<String> onViewBooking, Consumer<Boolean> setBottomNavHidden) {
         this.activity = activity;
+        this.onViewBooking = onViewBooking;
         this.onBookNow = onBookNow;
         this.onBackToHome = onBackToHome;
         this.setBottomNavHidden = setBottomNavHidden;
@@ -105,6 +107,11 @@ final class BookingCatalogController {
                 showPicker();
                 onBackToHome.run();
             }, setBottomNavHidden);
+            // Re-arm the picker first (resetFlow() leaves the flow's root empty), then leave.
+            hotelBookingFlow.setOnViewBooking(reference -> {
+                showPicker();
+                onViewBooking.accept(reference);
+            });
         }
         return hotelBookingFlow;
     }

@@ -111,6 +111,8 @@ final class ProfileController {
     private List<ReservationSummary> historyData = new ArrayList<>();
     private int historySection = ReservationHistory.SECTION_RESERVATIONS;
     private int historyTab = ReservationHistory.TAB_CURRENT;
+    /** Set by showBookingByReference until a fetch returns that record. */
+    private String pendingHistoryReference = null;
 
     private View currentScreenView;
     private int currentScreen = -1;
@@ -401,6 +403,35 @@ final class ProfileController {
         showScreen(SCREEN_HISTORY);
     }
 
+    /**
+     * Opens the history list on the record with this booking reference (the Book flow's success
+     * screen "View Booking"). The section/tab it lands on depends on what the server says about
+     * that record, so it starts on Bookings/Current and jumps as soon as a fetch includes it.
+     */
+    void showBookingByReference(String reference) {
+        pendingHistoryReference = reference;
+        openHistory(ReservationHistory.SECTION_BOOKINGS, ReservationHistory.TAB_CURRENT);
+    }
+
+    private void applyPendingHistoryReference() {
+        if (pendingHistoryReference == null || pendingHistoryReference.isEmpty()) {
+            return;
+        }
+        for (ReservationSummary summary : historyData) {
+            if (pendingHistoryReference.equals(summary.booking_reference)) {
+                historySection = "reservation".equals(summary.kind)
+                        ? ReservationHistory.SECTION_BOOKINGS : ReservationHistory.SECTION_RESERVATIONS;
+                historyTab = ReservationHistory.tabOf(summary);
+                pendingHistoryReference = null;
+                if (currentScreen == SCREEN_HISTORY) {
+                    // Re-bind so the header title matches the section we jumped to.
+                    showScreen(SCREEN_HISTORY);
+                }
+                return;
+            }
+        }
+    }
+
     private void bindHistory(View v) {
         bindHeader(v, historySection == ReservationHistory.SECTION_RESERVATIONS
                 ? R.string.my_reservations_title : R.string.my_bookings_title, () -> showScreen(SCREEN_MAIN));
@@ -491,7 +522,16 @@ final class ProfileController {
         boolean cottage = false;
         boolean ktv = false;
         boolean hall = false;
-        if ("advance_reservation".equals(summary.kind) && summary.service_lines != null) {
+        // The server's facilities[] lists every facility kind in the record (multi-facility
+        // bookings have several); older servers omit it, so the checks below remain as fallback.
+        if (summary.facilities != null) {
+            hotel = summary.facilities.contains("hotel");
+            cottage = summary.facilities.contains("cottage");
+            ktv = summary.facilities.contains("ktv");
+            hall = summary.facilities.contains("hall");
+        }
+        if (!hotel && !cottage && !ktv && !hall
+                && "advance_reservation".equals(summary.kind) && summary.service_lines != null) {
             for (String line : summary.service_lines) {
                 if ("Room".equals(line)) {
                     hotel = true;
@@ -538,6 +578,7 @@ final class ProfileController {
                 historyLoading = false;
                 if (response.isSuccessful() && response.body() != null && response.body().reservations != null) {
                     historyData = response.body().reservations;
+                    applyPendingHistoryReference();
                     refreshHistoryUi();
                 }
             }

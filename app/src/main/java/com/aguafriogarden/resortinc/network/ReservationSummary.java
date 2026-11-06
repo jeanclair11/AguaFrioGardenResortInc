@@ -14,6 +14,9 @@ public class ReservationSummary {
     public int id;
     public String booking_reference;
     public String service_type;
+    /** Every facility kind in the record ("hotel"/"cottage"/"ktv"/"hall") — several for a
+     *  multi-facility booking. Null from servers that predate it. */
+    public List<String> facilities;
     public String item_name;
     public String room_type_name;
     public String check_in;
