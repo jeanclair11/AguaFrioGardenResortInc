@@ -5,6 +5,8 @@ public class AmenityAvailability {
     public int id;
     public String name;
     public String category_name;
+    /** Admin Amenity Management facility type (room/cottage/ktv_room/hall); null = offered for all. */
+    public String facility_types;
     public String image_path;
     public double price;
     public boolean unlimited;

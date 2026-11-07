@@ -43,6 +43,8 @@ import com.aguafriogarden.resortinc.network.CottageKtvOption;
 import com.aguafriogarden.resortinc.network.ErrorResponse;
 import com.aguafriogarden.resortinc.network.KtvUnitListResponse;
 import com.aguafriogarden.resortinc.network.PriceBreakdownEntry;
+import com.aguafriogarden.resortinc.network.PromoCoupon;
+import com.aguafriogarden.resortinc.network.PromoCouponListResponse;
 import com.aguafriogarden.resortinc.network.ReservationRequestResponse;
 import com.aguafriogarden.resortinc.network.ReservationStatusResponse;
 import com.aguafriogarden.resortinc.network.ReservationSummary;
@@ -60,10 +62,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import okhttp3.MediaType;
@@ -308,6 +312,16 @@ final class HotelBookingFlowController {
     private List<AmenityAvailability> availableAmenities = new ArrayList<>();
     private final Map<Integer, Integer> amenityQuantities = new LinkedHashMap<>();
     private boolean isLoadingAmenities = false;
+    // Promo Coupons (see bindPromoCoupons): the one coupon the guest applied on the Summary page
+    // (null = none), the coupons the server says this exact booking qualifies for, and the request
+    // that list was fetched for, so it is only re-fetched when the booking itself changes. A coupon
+    // that was applied for a different booking is held back as couponPendingId until the server has
+    // confirmed it still applies, so stale discounts never show. Reset by resetFlow().
+    private PromoCoupon appliedCoupon;
+    private int couponPendingId = 0;
+    private List<PromoCoupon> eligibleCoupons = new ArrayList<>();
+    private String couponQueryKey = null;
+    private boolean couponsLoading = false;
     /** How often the on-screen selection/amenity/reservation-status screens re-check the server
      *  for changes made elsewhere (see {@link #liveSyncTick}). */
     private static final long LIVE_SYNC_MS = 8000L;
@@ -792,7 +806,7 @@ final class HotelBookingFlowController {
         }
         String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(cottageDateMillis));
         liveSyncInFlight = true;
-        ApiClient.bookingApi().checkCottageAvailability(bearer, dateStr, cottageUseKey())
+        ApiClient.bookingApi().checkCottageAvailability(bearer, dateStr, cottageUseKey(), cottageAdults, cottageChildren)
                 .enqueue(new Callback<CottageAvailabilityResponse>() {
                     @Override
                     public void onResponse(Call<CottageAvailabilityResponse> call, Response<CottageAvailabilityResponse> response) {
@@ -820,7 +834,7 @@ final class HotelBookingFlowController {
         String startTime = ktvStartHour >= 0
                 ? String.format(Locale.US, "%02d:%02d", ktvStartHour, ktvStartMinute) : null;
         liveSyncInFlight = true;
-        ApiClient.bookingApi().getKtvUnits(eventDate, startTime, null).enqueue(new Callback<KtvUnitListResponse>() {
+        ApiClient.bookingApi().getKtvUnitsForParty(eventDate, startTime, null, ktvGuestCount).enqueue(new Callback<KtvUnitListResponse>() {
             @Override
             public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
                 liveSyncInFlight = false;
@@ -853,7 +867,7 @@ final class HotelBookingFlowController {
 
     private void syncAmenities(String bearer, int screen, View screenView) {
         liveSyncInFlight = true;
-        ApiClient.bookingApi().getAmenities(bearer).enqueue(new Callback<AmenityListResponse>() {
+        ApiClient.bookingApi().getAmenities(bearer, amenityFacilityType()).enqueue(new Callback<AmenityListResponse>() {
             @Override
             public void onResponse(Call<AmenityListResponse> call, Response<AmenityListResponse> response) {
                 liveSyncInFlight = false;
@@ -1397,7 +1411,7 @@ final class HotelBookingFlowController {
         nextButton.setText(R.string.button_checking_availability);
 
         String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(cottageDateMillis));
-        ApiClient.bookingApi().checkCottageAvailability("Bearer " + token, dateStr, cottageUseKey())
+        ApiClient.bookingApi().checkCottageAvailability("Bearer " + token, dateStr, cottageUseKey(), cottageAdults, cottageChildren)
                 .enqueue(new Callback<CottageAvailabilityResponse>() {
                     @Override
                     public void onResponse(Call<CottageAvailabilityResponse> call, Response<CottageAvailabilityResponse> response) {
@@ -1452,9 +1466,9 @@ final class HotelBookingFlowController {
         }
         selectionShowOthers = false;
 
-        // Guest count never gates a Cottage's availability (see bindCottageSelection) — a party
-        // can always book more than one unit of a cottage to fit everyone, so only in-stock
-        // status matters here.
+        // The party size is already part of the availability result (cottage-availability only
+        // reports a type as in stock when its free units together can seat everyone), so only
+        // in-stock status matters here; Next then checks the chosen cottages seat the party.
         for (CottageKtvOption item : cottageItems) {
             if (item.variant_id == selectionOriginVariantId && item.available_quantity > 0) {
                 roomQuantities.put(item.group_id, 1);
@@ -1790,10 +1804,10 @@ final class HotelBookingFlowController {
      * cottage types below, same pattern as {@link #bindRoomSelection}. Cottages have no per-
      * date/time availability check on the backend (only overall stock, see
      * fetchCottagesKtvData) so "available" here means in-stock, not conflict-checked against the
-     * guest's chosen date/schedule. Guest count never gates availability either — a party that
-     * outnumbers one cottage's capacity can simply book more than one unit of it (see "Add
-     * Another Cottage" below); capacity is shown on the card purely as information (see
-     * R.string.cottage_capacity_format). Next is a placeholder for now — Cottage bookings don't
+     * guest's chosen date/schedule. The party size does count: the backend reports a type as in
+     * stock only when its free units together can seat everyone (a party can book several
+     * units — see "Add Another Cottage" below — and Next checks the chosen ones seat the whole
+     * party). Capacity is shown on the card (see R.string.cottage_capacity_format). Next is a placeholder for now — Cottage bookings don't
      * have a Review/Billing/Payment continuation yet.
      */
     private void bindCottageSelection(View v) {
@@ -1882,6 +1896,23 @@ final class HotelBookingFlowController {
             }
             if (total <= 0) {
                 Toast.makeText(activity, R.string.dialog_no_room_message, Toast.LENGTH_LONG).show();
+                return;
+            }
+            // The chosen cottages together must seat the whole party (the server enforces the same
+            // rule); a type with no capacity configured can't be judged, so it never blocks.
+            int guests = cottageAdults + cottageChildren;
+            int seats = 0;
+            boolean capacityUnknown = false;
+            for (CottageKtvOption item : cottageItems) {
+                int qty = roomQuantities.containsKey(item.group_id) ? roomQuantities.get(item.group_id) : 0;
+                if (qty > 0) {
+                    capacityUnknown |= item.capacity <= 0;
+                    seats += qty * item.capacity;
+                }
+            }
+            if (!capacityUnknown && seats < guests) {
+                Toast.makeText(activity, activity.getString(R.string.toast_cottage_seats_needed, guests, seats),
+                        Toast.LENGTH_LONG).show();
                 return;
             }
             if (multiMode) {
@@ -2029,6 +2060,7 @@ final class HotelBookingFlowController {
      * Rooms-specific.
      */
     private void bindCottageBilling(View v) {
+        bindPromoCoupons(v);
         bindHeader(v, R.id.hotelBillingHeaderBar, R.string.hotel_billing_title, () -> showScreen(SCREEN_AMENITY));
 
         bindRow(v.findViewById(R.id.billingRowFullName), R.string.label_full_name, ProfileStore.getFullName(activity));
@@ -2094,7 +2126,8 @@ final class HotelBookingFlowController {
         bindLine(v.findViewById(R.id.billingRowRoomCharges), R.string.label_cottage_charges, cottageTotal);
         bindLine(v.findViewById(R.id.billingRowAmenitiesTotal), R.string.label_amenities_total, amenitiesTotal);
 
-        int grandTotal = cottageTotal + amenitiesTotal;
+        bindCouponRow(v.findViewById(R.id.billingRowCoupon));
+        int grandTotal = Math.max(0, cottageTotal + amenitiesTotal - couponDiscount());
         ((TextView) v.findViewById(R.id.billingGrandTotal)).setText(formatCurrency(grandTotal));
 
         View fullCard = v.findViewById(R.id.paymentOptionFullCard);
@@ -2115,12 +2148,7 @@ final class HotelBookingFlowController {
             updatePaymentOptionCards(fullCard, partialCard);
         });
 
-        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
-        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
-        termsBox.setChecked(termsChecked);
-        cancellationBox.setChecked(cancellationChecked);
-        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
-        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+        bindPolicyAgreement(v, R.id.hotelBillingProceedButton);
 
         v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (paymentOption == PAYMENT_NONE) {
@@ -2209,7 +2237,7 @@ final class HotelBookingFlowController {
         for (AmenityAvailability amenity : availableAmenities) {
             total += (int) Math.round(amenity.price) * amenityQuantities.get(amenity.id);
         }
-        return total;
+        return Math.max(0, total - couponDiscount());
     }
 
     /**
@@ -2429,6 +2457,7 @@ final class HotelBookingFlowController {
      * Hotel Rooms-specific.
      */
     private void bindKtvBilling(View v) {
+        bindPromoCoupons(v);
         bindHeader(v, R.id.hotelBillingHeaderBar, R.string.hotel_billing_title, () -> showScreen(SCREEN_AMENITY));
 
         bindRow(v.findViewById(R.id.billingRowFullName), R.string.label_full_name, ProfileStore.getFullName(activity));
@@ -2497,7 +2526,8 @@ final class HotelBookingFlowController {
         bindLine(v.findViewById(R.id.billingRowRoomCharges), R.string.label_ktv_charges, ktvTotal);
         bindLine(v.findViewById(R.id.billingRowAmenitiesTotal), R.string.label_amenities_total, amenitiesTotal);
 
-        int grandTotal = ktvTotal + amenitiesTotal;
+        bindCouponRow(v.findViewById(R.id.billingRowCoupon));
+        int grandTotal = Math.max(0, ktvTotal + amenitiesTotal - couponDiscount());
         ((TextView) v.findViewById(R.id.billingGrandTotal)).setText(formatCurrency(grandTotal));
 
         View fullCard = v.findViewById(R.id.paymentOptionFullCard);
@@ -2518,12 +2548,7 @@ final class HotelBookingFlowController {
             updatePaymentOptionCards(fullCard, partialCard);
         });
 
-        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
-        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
-        termsBox.setChecked(termsChecked);
-        cancellationBox.setChecked(cancellationChecked);
-        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
-        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+        bindPolicyAgreement(v, R.id.hotelBillingProceedButton);
 
         v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (paymentOption == PAYMENT_NONE) {
@@ -2614,7 +2639,7 @@ final class HotelBookingFlowController {
         for (AmenityAvailability amenity : availableAmenities) {
             total += (int) Math.round(amenity.price) * amenityQuantities.get(amenity.id);
         }
-        return total;
+        return Math.max(0, total - couponDiscount());
     }
 
     /**
@@ -2631,6 +2656,7 @@ final class HotelBookingFlowController {
      * placeholder for now — no backend endpoint yet for a reservation request shaped like this.
      */
     private void bindReservationSummary(View v) {
+        bindPromoCoupons(v);
         bindHeader(v, R.id.reservationSummaryHeaderBar, R.string.hotel_billing_title, () -> showScreen(SCREEN_AMENITY));
 
         bindRow(v.findViewById(R.id.reservationSummaryRowFullName), R.string.label_full_name, ProfileStore.getFullName(activity));
@@ -2758,16 +2784,12 @@ final class HotelBookingFlowController {
         }
         amenitiesCard.setVisibility(anyAmenity ? View.VISIBLE : View.GONE);
 
+        bindCouponRow(v.findViewById(R.id.reservationSummaryCouponRow));
         bindLine(v.findViewById(R.id.reservationSummaryFullPaymentRow), R.string.label_full_payment, grandTotal);
         bindLine(v.findViewById(R.id.reservationSummaryDownPaymentRow), R.string.label_down_payment_30,
                 computePartialAmount(grandTotal));
 
-        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
-        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
-        termsBox.setChecked(termsChecked);
-        cancellationBox.setChecked(cancellationChecked);
-        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
-        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+        bindPolicyAgreement(v, R.id.reservationSummaryReserveButton);
 
         // Hotel Rooms, Cottages and KTV Rooms all submit a real reservation request to the shared
         // backend (submitReservationRequest / submitCottageReservationRequest /
@@ -2812,7 +2834,7 @@ final class HotelBookingFlowController {
                 adults,
                 children,
                 specialRequest,
-                quantityFieldMap("room_quantities", roomQuantities)
+                couponFields(quantityFieldMap("room_quantities", roomQuantities))
         ).enqueue(new Callback<ReservationRequestResponse>() {
             @Override
             public void onResponse(Call<ReservationRequestResponse> call, Response<ReservationRequestResponse> response) {
@@ -2841,6 +2863,7 @@ final class HotelBookingFlowController {
                     ErrorResponse error = ApiClient.parseError(response.errorBody());
                     String message = error.firstMessage() != null
                             ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                    recheckCouponsAfterFailure();
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
                 }
             }
@@ -2883,7 +2906,7 @@ final class HotelBookingFlowController {
                 cottageAdults,
                 cottageChildren,
                 specialRequest,
-                quantityFieldMap("cottage_quantities", roomQuantities)
+                couponFields(quantityFieldMap("cottage_quantities", roomQuantities))
         ).enqueue(new Callback<ReservationRequestResponse>() {
             @Override
             public void onResponse(Call<ReservationRequestResponse> call, Response<ReservationRequestResponse> response) {
@@ -2908,6 +2931,7 @@ final class HotelBookingFlowController {
                     ErrorResponse error = ApiClient.parseError(response.errorBody());
                     String message = error.firstMessage() != null
                             ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                    recheckCouponsAfterFailure();
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
                 }
             }
@@ -3811,7 +3835,7 @@ final class HotelBookingFlowController {
                 String eventDate = ktvDateMillis >= 0 ? day.format(new Date(ktvDateMillis)) : null;
                 String startTime = ktvStartHour >= 0
                         ? String.format(Locale.US, "%02d:%02d", ktvStartHour, ktvStartMinute) : null;
-                ApiClient.bookingApi().getKtvUnits(eventDate, startTime, null).enqueue(new Callback<KtvUnitListResponse>() {
+                ApiClient.bookingApi().getKtvUnitsForParty(eventDate, startTime, null, ktvGuestCount).enqueue(new Callback<KtvUnitListResponse>() {
                     @Override
                     public void onResponse(Call<KtvUnitListResponse> c, Response<KtvUnitListResponse> r) {
                         if (r.isSuccessful() && r.body() != null && r.body().ktv_units != null) {
@@ -3998,7 +4022,7 @@ final class HotelBookingFlowController {
         nextButton.setEnabled(false);
         nextButton.setText(R.string.button_loading);
 
-        ApiClient.bookingApi().getAmenities("Bearer " + token).enqueue(new Callback<AmenityListResponse>() {
+        ApiClient.bookingApi().getAmenities("Bearer " + token, amenityFacilityType()).enqueue(new Callback<AmenityListResponse>() {
             @Override
             public void onResponse(Call<AmenityListResponse> call, Response<AmenityListResponse> response) {
                 isLoadingAmenities = false;
@@ -4008,6 +4032,13 @@ final class HotelBookingFlowController {
                 if (response.isSuccessful() && response.body() != null) {
                     availableAmenities = response.body().amenities != null
                             ? response.body().amenities : new ArrayList<>();
+                    // Drop picks for amenities no longer offered for this facility type, so a
+                    // stale quantity can never be billed or submitted for a hidden amenity.
+                    Set<Integer> offeredIds = new HashSet<>();
+                    for (AmenityAvailability amenity : availableAmenities) {
+                        offeredIds.add(amenity.id);
+                    }
+                    amenityQuantities.keySet().retainAll(offeredIds);
                     for (AmenityAvailability amenity : availableAmenities) {
                         amenityQuantities.putIfAbsent(amenity.id, 0);
                     }
@@ -4125,6 +4156,23 @@ final class HotelBookingFlowController {
         });
     }
 
+    /**
+     * The Admin Amenity Management facility type the Choose Amenity list must match: the
+     * backend returns only amenities tagged for it (or untagged ones). Amenities in a
+     * multi-facility run belong to the Hotel Room booking, so that is always "room".
+     */
+    private String amenityFacilityType() {
+        if (!multiMode) {
+            if (activeContinuation == CONTINUATION_COTTAGE) {
+                return "cottage";
+            }
+            if (activeContinuation == CONTINUATION_KTV) {
+                return "ktv_room";
+            }
+        }
+        return "room";
+    }
+
     private boolean amenityCanIncrement(AmenityAvailability amenity, int currentQty) {
         return amenity.unlimited || amenity.available_quantity == null || currentQty < amenity.available_quantity;
     }
@@ -4151,6 +4199,7 @@ final class HotelBookingFlowController {
     // ---- Screen 6: Billing Summary ------------------------------------------
 
     private void bindBilling(View v) {
+        bindPromoCoupons(v);
         bindHeader(v, R.id.hotelBillingHeaderBar, R.string.hotel_billing_title, () -> showScreen(SCREEN_AMENITY));
 
         bindRow(v.findViewById(R.id.billingRowFullName), R.string.label_full_name, ProfileStore.getFullName(activity));
@@ -4215,7 +4264,8 @@ final class HotelBookingFlowController {
         bindLine(v.findViewById(R.id.billingRowRoomCharges), R.string.label_room_charges, roomTotal);
         bindLine(v.findViewById(R.id.billingRowAmenitiesTotal), R.string.label_amenities_total, amenitiesTotal);
 
-        int grandTotal = roomTotal + amenitiesTotal;
+        bindCouponRow(v.findViewById(R.id.billingRowCoupon));
+        int grandTotal = Math.max(0, roomTotal + amenitiesTotal - couponDiscount());
         ((TextView) v.findViewById(R.id.billingGrandTotal)).setText(formatCurrency(grandTotal));
 
         View fullCard = v.findViewById(R.id.paymentOptionFullCard);
@@ -4236,12 +4286,7 @@ final class HotelBookingFlowController {
             updatePaymentOptionCards(fullCard, partialCard);
         });
 
-        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
-        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
-        termsBox.setChecked(termsChecked);
-        cancellationBox.setChecked(cancellationChecked);
-        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
-        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+        bindPolicyAgreement(v, R.id.hotelBillingProceedButton);
 
         v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (paymentOption == PAYMENT_NONE) {
@@ -4362,6 +4407,7 @@ final class HotelBookingFlowController {
         Map<String, RequestBody> quantities = new LinkedHashMap<>();
         putQuantityParts(quantities, "room_quantities", roomQuantities);
         putQuantityParts(quantities, "amenity_quantities", amenityQuantities);
+        putCouponPart(quantities);
 
         ApiClient.bookingApi().reserve(
                 "Bearer " + token,
@@ -4388,6 +4434,7 @@ final class HotelBookingFlowController {
                     ErrorResponse error = ApiClient.parseError(response.errorBody());
                     String message = error.firstMessage() != null
                             ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                    recheckCouponsAfterFailure();
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
                 }
             }
@@ -4548,6 +4595,13 @@ final class HotelBookingFlowController {
         specialRequest = "";
         availableAmenities = new ArrayList<>();
         amenityQuantities.clear();
+        appliedCoupon = null;
+        couponPendingId = 0;
+        eligibleCoupons = new ArrayList<>();
+        couponQueryKey = null;
+        couponFetchKey = null;
+        couponsFailed = false;
+        couponsLoading = false;
         paymentOption = PAYMENT_NONE;
         termsChecked = false;
         cancellationChecked = false;
@@ -4814,7 +4868,7 @@ final class HotelBookingFlowController {
     }
 
     private int multiGrandTotal() {
-        return multiFacilitiesTotal() + multiAmenityTotal();
+        return Math.max(0, multiFacilitiesTotal() + multiAmenityTotal() - couponDiscount());
     }
 
     private void addLineRow(LinearLayout container, LayoutInflater inflater, String name, String meta, int price) {
@@ -4909,6 +4963,7 @@ final class HotelBookingFlowController {
     /** Combined Book-flow Billing Summary: one Accommodation card holding every facility's own
      *  section, one set of totals and one payment option for the whole transaction. */
     private void bindMultiBilling(View v) {
+        bindPromoCoupons(v);
         bindHeader(v, R.id.hotelBillingHeaderBar, R.string.hotel_billing_title, this::handleBackPressed);
 
         bindRow(v.findViewById(R.id.billingRowFullName), R.string.label_full_name, ProfileStore.getFullName(activity));
@@ -4935,6 +4990,7 @@ final class HotelBookingFlowController {
 
         bindLine(v.findViewById(R.id.billingRowRoomCharges), R.string.label_facility_charges, multiFacilitiesTotal());
         bindLine(v.findViewById(R.id.billingRowAmenitiesTotal), R.string.label_amenities_total, multiAmenityTotal());
+        bindCouponRow(v.findViewById(R.id.billingRowCoupon));
 
         int grandTotal = multiGrandTotal();
         ((TextView) v.findViewById(R.id.billingGrandTotal)).setText(formatCurrency(grandTotal));
@@ -4957,12 +5013,7 @@ final class HotelBookingFlowController {
             updatePaymentOptionCards(fullCard, partialCard);
         });
 
-        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
-        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
-        termsBox.setChecked(termsChecked);
-        cancellationBox.setChecked(cancellationChecked);
-        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
-        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+        bindPolicyAgreement(v, R.id.hotelBillingProceedButton);
 
         v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (paymentOption == PAYMENT_NONE) {
@@ -5044,6 +5095,7 @@ final class HotelBookingFlowController {
 
     /** Combined Reserve-flow Summary: every facility in one list, one total, one RESERVE button. */
     private void bindMultiSummary(View v) {
+        bindPromoCoupons(v);
         bindHeader(v, R.id.reservationSummaryHeaderBar, R.string.hotel_billing_title, this::handleBackPressed);
 
         bindRow(v.findViewById(R.id.reservationSummaryRowFullName), R.string.label_full_name, ProfileStore.getFullName(activity));
@@ -5068,18 +5120,234 @@ final class HotelBookingFlowController {
         v.findViewById(R.id.reservationSummaryAmenitiesCard).setVisibility(anyAmenity ? View.VISIBLE : View.GONE);
 
         int grandTotal = multiGrandTotal();
+        bindCouponRow(v.findViewById(R.id.reservationSummaryCouponRow));
         bindLine(v.findViewById(R.id.reservationSummaryFullPaymentRow), R.string.label_full_payment, grandTotal);
         bindLine(v.findViewById(R.id.reservationSummaryDownPaymentRow), R.string.label_down_payment_30,
                 computePartialAmount(grandTotal));
 
-        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
-        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
-        termsBox.setChecked(termsChecked);
-        cancellationBox.setChecked(cancellationChecked);
-        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
-        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+        bindPolicyAgreement(v, R.id.reservationSummaryReserveButton);
 
         v.findViewById(R.id.reservationSummaryReserveButton).setOnClickListener(ClickGuard.wrap(view -> submitMultiReservation(v)));
+    }
+
+    // ---- Promo Coupons -------------------------------------------------------
+
+    /** Pesos the applied Promo Coupon takes off (0 when none) — subtracted in every grand total,
+     *  so Billing, Reservation Summary, the 30% Down Payment, Remaining Balance and the Payment
+     *  screens all move together. */
+    private int couponDiscount() {
+        return appliedCoupon == null ? 0 : (int) Math.round(appliedCoupon.discount_amount);
+    }
+
+    /** The fields the matching submit would send (minus anything personal), so the server judges
+     *  the coupons on exactly what is being booked. */
+    private Map<String, String> couponQuoteFields() {
+        Map<String, String> fields;
+        if (multiMode) {
+            fields = multiFacilityFields();
+        } else {
+            int facility = activeContinuation == CONTINUATION_COTTAGE ? FAC_COTTAGE
+                    : activeContinuation == CONTINUATION_KTV ? FAC_KTV : FAC_ROOM;
+            fields = singleFacilityFields(facility);
+        }
+        fields.remove("special_request");
+        return fields;
+    }
+
+    /**
+     * The "Promo Coupons" card above Payment Summary. Keeps the coupon state in step with the
+     * booking (fetching the eligible coupons from the Promo Management module whenever the booking
+     * differs from the one last checked) and shows its status; tapping opens the picker. Call it
+     * first in a Billing / Reservation Summary binder, before any total is computed, so a
+     * discount that no longer applies never reaches the numbers.
+     */
+    private void bindPromoCoupons(View v) {
+        String key = couponQuoteFields().toString();
+        // couponFetchKey stays on the last request's booking even after it finished or failed, so a
+        // failed lookup is not retried on every rebind — only when the booking changes or the guest
+        // taps the card to retry.
+        if (!key.equals(couponFetchKey)) {
+            // A different booking than the coupons were fetched for: hold the applied coupon back
+            // until the server confirms it still applies to this one.
+            if (appliedCoupon != null) {
+                couponPendingId = appliedCoupon.promo_id;
+                appliedCoupon = null;
+            }
+            eligibleCoupons = new ArrayList<>();
+            couponsFailed = false;
+            fetchPromoCoupons(v, key);
+        }
+
+        View card = v.findViewById(R.id.promoCouponCard);
+        TextView subtitle = v.findViewById(R.id.promoCouponSubtitle);
+        if (card == null || subtitle == null) {
+            return;
+        }
+        if (appliedCoupon != null) {
+            subtitle.setText(activity.getString(R.string.promo_coupons_applied, appliedCoupon.name, appliedCoupon.label));
+        } else if (couponsLoading) {
+            subtitle.setText(R.string.promo_coupons_checking);
+        } else if (couponsFailed) {
+            subtitle.setText(R.string.promo_coupons_failed);
+        } else if (eligibleCoupons.isEmpty()) {
+            subtitle.setText(R.string.promo_coupons_none);
+        } else {
+            subtitle.setText(activity.getResources().getQuantityString(
+                    R.plurals.promo_coupons_available, eligibleCoupons.size(), eligibleCoupons.size()));
+        }
+
+        card.setOnClickListener(ClickGuard.wrap(view -> {
+            if (couponsLoading) {
+                return;
+            }
+            if (couponsFailed) {
+                couponsFailed = false;
+                couponQueryKey = null;
+                couponFetchKey = null;
+                bindScreen(currentScreen, v);
+                return;
+            }
+            PromoCouponPicker.show(activity, eligibleCoupons, appliedCoupon, coupon -> {
+                appliedCoupon = coupon;
+                couponPendingId = 0;
+                bindScreen(currentScreen, v);
+            });
+        }));
+    }
+
+    private String couponFetchKey = null;
+    private boolean couponsFailed = false;
+
+    private void fetchPromoCoupons(View screenView, String key) {
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            return;
+        }
+        couponsLoading = true;
+        couponFetchKey = key;
+        ApiClient.bookingApi().getPromoCoupons("Bearer " + token, couponQuoteFields())
+                .enqueue(new Callback<PromoCouponListResponse>() {
+                    @Override
+                    public void onResponse(Call<PromoCouponListResponse> call, Response<PromoCouponListResponse> response) {
+                        if (!key.equals(couponFetchKey)) {
+                            return; // a newer booking superseded this request
+                        }
+                        couponsLoading = false;
+                        if (response.isSuccessful() && response.body() != null) {
+                            eligibleCoupons = response.body().coupons != null
+                                    ? response.body().coupons : new ArrayList<>();
+                            couponQueryKey = key;
+                            couponsFailed = false;
+                            // Restore the coupon the guest had applied, refreshed with this
+                            // booking's own discount, if it still applies.
+                            int wanted = couponPendingId;
+                            couponPendingId = 0;
+                            appliedCoupon = null;
+                            for (PromoCoupon coupon : eligibleCoupons) {
+                                if (coupon.promo_id == wanted) {
+                                    appliedCoupon = coupon;
+                                }
+                            }
+                        } else {
+                            eligibleCoupons = new ArrayList<>();
+                            couponsFailed = true;
+                        }
+                        rebindIfStillShown(screenView);
+                    }
+
+                    @Override
+                    public void onFailure(Call<PromoCouponListResponse> call, Throwable t) {
+                        if (!key.equals(couponFetchKey)) {
+                            return;
+                        }
+                        couponsLoading = false;
+                        couponsFailed = true;
+                        rebindIfStillShown(screenView);
+                    }
+                });
+    }
+
+    private void rebindIfStillShown(View screenView) {
+        if (currentScreenView == screenView) {
+            bindScreen(currentScreen, screenView);
+        }
+    }
+
+    /** After a submit failed while a coupon was applied (the server re-validates it and may
+     *  reject it): re-check the coupons so a coupon that stopped applying drops off the screen
+     *  and the totals. */
+    private void recheckCouponsAfterFailure() {
+        if (appliedCoupon == null) {
+            return;
+        }
+        couponQueryKey = null;
+        couponFetchKey = null;
+        // A Reserve fails on the Summary screen itself, so refresh it in place; a Book fails on the
+        // Payment screen, where the next visit to Billing re-checks the coupon before showing it.
+        if (currentScreenView != null
+                && (currentScreen == SCREEN_RESERVATION_SUMMARY || currentScreen == SCREEN_MULTI_SUMMARY)) {
+            bindScreen(currentScreen, currentScreenView);
+        }
+    }
+
+    /** Pay-as-shown line in a Payment Summary: "Promo Coupon (₱100 OFF)  -₱100", hidden when no
+     *  coupon is applied. */
+    private void bindCouponRow(View row) {
+        if (row == null) {
+            return;
+        }
+        if (appliedCoupon == null) {
+            row.setVisibility(View.GONE);
+            return;
+        }
+        row.setVisibility(View.VISIBLE);
+        ((TextView) row.findViewById(R.id.lineName))
+                .setText(activity.getString(R.string.label_promo_coupon_discount, appliedCoupon.label));
+        ((TextView) row.findViewById(R.id.linePrice)).setText("-" + formatCurrency(couponDiscount()));
+    }
+
+    /** Sends the applied coupon with a submit; the server re-validates it before saving. */
+    private void putCouponField(Map<String, String> fields) {
+        if (appliedCoupon != null) {
+            fields.put("promo_id", String.valueOf(appliedCoupon.promo_id));
+        }
+    }
+
+    private Map<String, String> couponFields(Map<String, String> fields) {
+        putCouponField(fields);
+        return fields;
+    }
+
+    private void putCouponPart(Map<String, RequestBody> parts) {
+        if (appliedCoupon != null) {
+            parts.put("promo_id", textPart(String.valueOf(appliedCoupon.promo_id)));
+        }
+    }
+
+    /**
+     * Wires the Terms and Conditions + Cancellation Policy checkboxes of a Billing or
+     * Reservation Summary screen to its action button: the button stays disabled (greyed, by
+     * bg_button_primary's disabled state) until both boxes are ticked, and re-evaluates on
+     * every tick/untick. The ticks live in termsChecked/cancellationChecked so they survive
+     * stepping back and forward between screens.
+     */
+    private void bindPolicyAgreement(View v, int actionButtonId) {
+        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
+        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
+        Button actionButton = v.findViewById(actionButtonId);
+        Runnable refresh = () -> actionButton.setEnabled(termsChecked && cancellationChecked);
+
+        termsBox.setChecked(termsChecked);
+        cancellationBox.setChecked(cancellationChecked);
+        termsBox.setOnCheckedChangeListener((button, checked) -> {
+            termsChecked = checked;
+            refresh.run();
+        });
+        cancellationBox.setOnCheckedChangeListener((button, checked) -> {
+            cancellationChecked = checked;
+            refresh.run();
+        });
+        refresh.run();
     }
 
     /** Adds one facility's block to a multi-facility request, as bracket-notation keys
@@ -5183,6 +5451,7 @@ final class HotelBookingFlowController {
         Button reserveButton = summaryView.findViewById(R.id.reservationSummaryReserveButton);
         reserveButton.setEnabled(false);
 
+        putCouponField(fields);
         ApiClient.bookingApi().createMultiReservation("Bearer " + token, fields)
                 .enqueue(new Callback<ReservationRequestResponse>() {
                     @Override
@@ -5198,6 +5467,7 @@ final class HotelBookingFlowController {
                             ErrorResponse error = ApiClient.parseError(response.errorBody());
                             String message = error.firstMessage() != null
                                     ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                            recheckCouponsAfterFailure();
                             Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
                         }
                     }
@@ -5274,6 +5544,7 @@ final class HotelBookingFlowController {
         if (includeAmenities) {
             putQuantityParts(fields, "amenity_quantities", amenityQuantities);
         }
+        putCouponPart(fields);
 
         MultipartBody.Part proofPart = MultipartBody.Part.createFormData("proof_image", "payment_proof.jpg", proofBody);
         ApiClient.bookingApi().reserveMulti("Bearer " + token, textPart("1"),
@@ -5291,6 +5562,7 @@ final class HotelBookingFlowController {
                     ErrorResponse error = ApiClient.parseError(response.errorBody());
                     String message = error.firstMessage() != null
                             ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                    recheckCouponsAfterFailure();
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
                 }
             }
@@ -5366,7 +5638,7 @@ final class HotelBookingFlowController {
         for (AmenityAvailability amenity : availableAmenities) {
             total += (int) Math.round(amenity.price) * amenityQuantities.get(amenity.id);
         }
-        return total;
+        return Math.max(0, total - couponDiscount());
     }
 
     /** Loads a room/amenity thumbnail from the backend, falling back to a placeholder icon. */
