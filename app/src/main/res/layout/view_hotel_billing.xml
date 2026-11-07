@@ -129,6 +129,9 @@
                     android:orientation="vertical" />
             </LinearLayout>
 
+            <!-- Promo Coupons (eligible Promo Management discounts; see bindPromoCoupons) -->
+            <include layout="@layout/view_promo_coupon_card" />
+
             <!-- Payment Summary -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -147,6 +150,10 @@
 
                 <include android:id="@+id/billingRowRoomCharges" layout="@layout/view_hotel_billing_line_row" />
                 <include android:id="@+id/billingRowAmenitiesTotal" layout="@layout/view_hotel_billing_line_row" />
+                <include
+                    android:id="@+id/billingRowCoupon"
+                    layout="@layout/view_hotel_billing_line_row"
+                    android:visibility="gone" />
 
                 <View
                     android:layout_width="match_parent"

@@ -137,6 +137,9 @@
                     android:orientation="vertical" />
             </LinearLayout>
 
+            <!-- Promo Coupons (eligible Promo Management discounts; see bindPromoCoupons) -->
+            <include layout="@layout/view_promo_coupon_card" />
+
             <!-- Amount to Pay (Billing Summary's equivalent "Payment Summary" section, renamed)
                  â€” Full Payment / 30% Down Payment shown as plain informational rows, not
                  clickable, since Reserve has no payment option to select. -->
@@ -155,6 +158,10 @@
                     style="@style/BillingSectionLabel"
                     android:text="@string/reservation_summary_amount_to_pay" />
 
+                <include
+                    android:id="@+id/reservationSummaryCouponRow"
+                    layout="@layout/view_hotel_billing_line_row"
+                    android:visibility="gone" />
                 <include android:id="@+id/reservationSummaryFullPaymentRow" layout="@layout/view_hotel_billing_line_row" />
                 <include android:id="@+id/reservationSummaryDownPaymentRow" layout="@layout/view_hotel_billing_line_row" />
             </LinearLayout>

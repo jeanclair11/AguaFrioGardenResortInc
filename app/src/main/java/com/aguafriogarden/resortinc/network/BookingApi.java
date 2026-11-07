@@ -80,6 +80,18 @@ public interface BookingApi {
     /** Every reservation/booking the logged-in guest has, real or still-pending — backs the My
      *  Reservations list, fetched fresh every time it's opened so it survives app restarts and
      *  re-logins (it's never cached locally). */
+    /**
+     * Promo Coupons (Promo Management "Promo Discount" promos) the booking qualifies for. Takes the
+     * same form fields the matching submit would send (see HotelBookingFlowController), so the
+     * server judges dates, nights, guests, facilities and usage limit on exactly what will be
+     * booked; only eligible coupons come back.
+     */
+    @FormUrlEncoded
+    @POST("booking/promo-coupons")
+    Call<PromoCouponListResponse> getPromoCoupons(
+            @Header("Authorization") String bearerToken,
+            @FieldMap Map<String, String> fields);
+
     @GET("booking/my-bookings")
     Call<MyBookingsResponse> getMyBookings(@Header("Authorization") String bearerToken);
 

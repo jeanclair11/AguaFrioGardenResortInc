@@ -836,4 +836,18 @@
     <string name="notification_yesterday_at">Yesterday, %1$s</string>
     <string name="notification_menu_mark_all_read">Mark all as read</string>
 
+    <!-- Promo Coupons (Summary page card + picker) -->
+    <string name="promo_coupons_title">Promo Coupons</string>
+    <string name="promo_coupons_none">No available coupons</string>
+    <string name="promo_coupons_checking">Checking available coupons…</string>
+    <string name="promo_coupons_failed">Couldn\'t check coupons. Tap to try again.</string>
+    <string name="promo_coupons_applied">%1$s · %2$s applied</string>
+    <plurals name="promo_coupons_available">
+        <item quantity="one">%d coupon available</item>
+        <item quantity="other">%d coupons available</item>
+    </plurals>
+    <string name="promo_coupon_you_save">You save %1$s</string>
+    <string name="promo_coupon_remove">Remove coupon</string>
+    <string name="label_promo_coupon_discount">Promo Coupon (%1$s)</string>
+
 </resources>
