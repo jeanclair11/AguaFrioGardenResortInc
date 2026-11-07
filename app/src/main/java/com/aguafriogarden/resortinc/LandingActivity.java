@@ -27,6 +27,9 @@ import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.CottageKtvOption;
 import com.aguafriogarden.resortinc.network.CottageTypeListResponse;
 import com.aguafriogarden.resortinc.network.KtvUnitListResponse;
+import com.aguafriogarden.resortinc.network.PackageInclusion;
+import com.aguafriogarden.resortinc.network.PackagePromo;
+import com.aguafriogarden.resortinc.network.PackagePromoListResponse;
 import com.aguafriogarden.resortinc.network.PriceBreakdownEntry;
 import com.aguafriogarden.resortinc.network.RoomTypeAvailability;
 import com.aguafriogarden.resortinc.network.RoomTypeListResponse;
@@ -98,6 +101,9 @@ public class LandingActivity extends Activity {
 
     private Section currentSection = Section.HOME;
     private Section roomOverviewOrigin = Section.ROOMS;
+    /** A Package Promo the guest chose "Avail Package" on before logging in; its booking starts
+     *  once the login completes (see enterLoggedInState). */
+    private PackagePromo pendingPackage;
     private boolean navBarVisible = true;
     private boolean loggedIn = false;
     private int activeThemeMode;
@@ -426,6 +432,119 @@ public class LandingActivity extends Activity {
         // Check if guest selected a room before login and show its overview
         if (PendingRoomSelection.has()) {
             showRoomOverview(PendingRoomSelection.take());
+        } else if (pendingPackage != null) {
+            PackagePromo promo = pendingPackage;
+            pendingPackage = null;
+            showPackageDetails(promo, roomOverviewOrigin);
+        }
+    }
+
+    // ---- Package Promos ---------------------------------------------------------------------
+
+    /** Loads the packages on sale into the carousel above a browse list. A failed poll leaves
+     *  whatever is already showing in place. */
+    private void fetchPackagePromos(FrameLayout slot, Section origin) {
+        ApiClient.bookingApi().getPackagePromos().enqueue(new Callback<PackagePromoListResponse>() {
+            @Override
+            public void onResponse(Call<PackagePromoListResponse> call, Response<PackagePromoListResponse> response) {
+                if (!response.isSuccessful() || response.body() == null || response.body().packages == null) {
+                    return;
+                }
+                PackageBanners.bind(LandingActivity.this, slot, response.body().packages,
+                        promo -> showPackageDetails(promo, origin));
+            }
+
+            @Override
+            public void onFailure(Call<PackagePromoListResponse> call, Throwable t) {
+                // Keep the current banners; the next poll retries.
+            }
+        });
+    }
+
+    /**
+     * Package Details, opened from a banner's "View Package": name, fixed price, validity,
+     * description and everything included with quantities. Back returns to the list the banner
+     * was on. "Avail Package" starts the booking (after login, if needed).
+     */
+    private void showPackageDetails(PackagePromo promo, Section origin) {
+        leaveCategoryBrowse();
+        leavingChat();
+        currentSection = Section.ROOM_OVERVIEW;
+        roomOverviewOrigin = origin;
+        retintBottomNav();
+        updateSwipeChrome();
+
+        View v = LayoutInflater.from(this).inflate(R.layout.view_package_details, landingContentContainer, false);
+        navBar.post(() -> v.setPadding(v.getPaddingLeft(), v.getPaddingTop() + navBar.getHeight(),
+                v.getPaddingRight(), v.getPaddingBottom()));
+        v.findViewById(R.id.packageDetailsBackButton).setOnClickListener(ClickGuard.wrap(view -> showCategory(origin)));
+
+        ImageLoader.load(v.findViewById(R.id.packageDetailsImage), ApiClient.imageUrl(promo.image_path), R.drawable.ic_bed);
+        ((TextView) v.findViewById(R.id.packageDetailsName)).setText(promo.name);
+        ((TextView) v.findViewById(R.id.packageDetailsPrice)).setText(PackageBanners.formatPeso(promo.price));
+
+        TextView regular = v.findViewById(R.id.packageDetailsRegularPrice);
+        TextView save = v.findViewById(R.id.packageDetailsSave);
+        if (promo.regular_price != null && promo.savings != null && promo.savings > 0) {
+            regular.setText(PackageBanners.formatPeso(promo.regular_price));
+            regular.setPaintFlags(regular.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
+            save.setText(getString(R.string.package_save_format, PackageBanners.formatPeso(promo.savings)));
+        } else {
+            regular.setVisibility(View.GONE);
+            save.setVisibility(View.GONE);
+        }
+
+        ((TextView) v.findViewById(R.id.packageDetailsValidity)).setText(validityText(promo));
+        TextView description = v.findViewById(R.id.packageDetailsDescription);
+        if (promo.description == null || promo.description.trim().isEmpty()) {
+            description.setVisibility(View.GONE);
+        } else {
+            description.setText(promo.description);
+        }
+
+        LinearLayout inclusions = v.findViewById(R.id.packageDetailsInclusions);
+        LayoutInflater inflater = LayoutInflater.from(this);
+        if (promo.inclusions != null) {
+            for (PackageInclusion inclusion : promo.inclusions) {
+                View row = inflater.inflate(R.layout.view_package_inclusion_row, inclusions, false);
+                ((ImageView) row.findViewById(R.id.inclusionIcon)).setImageResource(PackageBanners.iconFor(inclusion.kind));
+                ((TextView) row.findViewById(R.id.inclusionName)).setText(inclusion.name);
+                ((TextView) row.findViewById(R.id.inclusionQuantity)).setText(getString(R.string.package_quantity_format, inclusion.quantity));
+                inclusions.addView(row);
+            }
+        }
+
+        String note = getString(promo.includes_room ? R.string.package_note_stay : R.string.package_note_day);
+        if (promo.max_guests != null) {
+            note += " " + getString(R.string.package_note_capacity, promo.max_guests);
+        }
+        ((TextView) v.findViewById(R.id.packageDetailsNote)).setText(note);
+
+        v.findViewById(R.id.packageDetailsAvailButton).setOnClickListener(ClickGuard.wrap(view -> {
+            if (!loggedIn) {
+                pendingPackage = promo;
+                openLogin();
+                return;
+            }
+            bookingCatalog.showPackageFlow(promo, () -> showPackageDetails(promo, origin));
+            showModule(Section.BOOK);
+        }));
+
+        setBottomNavHidden(false);
+        swapContent(v, true);
+    }
+
+    private String validityText(PackagePromo promo) {
+        java.text.SimpleDateFormat parse = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        java.text.SimpleDateFormat show = new java.text.SimpleDateFormat("MMM d, yyyy", Locale.US);
+        try {
+            String from = show.format(parse.parse(promo.valid_from));
+            if (promo.valid_until == null) {
+                return getString(R.string.package_valid_from, from);
+            }
+            return getString(R.string.package_valid_range, from, show.format(parse.parse(promo.valid_until)));
+        } catch (java.text.ParseException | NullPointerException e) {
+            return "";
         }
     }
 
@@ -773,6 +892,14 @@ public class LandingActivity extends Activity {
                 break;
         }
         if (fetchAction != null) {
+            // Package Promos ride along with the category's own refresh, so an admin edit,
+            // deactivation or expiry shows up on the next poll.
+            FrameLayout packageSlot = browse.findViewById(R.id.categoryBrowsePackages);
+            Runnable listFetch = fetchAction;
+            fetchAction = () -> {
+                fetchPackagePromos(packageSlot, section);
+                listFetch.run();
+            };
             fetchAction.run();
             startCategoryRefresh(fetchAction);
         } else {

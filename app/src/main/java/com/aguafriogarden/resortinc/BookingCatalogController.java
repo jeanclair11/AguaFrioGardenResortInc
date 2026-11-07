@@ -137,6 +137,16 @@ final class BookingCatalogController {
         root.addView(flow.getRootView());
     }
 
+    /** "Avail Package" on Package Details: starts the Package Promo booking (date and guests ->
+     *  availability check -> optional extras -> summary -> payment) in the shared booking flow. */
+    void showPackageFlow(com.aguafriogarden.resortinc.network.PackagePromo promo, Runnable onBackToDetails) {
+        currentScreen = SCREEN_HOTEL_FLOW;
+        HotelBookingFlowController flow = ensureHotelBookingFlow();
+        flow.showPackageDatesEntry(promo, onBackToDetails);
+        root.removeAllViews();
+        root.addView(flow.getRootView());
+    }
+
     /** Profile history -> Reservation Details for an already-booked (paid) record. */
     void showReservationDetails(com.aguafriogarden.resortinc.network.ReservationSummary summary, Runnable onBack) {
         currentScreen = SCREEN_HOTEL_FLOW;

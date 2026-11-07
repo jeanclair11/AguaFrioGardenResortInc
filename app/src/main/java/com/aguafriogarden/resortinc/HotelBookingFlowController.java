@@ -42,6 +42,9 @@ import com.aguafriogarden.resortinc.network.CottageKtvListResponse;
 import com.aguafriogarden.resortinc.network.CottageKtvOption;
 import com.aguafriogarden.resortinc.network.ErrorResponse;
 import com.aguafriogarden.resortinc.network.KtvUnitListResponse;
+import com.aguafriogarden.resortinc.network.PackageCheckResponse;
+import com.aguafriogarden.resortinc.network.PackageInclusion;
+import com.aguafriogarden.resortinc.network.PackagePromo;
 import com.aguafriogarden.resortinc.network.PriceBreakdownEntry;
 import com.aguafriogarden.resortinc.network.PromoCoupon;
 import com.aguafriogarden.resortinc.network.PromoCouponListResponse;
@@ -145,6 +148,11 @@ final class HotelBookingFlowController {
     private static final int SCREEN_MULTI_BILLING = 33;
     private static final int SCREEN_MULTI_PAYMENT = 34;
     private static final int SCREEN_MULTI_SUMMARY = 35;
+    // Package Promo booking (see showPackageDatesEntry): date + guests, then the shared Choose
+    // Amenity for extras, then a Package Summary (the Billing layout) and the shared Payment screen.
+    private static final int SCREEN_PACKAGE_DATES = 36;
+    private static final int SCREEN_PACKAGE_BILLING = 37;
+    private static final int SCREEN_PACKAGE_PAYMENT = 38;
 
     private static final int FAC_ROOM = PendingRoomSelection.TYPE_ROOM;
     private static final int FAC_COTTAGE = PendingRoomSelection.TYPE_COTTAGE;
@@ -248,6 +256,14 @@ final class HotelBookingFlowController {
     // roomQuantities itself only ever holds the facility currently on screen, since the three
     // facilities' group_ids aren't guaranteed to be disjoint.
     private boolean multiMode = false;
+
+    // ---- Package Promo booking state (see showPackageDatesEntry) ----------------------------
+    // The package being booked (null outside a package booking) and the guest's date and party.
+    private PackagePromo activePackage = null;
+    private long packageDateMillis = -1;
+    private int packageAdults = 1;
+    private int packageChildren = 0;
+    private boolean isCheckingPackage = false;
     private final List<Integer> multiQueue = new ArrayList<>();
     private int multiIndex = 0;
     private final Map<Integer, Map<Integer, Integer>> multiQuantities = new LinkedHashMap<>();
@@ -405,6 +421,7 @@ final class HotelBookingFlowController {
      */
     void showRoomDatesEntry(int variantId, Runnable onBackToOverview, boolean reserveOnly) {
         multiMode = false;
+        activePackage = null;
         if (adults == 0 && children == 0) {
             adults = 1;
         }
@@ -424,6 +441,7 @@ final class HotelBookingFlowController {
      */
     void showCottageDatesEntry(int variantId, Runnable onBackToOverview, boolean reserveOnly) {
         multiMode = false;
+        activePackage = null;
         selectionOriginVariantId = variantId;
         selectionShowOthers = false;
         this.onBackToOverview = onBackToOverview;
@@ -440,6 +458,7 @@ final class HotelBookingFlowController {
      */
     void showKtvDatesEntry(int variantId, Runnable onBackToOverview, boolean reserveOnly) {
         multiMode = false;
+        activePackage = null;
         selectionOriginVariantId = variantId;
         selectionShowOthers = false;
         this.onBackToOverview = onBackToOverview;
@@ -455,6 +474,7 @@ final class HotelBookingFlowController {
      * Payment (Book) or Reservation Summary (Reserve) screens follow the last facility.
      */
     void startMultiFlow(List<Integer> facilities, Runnable onBackToOverview, boolean reserveOnly) {
+        activePackage = null;
         multiAnchorVariantId = -1;
         multiMode = true;
         multiQueue.clear();
@@ -474,6 +494,23 @@ final class HotelBookingFlowController {
             adults = 1;
         }
         showScreen(datesScreenForFacility(multiQueue.get(0)));
+    }
+
+    /**
+     * Entry point for Package Details' "Avail Package": the Book flow for one Package Promo. The
+     * guest picks the date and party, the server confirms the package is still active, valid that
+     * day and fully available, extras not in the package can be added on Choose Amenity, and the
+     * Package Summary shows the fixed package price (not each included item) before the usual Full
+     * Payment / 30% Partial Payment screen.
+     */
+    void showPackageDatesEntry(PackagePromo promo, Runnable onBackToDetails) {
+        resetFlow();
+        activePackage = promo;
+        packageDateMillis = -1;
+        packageAdults = 1;
+        packageChildren = 0;
+        this.onBackToOverview = onBackToDetails;
+        showScreen(SCREEN_PACKAGE_DATES);
     }
 
     private int datesScreenForFacility(int facility) {
@@ -513,6 +550,15 @@ final class HotelBookingFlowController {
                 return true;
             case SCREEN_KTV_SELECTION:
                 showScreen(SCREEN_KTV_DATES);
+                return true;
+            case SCREEN_PACKAGE_DATES:
+                onBackToOverview.run();
+                return true;
+            case SCREEN_PACKAGE_BILLING:
+                showScreen(SCREEN_AMENITY);
+                return true;
+            case SCREEN_PACKAGE_PAYMENT:
+                showScreen(SCREEN_PACKAGE_BILLING);
                 return true;
             case SCREEN_ROOM_BROWSE:
                 showScreen(SCREEN_ROOM_SELECTION);
@@ -586,6 +632,9 @@ final class HotelBookingFlowController {
 
     /** Which Review screen the shared Amenity screen should step back to. */
     private int reviewScreenForContinuation() {
+        if (activePackage != null) {
+            return SCREEN_PACKAGE_DATES;
+        }
         if (multiMode) {
             return SCREEN_MULTI_REVIEW;
         }
@@ -615,6 +664,9 @@ final class HotelBookingFlowController {
 
     /** Which Billing screen Amenity's Skip/Next should advance to. */
     private int billingScreenForContinuation() {
+        if (activePackage != null) {
+            return SCREEN_PACKAGE_BILLING;
+        }
         if (multiMode) {
             return reserveMode ? SCREEN_MULTI_SUMMARY : SCREEN_MULTI_BILLING;
         }
@@ -639,7 +691,7 @@ final class HotelBookingFlowController {
         screenshotUri = data.getData();
         if ((currentScreen == SCREEN_PAYMENT || currentScreen == SCREEN_COTTAGE_PAYMENT
                 || currentScreen == SCREEN_KTV_PAYMENT || currentScreen == SCREEN_RESERVATION_PAYMENT
-                || currentScreen == SCREEN_MULTI_PAYMENT)
+                || currentScreen == SCREEN_MULTI_PAYMENT || currentScreen == SCREEN_PACKAGE_PAYMENT)
                 && currentScreenView != null) {
             showScreenshotPreview(currentScreenView);
         }
@@ -655,7 +707,8 @@ final class HotelBookingFlowController {
 
         // Only the Dates screen (the wizard's own "first interface") shows the bottom nav —
         // every other screen it connects to hides it (see setBottomNavHidden's own doc).
-        boolean isDatesScreen = (screen == SCREEN_ROOM_DATES || screen == SCREEN_COTTAGE_DATES || screen == SCREEN_KTV_DATES)
+        boolean isDatesScreen = (screen == SCREEN_ROOM_DATES || screen == SCREEN_COTTAGE_DATES || screen == SCREEN_KTV_DATES
+                || screen == SCREEN_PACKAGE_DATES)
                 && !(multiMode && multiIndex > 0);
         setBottomNavHidden.accept(!isDatesScreen);
         updateLiveSync(screen);
@@ -943,6 +996,12 @@ final class HotelBookingFlowController {
                 return R.layout.view_hotel_payment;
             case SCREEN_MULTI_SUMMARY:
                 return R.layout.view_reservation_summary_flow;
+            case SCREEN_PACKAGE_DATES:
+                return R.layout.view_package_dates;
+            case SCREEN_PACKAGE_BILLING:
+                return R.layout.view_hotel_billing;
+            case SCREEN_PACKAGE_PAYMENT:
+                return R.layout.view_hotel_payment;
             case SCREEN_ROOM_BROWSE:
             case SCREEN_COTTAGE_BROWSE:
             case SCREEN_KTV_BROWSE:
@@ -1040,6 +1099,15 @@ final class HotelBookingFlowController {
                 break;
             case SCREEN_MULTI_SUMMARY:
                 bindMultiSummary(v);
+                break;
+            case SCREEN_PACKAGE_DATES:
+                bindPackageDates(v);
+                break;
+            case SCREEN_PACKAGE_BILLING:
+                bindPackageBilling(v);
+                break;
+            case SCREEN_PACKAGE_PAYMENT:
+                bindMultiPayment(v);
                 break;
             default:
                 throw new IllegalStateException("Unknown screen: " + screen);
@@ -4129,6 +4197,10 @@ final class HotelBookingFlowController {
      * while No (or nothing to offer) goes straight on to Billing/Summary as before.
      */
     private void finishAmenityStep(View sourceButton) {
+        if (activePackage != null) {
+            showScreen(SCREEN_PACKAGE_BILLING);
+            return;
+        }
         if (multiMode) {
             showScreen(billingScreenForContinuation());
             return;
@@ -4162,6 +4234,9 @@ final class HotelBookingFlowController {
      * multi-facility run belong to the Hotel Room booking, so that is always "room".
      */
     private String amenityFacilityType() {
+        if (activePackage != null) {
+            return activePackage.includes_room ? "room" : "cottage";
+        }
         if (!multiMode) {
             if (activeContinuation == CONTINUATION_COTTAGE) {
                 return "cottage";
@@ -4574,6 +4649,11 @@ final class HotelBookingFlowController {
         activeContinuation = CONTINUATION_NONE;
         reserveMode = false;
         multiMode = false;
+        activePackage = null;
+        packageDateMillis = -1;
+        packageAdults = 1;
+        packageChildren = 0;
+        isCheckingPackage = false;
         multiQueue.clear();
         multiIndex = 0;
         multiQuantities.clear();
@@ -5035,7 +5115,7 @@ final class HotelBookingFlowController {
     private void bindMultiPayment(View v) {
         bindHeader(v, R.id.hotelPaymentHeaderBar, R.string.hotel_payment_title, this::handleBackPressed);
 
-        int grandTotal = multiGrandTotal();
+        int grandTotal = activePackage != null ? packageGrandTotal() : multiGrandTotal();
         int amountDue = paymentOption == PAYMENT_PARTIAL ? computePartialAmount(grandTotal) : grandTotal;
         ((TextView) v.findViewById(R.id.paymentAmountDue)).setText(formatCurrency(amountDue));
 
@@ -5089,7 +5169,11 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
                 return;
             }
-            submitMultiBooking(v);
+            if (activePackage != null) {
+                submitPackageBooking(v);
+            } else {
+                submitMultiBooking(v);
+            }
         }));
     }
 
@@ -5564,6 +5648,282 @@ final class HotelBookingFlowController {
                             ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
                     recheckCouponsAfterFailure();
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ReserveResponse> call, Throwable t) {
+                completeButton.setEnabled(true);
+                Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    // ---- Package Promo booking ---------------------------------------------------------------
+
+    /** Choose Your Date: the package's check-in (or visit) date plus adults and children. Next asks
+     *  the server whether the package can be booked for them before anything else is shown. */
+    private void bindPackageDates(View v) {
+        bindHeader(v, R.id.packageDatesHeaderBar, R.string.package_dates_title, onBackToOverview);
+
+        boolean stay = activePackage.includes_room;
+        ((TextView) v.findViewById(R.id.packageDatesPackageName)).setText(activePackage.name);
+        ((TextView) v.findViewById(R.id.packageDatesSubtitle)).setText(
+                stay ? R.string.package_dates_subtitle_stay : R.string.package_dates_subtitle_day);
+        ((TextView) v.findViewById(R.id.packageDatesDateLabel)).setText(
+                stay ? R.string.package_label_date_stay : R.string.package_label_date_day);
+
+        TextView dateText = v.findViewById(R.id.packageDatesDateText);
+        TextView dayText = v.findViewById(R.id.packageDatesDayText);
+        TextView dateError = v.findViewById(R.id.packageDatesDateError);
+        updateDateField(dateText, dayText, packageDateMillis);
+
+        v.findViewById(R.id.packageDatesDateField).setOnClickListener(ClickGuard.wrap(view ->
+                GlassDatePicker.showDatePickerDialog(activity, packageDateMillis, System.currentTimeMillis() - 1000L, millis -> {
+                    packageDateMillis = millis;
+                    updateDateField(dateText, dayText, packageDateMillis);
+                    dateError.setVisibility(View.GONE);
+                })));
+
+        AuthUiUtils.bindQuantityStepper(v.findViewById(R.id.packageDatesAdultsValue), v.findViewById(R.id.packageDatesAdultsMinus),
+                v.findViewById(R.id.packageDatesAdultsPlus), packageAdults, 1, Integer.MAX_VALUE, value -> packageAdults = value);
+        AuthUiUtils.bindQuantityStepper(v.findViewById(R.id.packageDatesChildrenValue), v.findViewById(R.id.packageDatesChildrenMinus),
+                v.findViewById(R.id.packageDatesChildrenPlus), packageChildren, 0, Integer.MAX_VALUE, value -> packageChildren = value);
+
+        Button nextButton = v.findViewById(R.id.hotelReviewNextButton);
+        nextButton.setOnClickListener(ClickGuard.wrap(view -> {
+            if (packageDateMillis < 0) {
+                showError(dateError, R.string.error_date_required);
+                return;
+            }
+            if (packageDateMillis < System.currentTimeMillis() - ONE_DAY_MS) {
+                showError(dateError, R.string.error_date_past);
+                return;
+            }
+            dateError.setVisibility(View.GONE);
+            checkPackageThenContinue(v, nextButton);
+        }));
+    }
+
+    /** Before payment: is the package still active, valid on the date, and are all of its rooms,
+     *  cottages, amenities and food available for the party? Only if so does the guest go on. */
+    private void checkPackageThenContinue(View datesView, Button nextButton) {
+        if (isCheckingPackage) {
+            return;
+        }
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            return;
+        }
+        isCheckingPackage = true;
+        nextButton.setEnabled(false);
+        nextButton.setText(R.string.package_checking);
+
+        PackagePromo checking = activePackage;
+        ApiClient.bookingApi().checkPackagePromo("Bearer " + token, checking.id, packageDateString(),
+                packageAdults, packageChildren).enqueue(new Callback<PackageCheckResponse>() {
+            @Override
+            public void onResponse(Call<PackageCheckResponse> call, Response<PackageCheckResponse> response) {
+                isCheckingPackage = false;
+                nextButton.setEnabled(true);
+                nextButton.setText(R.string.button_next);
+                if (activePackage != checking) {
+                    return; // the guest left this booking meanwhile
+                }
+                if (response.isSuccessful() && response.body() != null) {
+                    if (response.body().available) {
+                        fetchAmenities(datesView);
+                    } else {
+                        showPackageUnavailable(response.body().reasons);
+                    }
+                } else if (response.code() == 401) {
+                    Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+                } else {
+                    ErrorResponse error = ApiClient.parseError(response.errorBody());
+                    Toast.makeText(activity, error.firstMessage() != null ? error.firstMessage()
+                            : activity.getString(R.string.toast_network_error), Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<PackageCheckResponse> call, Throwable t) {
+                isCheckingPackage = false;
+                nextButton.setEnabled(true);
+                nextButton.setText(R.string.button_next);
+                Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void showPackageUnavailable(List<String> reasons) {
+        String message = reasons == null || reasons.isEmpty()
+                ? activity.getString(R.string.toast_package_not_available) : TextUtils.join("\n\n", reasons);
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setTitle(R.string.package_unavailable)
+                .setMessage(message)
+                .setPositiveButton(R.string.button_ok, null)
+                .create();
+        ThemeManager.applyGlassEffect(dialog.getWindow());
+        dialog.show();
+    }
+
+    private String packageDateString() {
+        return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(packageDateMillis));
+    }
+
+    /** The package's fixed price plus any extra amenities the guest added on top. */
+    private int packageExtrasTotal() {
+        int total = 0;
+        for (AmenityAvailability amenity : availableAmenities) {
+            Integer qty = amenityQuantities.get(amenity.id);
+            total += (int) Math.round(amenity.price) * (qty == null ? 0 : qty);
+        }
+        return total;
+    }
+
+    private int packageGrandTotal() {
+        return (int) Math.round(activePackage.price) + packageExtrasTotal();
+    }
+
+    /**
+     * Package Summary (the Billing layout): the package name, everything it includes, and the
+     * fixed package price as one line, instead of a charge per included item. Anything the guest
+     * added on Choose Amenity is listed and charged separately. Full Payment / 30% Partial Payment
+     * are worked out from the package price plus those extras.
+     */
+    private void bindPackageBilling(View v) {
+        bindHeader(v, R.id.hotelBillingHeaderBar, R.string.package_billing_title, this::handleBackPressed);
+        View couponCard = v.findViewById(R.id.promoCouponCard);
+        if (couponCard != null) {
+            couponCard.setVisibility(View.GONE);
+        }
+
+        bindRow(v.findViewById(R.id.billingRowFullName), R.string.label_full_name, ProfileStore.getFullName(activity));
+        bindRow(v.findViewById(R.id.billingRowEmail), R.string.label_email_address, ProfileStore.getEmail(activity));
+        bindRow(v.findViewById(R.id.billingRowMobile), R.string.label_mobile_number, ProfileStore.getContactNumber(activity));
+        bindRow(v.findViewById(R.id.billingRowAddress), R.string.label_address, ProfileStore.getAddress(activity));
+
+        boolean stay = activePackage.includes_room;
+        bindRow(v.findViewById(R.id.billingRowCheckIn),
+                stay ? R.string.label_package_date_stay : R.string.label_package_date_day, formatDate(packageDateMillis));
+        if (stay) {
+            bindRow(v.findViewById(R.id.billingRowCheckOut), R.string.label_package_checkout, formatDate(packageDateMillis + ONE_DAY_MS));
+            bindRow(v.findViewById(R.id.billingRowNights), R.string.label_number_of_nights, "1");
+        } else {
+            v.findViewById(R.id.billingRowCheckOut).setVisibility(View.GONE);
+            v.findViewById(R.id.billingRowNights).setVisibility(View.GONE);
+        }
+        bindRow(v.findViewById(R.id.billingRowAdults), R.string.label_billing_adults, String.valueOf(packageAdults));
+        bindRow(v.findViewById(R.id.billingRowChildren), R.string.label_billing_children, String.valueOf(packageChildren));
+        bindRow(v.findViewById(R.id.billingRowTotalGuests), R.string.label_total_guests, String.valueOf(packageAdults + packageChildren));
+
+        ((TextView) v.findViewById(R.id.billingAccommodationLabel)).setText(R.string.package_banner_badge);
+        LinearLayout accommodationContainer = v.findViewById(R.id.billingAccommodationContainer);
+        accommodationContainer.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(activity);
+        int packagePrice = (int) Math.round(activePackage.price);
+        addLineRow(accommodationContainer, inflater, activePackage.name,
+                activity.getString(R.string.label_package_included_note), packagePrice);
+        if (activePackage.inclusions != null) {
+            for (PackageInclusion inclusion : activePackage.inclusions) {
+                View row = inflater.inflate(R.layout.view_package_inclusion_row, accommodationContainer, false);
+                ((ImageView) row.findViewById(R.id.inclusionIcon)).setImageResource(PackageBanners.iconFor(inclusion.kind));
+                ((TextView) row.findViewById(R.id.inclusionName)).setText(inclusion.name);
+                ((TextView) row.findViewById(R.id.inclusionQuantity)).setText(activity.getString(R.string.package_quantity_format, inclusion.quantity));
+                accommodationContainer.addView(row);
+            }
+        }
+
+        LinearLayout amenitiesContainer = v.findViewById(R.id.billingAmenitiesContainer);
+        amenitiesContainer.removeAllViews();
+        boolean anyExtra = appendAmenityLines(amenitiesContainer, inflater);
+        v.findViewById(R.id.billingAmenitiesCard).setVisibility(anyExtra ? View.VISIBLE : View.GONE);
+
+        bindLine(v.findViewById(R.id.billingRowRoomCharges), R.string.label_package_price, packagePrice);
+        bindLine(v.findViewById(R.id.billingRowAmenitiesTotal), R.string.label_package_additional, packageExtrasTotal());
+        v.findViewById(R.id.billingRowCoupon).setVisibility(View.GONE);
+
+        int grandTotal = packageGrandTotal();
+        ((TextView) v.findViewById(R.id.billingGrandTotal)).setText(formatCurrency(grandTotal));
+
+        View fullCard = v.findViewById(R.id.paymentOptionFullCard);
+        View partialCard = v.findViewById(R.id.paymentOptionPartialCard);
+        ((TextView) v.findViewById(R.id.paymentOptionFullPrice)).setText(formatCurrency(grandTotal));
+        int partialAmount = computePartialAmount(grandTotal);
+        ((TextView) v.findViewById(R.id.paymentOptionPartialPrice)).setText(formatCurrency(partialAmount));
+        ((TextView) v.findViewById(R.id.paymentOptionPartialRemaining)).setText(
+                activity.getString(R.string.label_remaining_balance) + ": " + formatCurrency(grandTotal - partialAmount));
+        updatePaymentOptionCards(fullCard, partialCard);
+        fullCard.setOnClickListener(view -> {
+            paymentOption = PAYMENT_FULL;
+            updatePaymentOptionCards(fullCard, partialCard);
+        });
+        partialCard.setOnClickListener(view -> {
+            paymentOption = PAYMENT_PARTIAL;
+            updatePaymentOptionCards(fullCard, partialCard);
+        });
+
+        bindPolicyAgreement(v, R.id.hotelBillingProceedButton);
+        v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(ClickGuard.wrap(view -> {
+            if (paymentOption == PAYMENT_NONE) {
+                Toast.makeText(activity, R.string.toast_select_payment_option, Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (!termsChecked || !cancellationChecked) {
+                Toast.makeText(activity, R.string.toast_agree_terms_required, Toast.LENGTH_LONG).show();
+                return;
+            }
+            showScreen(SCREEN_PACKAGE_PAYMENT);
+        }));
+    }
+
+    /** Complete Booking on a package's Payment screen: one multipart POST that re-checks the
+     *  package on the server (active, valid that date, everything available) before saving. */
+    private void submitPackageBooking(View paymentView) {
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            return;
+        }
+        RequestBody proofBody;
+        try {
+            proofBody = readImagePart(screenshotUri);
+        } catch (IOException e) {
+            Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (proofBody == null) {
+            Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        Button completeButton = paymentView.findViewById(R.id.hotelPaymentCompleteButton);
+        completeButton.setEnabled(false);
+
+        Map<String, RequestBody> fields = new LinkedHashMap<>();
+        fields.put("date", textPart(packageDateString()));
+        fields.put("adults", textPart(String.valueOf(packageAdults)));
+        fields.put("children", textPart(String.valueOf(packageChildren)));
+        fields.put("special_request", textPart(specialRequest));
+        putQuantityParts(fields, "amenity_quantities", amenityQuantities);
+
+        MultipartBody.Part proofPart = MultipartBody.Part.createFormData("proof_image", "payment_proof.jpg", proofBody);
+        ApiClient.bookingApi().reservePackagePromo("Bearer " + token, activePackage.id,
+                textPart(paymentOption == PAYMENT_PARTIAL ? "partial" : "full"),
+                textPart(referenceNumberText), proofPart, fields).enqueue(new Callback<ReserveResponse>() {
+            @Override
+            public void onResponse(Call<ReserveResponse> call, Response<ReserveResponse> response) {
+                completeButton.setEnabled(true);
+                if (response.isSuccessful() && response.body() != null) {
+                    bookingReference = response.body().booking_reference;
+                    showScreen(SCREEN_SUCCESS);
+                } else if (response.code() == 401) {
+                    Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+                } else {
+                    ErrorResponse error = ApiClient.parseError(response.errorBody());
+                    Toast.makeText(activity, error.firstMessage() != null ? error.firstMessage()
+                            : activity.getString(R.string.toast_booking_failed), Toast.LENGTH_LONG).show();
                 }
             }
 

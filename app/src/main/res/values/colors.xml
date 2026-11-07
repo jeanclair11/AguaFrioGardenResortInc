@@ -147,4 +147,12 @@
     <color name="dark_info">#4FA8FF</color>
     <color name="dark_divider">#223048</color>
     <color name="dark_ripple_accent">#33FF8A50</color>
+
+    <!-- Package Promo banner (fixed in both themes, like the other brand constants). -->
+    <color name="package_banner">#0B4C8C</color>
+    <color name="package_banner_badge">#2E86DE</color>
+    <color name="package_banner_green">#2EAD4F</color>
+    <color name="package_banner_price">#1FA64A</color>
+    <color name="package_banner_save">#FFD21F</color>
+    <color name="package_banner_save_text">#4A3B00</color>
 </resources>
