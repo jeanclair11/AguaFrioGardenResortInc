@@ -46,6 +46,15 @@ public interface BookingApi {
             @Query("start_time") String startTime,
             @Query("rate_label") String rateLabel);
 
+    /** Same list, with the party size: the server reports a unit whose maximum capacity is below
+     *  {@code guests} as not available (the booking wizard's lookups). */
+    @GET("booking/ktv-units")
+    Call<KtvUnitListResponse> getKtvUnitsForParty(
+            @Query("event_date") String eventDate,
+            @Query("start_time") String startTime,
+            @Query("rate_label") String rateLabel,
+            @Query("guests") Integer guests);
+
     @GET("booking/cottages-ktv")
     Call<CottageKtvListResponse> getCottagesKtv(@Header("Authorization") String bearerToken);
 
@@ -70,7 +79,9 @@ public interface BookingApi {
     Call<CottageAvailabilityResponse> checkCottageAvailability(
             @Header("Authorization") String bearerToken,
             @Field("date") String date,
-            @Field("use") String use);
+            @Field("use") String use,
+            @Field("adults") int adults,
+            @Field("children") int children);
 
     @GET("booking/amenities")
     Call<AmenityListResponse> getAmenities(

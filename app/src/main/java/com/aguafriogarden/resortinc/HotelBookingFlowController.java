@@ -806,7 +806,7 @@ final class HotelBookingFlowController {
         }
         String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(cottageDateMillis));
         liveSyncInFlight = true;
-        ApiClient.bookingApi().checkCottageAvailability(bearer, dateStr, cottageUseKey())
+        ApiClient.bookingApi().checkCottageAvailability(bearer, dateStr, cottageUseKey(), cottageAdults, cottageChildren)
                 .enqueue(new Callback<CottageAvailabilityResponse>() {
                     @Override
                     public void onResponse(Call<CottageAvailabilityResponse> call, Response<CottageAvailabilityResponse> response) {
@@ -834,7 +834,7 @@ final class HotelBookingFlowController {
         String startTime = ktvStartHour >= 0
                 ? String.format(Locale.US, "%02d:%02d", ktvStartHour, ktvStartMinute) : null;
         liveSyncInFlight = true;
-        ApiClient.bookingApi().getKtvUnits(eventDate, startTime, null).enqueue(new Callback<KtvUnitListResponse>() {
+        ApiClient.bookingApi().getKtvUnitsForParty(eventDate, startTime, null, ktvGuestCount).enqueue(new Callback<KtvUnitListResponse>() {
             @Override
             public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
                 liveSyncInFlight = false;
@@ -1411,7 +1411,7 @@ final class HotelBookingFlowController {
         nextButton.setText(R.string.button_checking_availability);
 
         String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(cottageDateMillis));
-        ApiClient.bookingApi().checkCottageAvailability("Bearer " + token, dateStr, cottageUseKey())
+        ApiClient.bookingApi().checkCottageAvailability("Bearer " + token, dateStr, cottageUseKey(), cottageAdults, cottageChildren)
                 .enqueue(new Callback<CottageAvailabilityResponse>() {
                     @Override
                     public void onResponse(Call<CottageAvailabilityResponse> call, Response<CottageAvailabilityResponse> response) {
@@ -1466,9 +1466,9 @@ final class HotelBookingFlowController {
         }
         selectionShowOthers = false;
 
-        // Guest count never gates a Cottage's availability (see bindCottageSelection) — a party
-        // can always book more than one unit of a cottage to fit everyone, so only in-stock
-        // status matters here.
+        // The party size is already part of the availability result (cottage-availability only
+        // reports a type as in stock when its free units together can seat everyone), so only
+        // in-stock status matters here; Next then checks the chosen cottages seat the party.
         for (CottageKtvOption item : cottageItems) {
             if (item.variant_id == selectionOriginVariantId && item.available_quantity > 0) {
                 roomQuantities.put(item.group_id, 1);
@@ -1804,10 +1804,10 @@ final class HotelBookingFlowController {
      * cottage types below, same pattern as {@link #bindRoomSelection}. Cottages have no per-
      * date/time availability check on the backend (only overall stock, see
      * fetchCottagesKtvData) so "available" here means in-stock, not conflict-checked against the
-     * guest's chosen date/schedule. Guest count never gates availability either — a party that
-     * outnumbers one cottage's capacity can simply book more than one unit of it (see "Add
-     * Another Cottage" below); capacity is shown on the card purely as information (see
-     * R.string.cottage_capacity_format). Next is a placeholder for now — Cottage bookings don't
+     * guest's chosen date/schedule. The party size does count: the backend reports a type as in
+     * stock only when its free units together can seat everyone (a party can book several
+     * units — see "Add Another Cottage" below — and Next checks the chosen ones seat the whole
+     * party). Capacity is shown on the card (see R.string.cottage_capacity_format). Next is a placeholder for now — Cottage bookings don't
      * have a Review/Billing/Payment continuation yet.
      */
     private void bindCottageSelection(View v) {
@@ -1896,6 +1896,23 @@ final class HotelBookingFlowController {
             }
             if (total <= 0) {
                 Toast.makeText(activity, R.string.dialog_no_room_message, Toast.LENGTH_LONG).show();
+                return;
+            }
+            // The chosen cottages together must seat the whole party (the server enforces the same
+            // rule); a type with no capacity configured can't be judged, so it never blocks.
+            int guests = cottageAdults + cottageChildren;
+            int seats = 0;
+            boolean capacityUnknown = false;
+            for (CottageKtvOption item : cottageItems) {
+                int qty = roomQuantities.containsKey(item.group_id) ? roomQuantities.get(item.group_id) : 0;
+                if (qty > 0) {
+                    capacityUnknown |= item.capacity <= 0;
+                    seats += qty * item.capacity;
+                }
+            }
+            if (!capacityUnknown && seats < guests) {
+                Toast.makeText(activity, activity.getString(R.string.toast_cottage_seats_needed, guests, seats),
+                        Toast.LENGTH_LONG).show();
                 return;
             }
             if (multiMode) {
@@ -3818,7 +3835,7 @@ final class HotelBookingFlowController {
                 String eventDate = ktvDateMillis >= 0 ? day.format(new Date(ktvDateMillis)) : null;
                 String startTime = ktvStartHour >= 0
                         ? String.format(Locale.US, "%02d:%02d", ktvStartHour, ktvStartMinute) : null;
-                ApiClient.bookingApi().getKtvUnits(eventDate, startTime, null).enqueue(new Callback<KtvUnitListResponse>() {
+                ApiClient.bookingApi().getKtvUnitsForParty(eventDate, startTime, null, ktvGuestCount).enqueue(new Callback<KtvUnitListResponse>() {
                     @Override
                     public void onResponse(Call<KtvUnitListResponse> c, Response<KtvUnitListResponse> r) {
                         if (r.isSuccessful() && r.body() != null && r.body().ktv_units != null) {

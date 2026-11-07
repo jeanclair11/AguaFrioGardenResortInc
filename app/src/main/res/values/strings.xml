@@ -836,6 +836,8 @@
     <string name="notification_yesterday_at">Yesterday, %1$s</string>
     <string name="notification_menu_mark_all_read">Mark all as read</string>
 
+    <string name="toast_cottage_seats_needed">Your party of %1$d needs cottages that seat at least %1$d guests together. Your selection seats %2$d, so please add more cottages.</string>
+
     <!-- Promo Coupons (Summary page card + picker) -->
     <string name="promo_coupons_title">Promo Coupons</string>
     <string name="promo_coupons_none">No available coupons</string>
