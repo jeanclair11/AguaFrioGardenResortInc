@@ -106,6 +106,39 @@ public interface BookingApi {
     @GET("booking/my-bookings")
     Call<MyBookingsResponse> getMyBookings(@Header("Authorization") String bearerToken);
 
+    /** Public — Package Promos on sale right now (the admin's Promo Management packages), for the
+     *  banners above the Hotel Rooms/Cottages/KTV Rooms lists. */
+    @GET("booking/package-promos")
+    Call<PackagePromoListResponse> getPackagePromos();
+
+    /** Public — one package's details; 404 once it is inactive, expired or removed. */
+    @GET("booking/package-promos/{id}")
+    Call<PackagePromoResponse> getPackagePromo(@Path("id") int packageId);
+
+    /** Before payment: is the package still active, valid on {@code date}, and are all of its
+     *  rooms/cottages/amenities/food available for the party? */
+    @FormUrlEncoded
+    @POST("booking/package-promos/{id}/check")
+    Call<PackageCheckResponse> checkPackagePromo(
+            @Header("Authorization") String bearerToken,
+            @Path("id") int packageId,
+            @Field("date") String date,
+            @Field("adults") int adults,
+            @Field("children") int children);
+
+    /** Books the package and records the payment in one call (multipart, like {@link #reserve});
+     *  {@code fields} carries date, adults, children, special_request and any extra
+     *  amenity_quantities[id] the guest added on top of the package. */
+    @Multipart
+    @POST("booking/package-promos/{id}/reserve")
+    Call<ReserveResponse> reservePackagePromo(
+            @Header("Authorization") String bearerToken,
+            @Path("id") int packageId,
+            @Part("payment_option") RequestBody paymentOption,
+            @Part("reference_number") RequestBody referenceNumber,
+            @Part MultipartBody.Part proofImage,
+            @PartMap Map<String, RequestBody> fields);
+
     /**
      * Creates a real reservation in one call — the mobile client has no server-side
      * session to spread this across multiple requests the way the website's wizard

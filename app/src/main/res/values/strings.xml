@@ -852,4 +852,39 @@
     <string name="promo_coupon_remove">Remove coupon</string>
     <string name="label_promo_coupon_discount">Promo Coupon (%1$s)</string>
 
+    <!-- Package Promos (banner carousel, Package Details, package booking) -->
+    <string name="package_banner_badge">PROMO PACKAGE</string>
+    <string name="package_banner_view">View Package  &#8250;</string>
+    <string name="package_save_format">Save %1$s</string>
+    <string name="package_more_format">+%1$d more</string>
+    <string name="package_details_title">Package Details</string>
+    <string name="package_includes_title">WHAT\'S INCLUDED</string>
+    <string name="button_avail_package">Avail Package</string>
+    <string name="package_quantity_format">× %1$d</string>
+    <string name="package_valid_range">Valid %1$s – %2$s</string>
+    <string name="package_valid_until">Valid until %1$s</string>
+    <string name="package_valid_from">Valid from %1$s</string>
+    <string name="package_note_stay">A fixed-price, one-night stay. Pick your check-in date next; check-out is the following day.</string>
+    <string name="package_note_day">A fixed-price package for one visit day. Pick your visit date next.</string>
+    <string name="package_note_capacity">Seats up to %1$d guests.</string>
+    <string name="package_unavailable">This package is no longer available.</string>
+    <string name="package_load_failed">Couldn\'t load this package. Please try again.</string>
+    <string name="package_dates_title">Choose Your Date</string>
+    <string name="package_dates_subtitle_stay">Pick your check-in date. This package is a one-night stay, so you check out the next day.</string>
+    <string name="package_dates_subtitle_day">Pick the day you would like to visit.</string>
+    <string name="package_label_date_stay">Check-in Date</string>
+    <string name="package_label_date_day">Visit Date</string>
+    <string name="package_checking">Checking…</string>
+    <string name="package_review_title">Review Your Package</string>
+    <string name="package_review_subtitle">Everything in your package is included in the fixed price.</string>
+    <string name="package_review_included">Included</string>
+    <string name="package_billing_title">Package Summary</string>
+    <string name="label_package_price">Package Price</string>
+    <string name="label_package_additional">Additional Services</string>
+    <string name="label_package_date_stay">Check-in</string>
+    <string name="label_package_date_day">Visit Date</string>
+    <string name="label_package_checkout">Check-out</string>
+    <string name="label_package_included_note">Included in package price</string>
+    <string name="toast_package_not_available">This package can\'t be booked right now.</string>
+
 </resources>

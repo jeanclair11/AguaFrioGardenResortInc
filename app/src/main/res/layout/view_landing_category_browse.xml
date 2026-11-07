@@ -24,6 +24,14 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
+        <!-- Package Promo carousel (see PackageBanners); hidden until a package is on sale. -->
+        <FrameLayout
+            android:id="@+id/categoryBrowsePackages"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/categoryBrowseTitle"
             android:layout_width="wrap_content"
