@@ -64,15 +64,12 @@
             android:layout_marginTop="16dp"
             android:text="@string/step1_select_id_type" />
 
-        <LinearLayout style="@style/InputField" android:paddingEnd="4dp">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <Spinner
                 android:id="@+id/uiIdTypeSpinner"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@null"
-                android:spinnerMode="dropdown" />
-        </LinearLayout>
-        <TextView android:id="@+id/uiIdTypeError" style="@style/FieldError" />
+                style="@style/AuthSpinner" />
+        </com.aguafriogarden.resortinc.AuthInputField>
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/uiIdTypeError" style="@style/AuthFieldError" />
 
         <TextView
             style="@style/FieldLabelOnScreen"
@@ -125,7 +122,7 @@
                 android:visibility="gone"
                 android:importantForAccessibility="no" />
         </FrameLayout>
-        <TextView android:id="@+id/uiFrontError" style="@style/FieldError" />
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/uiFrontError" style="@style/AuthFieldError" />
 
         <TextView
             style="@style/FieldLabelOnScreen"
@@ -184,29 +181,29 @@
             android:layout_marginTop="10dp"
             android:text="@string/label_id_type" />
 
-        <LinearLayout style="@style/InputField">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_id_card" />
             <EditText
                 android:id="@+id/uiIdNumberField"
-                style="@style/InputEditText"
+                style="@style/AuthInputEditText"
                 android:hint="@string/hint_id_number" />
-        </LinearLayout>
-        <TextView android:id="@+id/uiIdNumberError" style="@style/FieldError" />
+        </com.aguafriogarden.resortinc.AuthInputField>
+        <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/uiIdNumberError" style="@style/AuthFieldError" />
 
         <TextView
             style="@style/FieldLabelOnScreen"
             android:layout_marginTop="16dp"
             android:text="@string/label_expiry_date" />
 
-        <LinearLayout style="@style/InputField">
+        <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
             <ImageView style="@style/InputIcon" android:src="@drawable/ic_calendar" />
             <EditText
                 android:id="@+id/uiExpiryField"
-                style="@style/InputEditText"
+                style="@style/AuthInputEditText"
                 android:clickable="true"
                 android:focusable="false"
                 android:hint="@string/hint_select_expiry_date" />
-        </LinearLayout>
+        </com.aguafriogarden.resortinc.AuthInputField>
 
         <Button
             android:id="@+id/uiSubmitButton"

@@ -62,9 +62,54 @@
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginTop">4dp</item>
         <item name="android:paddingStart">4dp</item>
-        <item name="android:textColor">?attr/errorText</item>
+        <item name="android:textColor">?attr/authFieldInvalidBorder</item>
         <item name="android:textSize">12sp</item>
         <item name="android:visibility">gone</item>
+    </style>
+
+    <!-- Login / Create Account fields: same geometry as InputField, restyled to read as
+         input boxes (see bg_auth_input and AuthInputField). -->
+    <style name="AuthInputField" parent="InputField">
+        <item name="android:background">@drawable/bg_auth_input</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingEnd">12dp</item>
+    </style>
+
+    <style name="AuthInputEditText" parent="InputEditText">
+        <item name="android:textColor">@color/auth_input_text</item>
+        <item name="android:textColorHint">?attr/authFieldHint</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <!-- Dropdown inside an AuthInputField; the end padding keeps the value clear of the chevron. -->
+    <style name="AuthSpinner">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:background">@null</item>
+        <item name="android:paddingStart">0dp</item>
+        <item name="android:paddingEnd">26dp</item>
+        <item name="android:spinnerMode">dropdown</item>
+    </style>
+
+    <!-- Trailing icon (calendar) that is just a cue; taps fall through to the field. -->
+    <style name="AuthInputTrailingIcon" parent="InputIcon">
+        <item name="android:layout_marginStart">6dp</item>
+        <item name="android:layout_marginEnd">0dp</item>
+        <item name="android:importantForAccessibility">no</item>
+    </style>
+
+    <!-- Password show/hide: 44dp touch target, icon stays inside the field's right edge. -->
+    <style name="AuthPasswordToggle" parent="InputTrailingIcon">
+        <item name="android:layout_width">44dp</item>
+        <item name="android:layout_height">44dp</item>
+        <item name="android:layout_marginStart">4dp</item>
+        <item name="android:layout_marginEnd">-8dp</item>
+        <item name="android:padding">10dp</item>
+        <item name="android:scaleType">fitCenter</item>
+    </style>
+
+    <style name="AuthFieldError" parent="FieldError">
+        <item name="android:textColor">?attr/authFieldInvalidBorder</item>
     </style>
 
     <style name="PrimaryButton">
@@ -126,11 +171,11 @@
         <item name="android:layout_width">42dp</item>
         <item name="android:layout_height">48dp</item>
         <item name="android:layout_margin">4dp</item>
-        <item name="android:background">@drawable/bg_input_selector</item>
+        <item name="android:background">@drawable/bg_auth_input</item>
         <item name="android:gravity">center</item>
         <item name="android:inputType">number</item>
         <item name="android:maxLength">1</item>
-        <item name="android:textColor">?attr/textPrimary</item>
+        <item name="android:textColor">@color/auth_input_text</item>
         <item name="android:textSize">18sp</item>
         <item name="android:textStyle">bold</item>
     </style>

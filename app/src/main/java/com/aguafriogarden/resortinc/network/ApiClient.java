@@ -2,6 +2,8 @@ package com.aguafriogarden.resortinc.network;
 
 import com.google.gson.Gson;
 
+import java.util.concurrent.TimeUnit;
+
 import okhttp3.OkHttpClient;
 import okhttp3.ResponseBody;
 import okhttp3.logging.HttpLoggingInterceptor;
@@ -20,6 +22,7 @@ public final class ApiClient {
     private static BookingApi bookingApi;
     private static ChatApi chatApi;
     private static FeedbackApi feedbackApi;
+    private static NotificationApi notificationApi;
 
     private ApiClient() {
     }
@@ -73,6 +76,13 @@ public final class ApiClient {
         return feedbackApi;
     }
 
+    public static synchronized NotificationApi notificationApi() {
+        if (notificationApi == null) {
+            notificationApi = retrofit().create(NotificationApi.class);
+        }
+        return notificationApi;
+    }
+
     private static Retrofit retrofit() {
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
         logging.setLevel(HttpLoggingInterceptor.Level.BASIC);
@@ -81,7 +91,11 @@ public final class ApiClient {
         // submissions and responds with a 302 redirect to the homepage
         // instead of JSON, which OkHttp follows and Gson then fails to
         // parse -- surfacing as a generic network/timeout error in the app.
+        // Defaults are 10s each, too short for the sign-up photo upload on a slow connection.
         OkHttpClient client = new OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
                 .addInterceptor(chain -> chain.proceed(chain.request().newBuilder()
                         .header("Accept", "application/json")
                         .build()))

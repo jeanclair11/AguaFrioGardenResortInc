@@ -28,6 +28,7 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">true</item>
         <item name="android:colorAccent">@color/light_accent</item>
+        <item name="android:fontFamily">@font/poppins</item>
         <item name="android:colorPrimary">@color/light_top_bar_start</item>
         <item name="android:colorPrimaryDark">@color/light_top_bar_start</item>
 
@@ -36,6 +37,8 @@
         <item name="browsePageBackground">@color/browse_page_light</item>
         <item name="surfaceCard">@color/light_card</item>
         <item name="surfaceRaised">@color/light_raised</item>
+        <item name="chatBubbleOther">@color/light_chat_bubble_other</item>
+        <item name="notificationUnreadFill">@color/light_notification_unread</item>
         <item name="topBarGradientStart">@color/light_top_bar_start</item>
         <item name="topBarGradientEnd">@color/light_top_bar_end</item>
         <item name="onTopBar">@color/light_on_top_bar</item>
@@ -49,6 +52,22 @@
         <item name="buttonDisabledColor">@color/light_disabled</item>
         <item name="fieldBackground">@color/light_field</item>
         <item name="fieldStroke">@color/light_field_stroke</item>
+        <item name="authCardTop">@color/light_auth_card_top</item>
+        <item name="authCardBottom">@color/light_auth_card_bottom</item>
+        <item name="authCardBorder">@color/light_auth_card_border</item>
+        <item name="authDecorTint">@color/light_auth_decor</item>
+        <item name="authDecorTintSoft">@color/light_auth_decor_soft</item>
+        <item name="authFieldBackground">@color/light_auth_field</item>
+        <item name="authFieldBorder">@color/light_auth_field_border</item>
+        <item name="authFieldFocusedBackground">@color/light_auth_field_focused</item>
+        <item name="authFieldFocusedBorder">@color/light_auth_field_focused_border</item>
+        <item name="authFieldInvalidBackground">@color/light_auth_field_invalid</item>
+        <item name="authFieldInvalidBorder">@color/light_auth_field_invalid_border</item>
+        <item name="authFieldDisabledBackground">@color/light_auth_field_disabled</item>
+        <item name="authFieldDisabledBorder">@color/light_auth_field_disabled_border</item>
+        <item name="authFieldText">@color/light_auth_field_text</item>
+        <item name="authFieldHint">@color/light_auth_field_hint</item>
+        <item name="authFieldDisabledText">@color/light_auth_field_disabled_text</item>
         <item name="textPrimary">@color/light_text</item>
         <item name="textMuted">@color/light_text_muted</item>
         <item name="textHint">@color/light_text_hint</item>
@@ -72,6 +91,7 @@
         <item name="android:navigationBarColor">@color/dark_nav_bar</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:colorAccent">@color/dark_accent</item>
+        <item name="android:fontFamily">@font/poppins</item>
         <item name="android:colorPrimary">@color/dark_top_bar_start</item>
         <item name="android:colorPrimaryDark">@color/dark_gradient_start</item>
 
@@ -80,6 +100,8 @@
         <item name="browsePageBackground">@color/dark_gradient_end</item>
         <item name="surfaceCard">@color/dark_card</item>
         <item name="surfaceRaised">@color/dark_raised</item>
+        <item name="chatBubbleOther">@color/dark_raised</item>
+        <item name="notificationUnreadFill">@color/dark_notification_unread</item>
         <item name="topBarGradientStart">@color/dark_top_bar_start</item>
         <item name="topBarGradientEnd">@color/dark_top_bar_end</item>
         <item name="onTopBar">@color/dark_on_top_bar</item>
@@ -93,6 +115,22 @@
         <item name="buttonDisabledColor">@color/dark_disabled</item>
         <item name="fieldBackground">@color/dark_field</item>
         <item name="fieldStroke">@color/dark_field_stroke</item>
+        <item name="authCardTop">@color/dark_auth_card_top</item>
+        <item name="authCardBottom">@color/dark_auth_card_bottom</item>
+        <item name="authCardBorder">@color/dark_auth_card_border</item>
+        <item name="authDecorTint">@color/dark_auth_decor</item>
+        <item name="authDecorTintSoft">@color/dark_auth_decor_soft</item>
+        <item name="authFieldBackground">@color/dark_auth_field</item>
+        <item name="authFieldBorder">@color/dark_auth_field_border</item>
+        <item name="authFieldFocusedBackground">@color/dark_auth_field_focused</item>
+        <item name="authFieldFocusedBorder">@color/dark_auth_field_focused_border</item>
+        <item name="authFieldInvalidBackground">@color/dark_auth_field_invalid</item>
+        <item name="authFieldInvalidBorder">@color/dark_auth_field_invalid_border</item>
+        <item name="authFieldDisabledBackground">@color/dark_auth_field_disabled</item>
+        <item name="authFieldDisabledBorder">@color/dark_auth_field_disabled_border</item>
+        <item name="authFieldText">@color/dark_auth_field_text</item>
+        <item name="authFieldHint">@color/dark_auth_field_hint</item>
+        <item name="authFieldDisabledText">@color/dark_auth_field_disabled_text</item>
         <item name="textPrimary">@color/dark_text</item>
         <item name="textMuted">@color/dark_text_muted</item>
         <item name="textHint">@color/dark_text_hint</item>

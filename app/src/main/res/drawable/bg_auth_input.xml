@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Form input background, used on every screen. States come from AuthInputField:
+     disabled and invalid are its own custom states, focused is merged up from the
+     EditText inside it. Invalid outranks focused so a flagged field stays red
+     while the user is fixing it. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item app:state_field_disabled="true">
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/authFieldDisabledBackground" />
+            <corners android:radius="10dp" />
+            <stroke
+                android:width="1dp"
+                android:color="?attr/authFieldDisabledBorder" />
+        </shape>
+    </item>
+    <!-- activated = invalid for a standalone EditText (see AuthFieldError). -->
+    <item android:state_activated="true">
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/authFieldInvalidBackground" />
+            <corners android:radius="10dp" />
+            <stroke
+                android:width="1dp"
+                android:color="?attr/authFieldInvalidBorder" />
+        </shape>
+    </item>
+    <item app:state_invalid="true">
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/authFieldInvalidBackground" />
+            <corners android:radius="10dp" />
+            <stroke
+                android:width="1dp"
+                android:color="?attr/authFieldInvalidBorder" />
+        </shape>
+    </item>
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/authFieldFocusedBackground" />
+            <corners android:radius="10dp" />
+            <stroke
+                android:width="2dp"
+                android:color="?attr/authFieldFocusedBorder" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="?attr/authFieldBackground" />
+            <corners android:radius="10dp" />
+            <stroke
+                android:width="1dp"
+                android:color="?attr/authFieldBorder" />
+        </shape>
+    </item>
+</selector>

@@ -11,6 +11,11 @@
     <attr name="browsePageBackground" format="color|reference" />
     <attr name="surfaceCard" format="color|reference" />
     <attr name="surfaceRaised" format="color|reference" />
+    <!-- Staff/receptionist chat bubble. Its own attr because Light Mode's surfaceRaised is pure
+         white, the same as the screen, which made the bubble invisible. -->
+    <attr name="chatBubbleOther" format="color|reference" />
+    <!-- Fill of an unread Alerts-tab notification card. -->
+    <attr name="notificationUnreadFill" format="color|reference" />
 
     <!-- Top app bar gradient + its content color -->
     <attr name="topBarGradientStart" format="color|reference" />
@@ -33,6 +38,34 @@
 
     <attr name="fieldBackground" format="color|reference" />
     <attr name="fieldStroke" format="color|reference" />
+
+    <!-- Login / Create Account input fields, one slot per interaction state
+         (see bg_auth_input and AuthInputField). -->
+    <attr name="authFieldBackground" format="color|reference" />
+    <attr name="authFieldBorder" format="color|reference" />
+    <attr name="authFieldFocusedBackground" format="color|reference" />
+    <attr name="authFieldFocusedBorder" format="color|reference" />
+    <attr name="authFieldInvalidBackground" format="color|reference" />
+    <attr name="authFieldInvalidBorder" format="color|reference" />
+    <attr name="authFieldDisabledBackground" format="color|reference" />
+    <attr name="authFieldDisabledBorder" format="color|reference" />
+    <attr name="authFieldText" format="color|reference" />
+    <attr name="authFieldHint" format="color|reference" />
+    <attr name="authFieldDisabledText" format="color|reference" />
+
+    <!-- Login / Sign Up card (bg_auth_card): white-to-light-blue wash, hairline border and the
+         tint of the palm / wave decorations. -->
+    <attr name="authCardTop" format="color|reference" />
+    <attr name="authCardBottom" format="color|reference" />
+    <attr name="authCardBorder" format="color|reference" />
+    <attr name="authDecorTint" format="color|reference" />
+    <attr name="authDecorTintSoft" format="color|reference" />
+
+    <!-- Custom drawable states AuthInputField reports to its background. -->
+    <declare-styleable name="AuthInputField">
+        <attr name="state_invalid" format="boolean" />
+        <attr name="state_field_disabled" format="boolean" />
+    </declare-styleable>
 
     <!-- Text/icons on cards and fields -->
     <attr name="textPrimary" format="color|reference" />

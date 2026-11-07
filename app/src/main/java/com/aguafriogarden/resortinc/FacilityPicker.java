@@ -59,7 +59,9 @@ final class FacilityPicker {
             boxes[i] = card.findViewById(R.id.categoryCheckbox);
             card.setOnClickListener(view -> {
                 if (!multiMode[0]) {
-                    listener.onSingle(FACILITIES[index]);
+                    if (ClickGuard.allow()) {
+                        listener.onSingle(FACILITIES[index]);
+                    }
                     return;
                 }
                 checked[index] = !checked[index];
@@ -81,7 +83,7 @@ final class FacilityPicker {
             continueButton.setVisibility(multiMode[0] ? View.VISIBLE : View.GONE);
         });
 
-        continueButton.setOnClickListener(view -> {
+        continueButton.setOnClickListener(ClickGuard.wrap(view -> {
             List<Integer> chosen = new ArrayList<>();
             for (int i = 0; i < FACILITIES.length; i++) {
                 if (checked[i]) {
@@ -93,6 +95,6 @@ final class FacilityPicker {
                 return;
             }
             listener.onMultiple(chosen);
-        });
+        }));
     }
 }

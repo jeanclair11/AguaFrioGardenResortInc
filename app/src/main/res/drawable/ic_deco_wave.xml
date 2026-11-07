@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Two soft overlapping waves along the bottom edge of the card; decoration only. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="360dp"
+    android:height="80dp"
+    android:viewportWidth="360"
+    android:viewportHeight="80"
+    android:tint="?attr/authDecorTintSoft">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M0,46 C50,20 110,20 170,44 C230,68 300,64 360,34 L360,80 L0,80 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M0,62 C60,44 120,46 180,60 C240,74 300,72 360,56 L360,80 L0,80 Z" />
+</vector>

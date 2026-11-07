@@ -150,6 +150,10 @@
             <include
                 android:id="@+id/rowValidId"
                 layout="@layout/view_profile_action_row" />
+
+            <include
+                android:id="@+id/rowStatement"
+                layout="@layout/view_profile_action_row" />
         </LinearLayout>
 
         <TextView

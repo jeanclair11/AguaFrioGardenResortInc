@@ -38,6 +38,7 @@ final class FeedbackController {
     private static final int SCREEN_WRITE = 1;
 
     private static final int MAX_MESSAGE_LENGTH = 500;
+    private static final long LIVE_SYNC_MS = 10000L;
 
     private final Activity activity;
     private final FrameLayout root;
@@ -46,12 +47,28 @@ final class FeedbackController {
     private int currentScreen = -1;
     private int selectedRating;
     private List<FeedbackEntryDto> entries = new ArrayList<>();
+    /** False until the first successful fetch: until then the history is unknown, not empty, so
+     *  the "no feedback yet" state must not show (it made a slow or failed load look like the
+     *  guest's submissions had disappeared). */
+    private boolean loaded = false;
+    private boolean loadFailureShown = false;
+    private boolean refreshing = false;
+    private boolean refreshQueued = false;
+    /** Picks up admin replies / new entries while the history is on screen. Never touches the
+     *  Write Feedback form, so a half-typed message is safe. */
+    private final LiveSync liveSync;
 
     FeedbackController(Activity activity) {
         this.activity = activity;
         root = new FrameLayout(activity);
+        liveSync = new LiveSync(root, LIVE_SYNC_MS, () -> {
+            if (currentScreen == SCREEN_MAIN) {
+                refresh();
+            }
+        });
         showScreen(SCREEN_MAIN);
         refresh();
+        liveSync.start();
     }
 
     View getRootView() {
@@ -97,35 +114,65 @@ final class FeedbackController {
         if (token == null) {
             return;
         }
+        if (refreshing) {
+            // A response already on its way may predate whatever triggered this call (e.g. a
+            // just-submitted entry), so re-run once it lands.
+            refreshQueued = true;
+            return;
+        }
+        refreshing = true;
         ApiClient.feedbackApi().getFeedback(token).enqueue(new Callback<FeedbackListResponse>() {
             @Override
             public void onResponse(Call<FeedbackListResponse> call, Response<FeedbackListResponse> response) {
+                refreshing = false;
+                runQueuedRefresh();
                 if (response.isSuccessful() && response.body() != null && response.body().feedback != null) {
+                    boolean unchanged = loaded && LiveSync.sameData(entries, response.body().feedback);
                     entries = response.body().feedback;
-                    if (currentScreen == SCREEN_MAIN && currentScreenView != null) {
+                    loaded = true;
+                    if (!unchanged && currentScreen == SCREEN_MAIN && currentScreenView != null) {
                         bindMain(currentScreenView);
                     }
+                } else {
+                    reportInitialLoadFailure();
                 }
             }
 
             @Override
             public void onFailure(Call<FeedbackListResponse> call, Throwable t) {
-                // Silent: a background refresh failing (e.g. no connection) shouldn't
-                // interrupt the guest or clear what's already on screen.
+                refreshing = false;
+                runQueuedRefresh();
+                // A background refresh failing (e.g. no connection) shouldn't interrupt the
+                // guest or clear what's already on screen; only the very first load says so.
+                reportInitialLoadFailure();
             }
         });
+    }
+
+    private void reportInitialLoadFailure() {
+        if (!loaded && !loadFailureShown) {
+            loadFailureShown = true;
+            Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void runQueuedRefresh() {
+        if (refreshQueued) {
+            refreshQueued = false;
+            refresh();
+        }
     }
 
     // ---- Main feedback screen ----------------------------------------
 
     private void bindMain(View v) {
-        v.findViewById(R.id.writeFeedbackButton).setOnClickListener(view -> showScreen(SCREEN_WRITE));
+        v.findViewById(R.id.writeFeedbackButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_WRITE)));
 
         LinearLayout container = v.findViewById(R.id.feedbackListContainer);
         container.removeAllViews();
 
         boolean empty = entries.isEmpty();
-        v.findViewById(R.id.feedbackEmptyState).setVisibility(empty ? View.VISIBLE : View.GONE);
+        v.findViewById(R.id.feedbackEmptyState).setVisibility(empty && loaded ? View.VISIBLE : View.GONE);
         container.setVisibility(empty ? View.GONE : View.VISIBLE);
 
         LayoutInflater inflater = LayoutInflater.from(activity);
@@ -193,7 +240,7 @@ final class FeedbackController {
 
         View header = v.findViewById(R.id.headerBar);
         ((TextView) header.findViewById(R.id.headerTitle)).setText(R.string.write_feedback_title);
-        header.findViewById(R.id.headerBackButton).setOnClickListener(view -> showScreen(SCREEN_MAIN));
+        header.findViewById(R.id.headerBackButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_MAIN)));
 
         int[] starIds = {R.id.fwStar1, R.id.fwStar2, R.id.fwStar3, R.id.fwStar4, R.id.fwStar5};
         for (int i = 0; i < starIds.length; i++) {
@@ -215,7 +262,7 @@ final class FeedbackController {
             v.findViewById(R.id.fwMessageError).setVisibility(View.GONE);
         });
 
-        v.findViewById(R.id.fwSubmitButton).setOnClickListener(view -> attemptSubmit(v));
+        v.findViewById(R.id.fwSubmitButton).setOnClickListener(ClickGuard.wrap(view -> attemptSubmit(v)));
     }
 
     private void updateStarSelector(View v, int[] starIds) {
@@ -292,10 +339,10 @@ final class FeedbackController {
             dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
             ThemeManager.applyGlassEffect(dialog.getWindow());
         }
-        dialogView.findViewById(R.id.feedbackSuccessOkButton).setOnClickListener(view -> {
+        dialogView.findViewById(R.id.feedbackSuccessOkButton).setOnClickListener(ClickGuard.wrap(view -> {
             dialog.dismiss();
             showScreen(SCREEN_MAIN);
-        });
+        }));
         dialog.show();
     }
 

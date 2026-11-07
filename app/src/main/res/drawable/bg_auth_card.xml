@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Login / Sign Up card: rounded white-to-light-blue wash with a hairline border and soft
+     palm and wave decorations tucked into the corners. The first layer supplies the rounded
+     outline the card clips to, so the decorations never poke past the corners. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:endColor="?attr/authCardBottom"
+                android:startColor="?attr/authCardTop" />
+            <corners android:radius="28dp" />
+            <stroke
+                android:width="1dp"
+                android:color="?attr/authCardBorder" />
+        </shape>
+    </item>
+    <item
+        android:drawable="@drawable/ic_deco_wave"
+        android:gravity="bottom|fill_horizontal"
+        android:height="80dp" />
+    <item
+        android:drawable="@drawable/ic_deco_palm_flipped"
+        android:gravity="bottom|start"
+        android:height="90dp"
+        android:width="90dp" />
+    <item
+        android:drawable="@drawable/ic_deco_palm"
+        android:gravity="top|end"
+        android:height="120dp"
+        android:width="120dp" />
+</layer-list>

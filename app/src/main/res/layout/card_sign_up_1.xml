@@ -12,7 +12,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:fontFamily="serif"
+        android:fontFamily="@font/poppins"
         android:gravity="center"
         android:text="@string/signup_heading"
         android:textColor="?attr/textPrimary"
@@ -34,18 +34,18 @@
         android:layout_marginTop="22dp"
         android:text="@string/label_first_name" />
 
-    <LinearLayout style="@style/InputField">
+    <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
 
         <EditText
             android:id="@+id/firstNameField"
-            style="@style/InputEditText"
+            style="@style/AuthInputEditText"
             android:hint="@string/hint_first_name"
             android:inputType="textPersonName" />
-    </LinearLayout>
+    </com.aguafriogarden.resortinc.AuthInputField>
 
-    <TextView
+    <com.aguafriogarden.resortinc.AuthFieldError
         android:id="@+id/firstNameError"
-        style="@style/FieldError" />
+        style="@style/AuthFieldError" />
 
     <!-- Middle Name -->
     <TextView
@@ -53,18 +53,18 @@
         android:layout_marginTop="16dp"
         android:text="@string/label_middle_name" />
 
-    <LinearLayout style="@style/InputField">
+    <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
 
         <EditText
             android:id="@+id/middleNameField"
-            style="@style/InputEditText"
+            style="@style/AuthInputEditText"
             android:hint="@string/hint_middle_name"
             android:inputType="textPersonName" />
-    </LinearLayout>
+    </com.aguafriogarden.resortinc.AuthInputField>
 
-    <TextView
+    <com.aguafriogarden.resortinc.AuthFieldError
         android:id="@+id/middleNameError"
-        style="@style/FieldError" />
+        style="@style/AuthFieldError" />
 
     <!-- Last Name -->
     <TextView
@@ -72,18 +72,18 @@
         android:layout_marginTop="16dp"
         android:text="@string/label_last_name" />
 
-    <LinearLayout style="@style/InputField">
+    <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
 
         <EditText
             android:id="@+id/lastNameField"
-            style="@style/InputEditText"
+            style="@style/AuthInputEditText"
             android:hint="@string/hint_last_name"
             android:inputType="textPersonName" />
-    </LinearLayout>
+    </com.aguafriogarden.resortinc.AuthInputField>
 
-    <TextView
+    <com.aguafriogarden.resortinc.AuthFieldError
         android:id="@+id/lastNameError"
-        style="@style/FieldError" />
+        style="@style/AuthFieldError" />
 
     <!-- Gender and Birth Date -->
     <LinearLayout
@@ -96,28 +96,27 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
-            android:layout_weight="1"
+            android:layout_weight="1.3"
             android:orientation="vertical">
 
             <TextView
                 style="@style/FieldLabel"
                 android:text="@string/label_gender" />
 
-            <LinearLayout
-                style="@style/InputField"
-                android:paddingEnd="4dp">
+            <com.aguafriogarden.resortinc.AuthInputField
+                style="@style/AuthInputField"
+                android:paddingStart="12dp"
+                android:paddingEnd="8dp">
 
                 <Spinner
                     android:id="@+id/genderSpinner"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="@null"
-                    android:spinnerMode="dropdown" />
-            </LinearLayout>
+                    style="@style/AuthSpinner"
+                    android:paddingEnd="22dp" />
+            </com.aguafriogarden.resortinc.AuthInputField>
 
-            <TextView
+            <com.aguafriogarden.resortinc.AuthFieldError
                 android:id="@+id/genderError"
-                style="@style/FieldError" />
+                style="@style/AuthFieldError" />
         </LinearLayout>
 
         <LinearLayout
@@ -131,19 +130,22 @@
                 style="@style/FieldLabel"
                 android:text="@string/label_birth_date" />
 
-            <LinearLayout style="@style/InputField">
+            <com.aguafriogarden.resortinc.AuthInputField
+                style="@style/AuthInputField"
+                android:paddingStart="12dp"
+                android:paddingEnd="8dp">
 
                 <EditText
                     android:id="@+id/birthDateField"
-                    style="@style/InputEditText"
+                    style="@style/AuthInputEditText"
                     android:clickable="true"
                     android:focusable="false"
                     android:hint="@string/hint_birth_date" />
-            </LinearLayout>
+            </com.aguafriogarden.resortinc.AuthInputField>
 
-            <TextView
+            <com.aguafriogarden.resortinc.AuthFieldError
                 android:id="@+id/birthDateError"
-                style="@style/FieldError" />
+                style="@style/AuthFieldError" />
         </LinearLayout>
     </LinearLayout>
 
@@ -153,18 +155,18 @@
         android:layout_marginTop="16dp"
         android:text="@string/label_phone" />
 
-    <LinearLayout style="@style/InputField">
+    <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
 
         <EditText
             android:id="@+id/phoneNumberField"
-            style="@style/InputEditText"
+            style="@style/AuthInputEditText"
             android:hint="@string/hint_phone"
             android:inputType="phone" />
-    </LinearLayout>
+    </com.aguafriogarden.resortinc.AuthInputField>
 
-    <TextView
+    <com.aguafriogarden.resortinc.AuthFieldError
         android:id="@+id/phoneNumberError"
-        style="@style/FieldError" />
+        style="@style/AuthFieldError" />
 
     <!-- Home Address -->
     <TextView
@@ -178,69 +180,57 @@
         android:layout_marginTop="12dp"
         android:text="@string/label_province" />
 
-    <LinearLayout
-        style="@style/InputField"
-        android:paddingEnd="4dp">
+    <com.aguafriogarden.resortinc.AuthInputField
+        style="@style/AuthInputField">
 
         <ImageView style="@style/InputIcon" android:src="@drawable/ic_location" />
 
         <Spinner
             android:id="@+id/provinceSpinner"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@null"
-            android:spinnerMode="dropdown" />
-    </LinearLayout>
+            style="@style/AuthSpinner" />
+    </com.aguafriogarden.resortinc.AuthInputField>
 
-    <TextView
+    <com.aguafriogarden.resortinc.AuthFieldError
         android:id="@+id/provinceError"
-        style="@style/FieldError" />
+        style="@style/AuthFieldError" />
 
     <TextView
         style="@style/FieldLabel"
         android:layout_marginTop="16dp"
         android:text="@string/label_city" />
 
-    <LinearLayout
-        style="@style/InputField"
-        android:paddingEnd="4dp">
+    <com.aguafriogarden.resortinc.AuthInputField
+        style="@style/AuthInputField">
 
         <ImageView style="@style/InputIcon" android:src="@drawable/ic_location" />
 
         <Spinner
             android:id="@+id/citySpinner"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@null"
-            android:spinnerMode="dropdown" />
-    </LinearLayout>
+            style="@style/AuthSpinner" />
+    </com.aguafriogarden.resortinc.AuthInputField>
 
-    <TextView
+    <com.aguafriogarden.resortinc.AuthFieldError
         android:id="@+id/cityError"
-        style="@style/FieldError" />
+        style="@style/AuthFieldError" />
 
     <TextView
         style="@style/FieldLabel"
         android:layout_marginTop="16dp"
         android:text="@string/label_barangay" />
 
-    <LinearLayout
-        style="@style/InputField"
-        android:paddingEnd="4dp">
+    <com.aguafriogarden.resortinc.AuthInputField
+        style="@style/AuthInputField">
 
         <ImageView style="@style/InputIcon" android:src="@drawable/ic_location" />
 
         <Spinner
             android:id="@+id/barangaySpinner"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@null"
-            android:spinnerMode="dropdown" />
-    </LinearLayout>
+            style="@style/AuthSpinner" />
+    </com.aguafriogarden.resortinc.AuthInputField>
 
-    <TextView
+    <com.aguafriogarden.resortinc.AuthFieldError
         android:id="@+id/barangayError"
-        style="@style/FieldError" />
+        style="@style/AuthFieldError" />
 
     <!-- Back (to login) / Proceed -->
     <LinearLayout

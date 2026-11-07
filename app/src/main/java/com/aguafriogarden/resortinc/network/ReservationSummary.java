@@ -14,6 +14,9 @@ public class ReservationSummary {
     public int id;
     public String booking_reference;
     public String service_type;
+    /** Every facility kind in the record ("hotel"/"cottage"/"ktv"/"hall") — several for a
+     *  multi-facility booking. Null from servers that predate it. */
+    public List<String> facilities;
     public String item_name;
     public String room_type_name;
     public String check_in;
@@ -36,6 +39,20 @@ public class ReservationSummary {
     public double amount_paid;
     public double remaining_balance;
     public String payment_status;
+    /** Payments recorded against this booking's bill (Statement of Account). Null from servers
+     *  that predate it; always empty for a not-yet-paid advance reservation. */
+    public List<PaymentLine> payments;
+
+    public static class PaymentLine {
+        public String date;
+        public String time;
+        /** "gcash", "cash", ... */
+        public String method;
+        public String reference_number;
+        public double amount;
+        /** "pending" (awaiting staff verification), "verified" or "cancelled". */
+        public String status;
+    }
     public String created_at;
     /** Only meaningful for kind "advance_reservation" — null once promoted or if never set. */
     public String payment_deadline;

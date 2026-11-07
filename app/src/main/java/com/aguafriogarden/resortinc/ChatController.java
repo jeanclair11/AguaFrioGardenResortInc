@@ -90,7 +90,7 @@ final class ChatController {
         bindChips();
         AuthUiUtils.afterTextChanged(messageField, this::updateSendButtonState);
         updateSendButtonState();
-        sendButton.setOnClickListener(v -> sendTypedMessage());
+        sendButton.setOnClickListener(ClickGuard.wrap(v -> sendTypedMessage()));
 
         renderMessages(false);
         loadHistory();
@@ -126,7 +126,7 @@ final class ChatController {
         };
         for (int chipId : chipIds) {
             TextView chip = root.findViewById(chipId);
-            chip.setOnClickListener(v -> sendGuestMessage(chip.getText().toString()));
+            chip.setOnClickListener(ClickGuard.wrap(v -> sendGuestMessage(chip.getText().toString())));
         }
     }
 

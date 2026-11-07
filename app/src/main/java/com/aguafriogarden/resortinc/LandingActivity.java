@@ -12,6 +12,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -25,12 +26,10 @@ import android.window.OnBackInvokedDispatcher;
 import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.CottageKtvOption;
 import com.aguafriogarden.resortinc.network.CottageTypeListResponse;
-import com.aguafriogarden.resortinc.network.KtvTypeListResponse;
 import com.aguafriogarden.resortinc.network.KtvUnitListResponse;
 import com.aguafriogarden.resortinc.network.PriceBreakdownEntry;
 import com.aguafriogarden.resortinc.network.RoomTypeAvailability;
 import com.aguafriogarden.resortinc.network.RoomTypeListResponse;
-import com.bumptech.glide.Glide;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -71,6 +70,8 @@ public class LandingActivity extends Activity {
     private static final long CONTENT_FADE_MS = 150L;
     private static final long CONTENT_SLIDE_MS = 220L;
     private static final long BADGE_REFRESH_MS = 2000L;
+    private static final long SPLASH_SPIN_MS = 1400L;
+    private static final long SPLASH_FADE_MS = 300L;
     /** How often the currently-open Hotel Rooms/Cottages/KTV Rooms browse screen
      *  re-fetches its list, so admin-side additions/edits/price or capacity changes/activation-
      *  deactivation show up without the guest leaving and reopening the tab. Works whether logged
@@ -80,6 +81,8 @@ public class LandingActivity extends Activity {
     private static final String STATE_SECTION = "section";
 
     private SwipeNavigationContainer landingContentContainer;
+    /** Bumped by every swapContent(); a transition's end action only runs while it is still the latest. */
+    private int swapGeneration;
     private ScrollView landingHomeScroll;
     private HorizontalScrollView navBar;
     private View headerBar;
@@ -117,6 +120,39 @@ public class LandingActivity extends Activity {
      *  after onPause stopped it, without re-inflating the browse screen. */
     private Runnable currentCategoryFetch;
 
+    /**
+     * Cold-start splash: a full-screen overlay (same navy background as the system splash) whose
+     * logo flips like a coin (turns about its vertical axis) one full time, then fades away to reveal the Home screen. Done in-app rather
+     * than in the system splash, which can only show a static icon.
+     */
+    private void playSplashSpin() {
+        FrameLayout root = findViewById(android.R.id.content);
+        FrameLayout overlay = new FrameLayout(this);
+        overlay.setBackgroundColor(getColor(R.color.dark_gradient_start));
+        overlay.setClickable(true);
+        overlay.setElevation(1000f);
+
+        int logoSize = (int) (160 * getResources().getDisplayMetrics().density);
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.drawable.agua_frio_logo);
+        logo.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        overlay.addView(logo, new FrameLayout.LayoutParams(logoSize, logoSize, android.view.Gravity.CENTER));
+        root.addView(overlay, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        logo.setCameraDistance(8000f * getResources().getDisplayMetrics().density);
+        logo.animate()
+                .rotationY(360f)
+                .setDuration(SPLASH_SPIN_MS)
+                .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
+                .withEndAction(() -> overlay.animate()
+                        .alpha(0f)
+                        .setDuration(SPLASH_FADE_MS)
+                        .withEndAction(() -> root.removeView(overlay))
+                        .start())
+                .start();
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -124,8 +160,11 @@ public class LandingActivity extends Activity {
         activeThemeMode = ThemeManager.mode(this);
         setContentView(R.layout.activity_landing);
         ThemeManager.playPendingFade(this);
+        if (savedInstanceState == null) {
+            playSplashSpin();
+        }
 
-        landingContentContainer = findViewById(R.id.landingContentContainer);
+        landingContentContainer =findViewById(R.id.landingContentContainer);
         landingHomeScroll = findViewById(R.id.landingHomeScroll);
         navBar = findViewById(R.id.landingNavBar);
         headerBar = findViewById(R.id.landingHeaderBar);
@@ -141,6 +180,7 @@ public class LandingActivity extends Activity {
         // only scroll the gallery, never step the top-nav tabs (see setSwipeExclusionZone).
         HorizontalScrollView galleryScroll = findViewById(R.id.landingGalleryScroll);
         landingContentContainer.setSwipeExclusionZone(galleryScroll);
+        loadGalleryTiles(findViewById(R.id.landingGalleryContent));
         setupInfiniteGallery(galleryScroll, findViewById(R.id.landingGalleryContent));
 
         topNavItems[0] = findViewById(R.id.navTabHome);
@@ -151,10 +191,10 @@ public class LandingActivity extends Activity {
         topNavItems[1].setOnClickListener(v -> showCategory(Section.ROOMS));
         topNavItems[2].setOnClickListener(v -> showCategory(Section.COTTAGES));
         topNavItems[3].setOnClickListener(v -> showCategory(Section.KTV));
-        landingLogInButton.setOnClickListener(v -> openLogin());
+        landingLogInButton.setOnClickListener(ClickGuard.wrap(v -> openLogin()));
         landingBellCluster.setOnClickListener(v -> showModule(Section.ALERTS));
         profileButton.setOnClickListener(v -> showModule(Section.PROFILE));
-        findViewById(R.id.shareAppButton).setOnClickListener(v -> shareApp());
+        findViewById(R.id.shareAppButton).setOnClickListener(ClickGuard.wrap(v -> shareApp()));
 
         landingContentContainer.setOnSwipeListener(new SwipeNavigationContainer.OnSwipeListener() {
             @Override
@@ -178,6 +218,10 @@ public class LandingActivity extends Activity {
             showModule(Section.CHAT);
         } else if (loggedIn && ChatPollingService.EXTRA_VALUE_RESERVE.equals(openModule)) {
             showModule(Section.RESERVE);
+        } else if (loggedIn && ChatPollingService.EXTRA_VALUE_FEEDBACK.equals(openModule)) {
+            showModule(Section.FEEDBACK);
+        } else if (loggedIn && ChatPollingService.EXTRA_VALUE_ALERTS.equals(openModule)) {
+            showModule(Section.ALERTS);
         }
 
         // Predictive back (API 33+, on by targetSdk here) never calls onBackPressed() below
@@ -248,6 +292,9 @@ public class LandingActivity extends Activity {
             badgeHandler.post(badgeTick);
         }
         if (currentCategoryFetch != null) {
+            // Catch up on whatever changed while the app was in the background right away,
+            // rather than showing stale cards until the first poll tick.
+            currentCategoryFetch.run();
             startCategoryRefresh(currentCategoryFetch);
         }
     }
@@ -339,7 +386,8 @@ public class LandingActivity extends Activity {
 
         reserveCatalog = new ReserveCatalogController(this, this::showHome, this::setBottomNavHidden);
         bookingCatalog = new BookingCatalogController(this,
-                () -> showModule(Section.RESERVE), this::showHome, this::setBottomNavHidden);
+                () -> showModule(Section.RESERVE), this::showHome, this::openBookingInHistory,
+                this::setBottomNavHidden);
         dashboardHome = new DashboardHomeController(this);
         profileController = new ProfileController(this, this::showHome, this::logout, this::bindHeaderAvatar,
                 this::openHistoryReservation);
@@ -348,13 +396,16 @@ public class LandingActivity extends Activity {
         notificationController = new NotificationController(this, n -> {
             if (n.type == NotificationStore.Type.CHAT) {
                 showModule(Section.CHAT);
+            } else if (n.type == NotificationStore.Type.FEEDBACK) {
+                showModule(Section.FEEDBACK);
             } else {
                 // ReservationStore-backed reservation details no longer exist (the Reserve tab's
                 // old ReservationFlowController module was fully replaced by ReserveCatalogController
                 // — see that class) — a notification tap can only land back on Reserve's own gate.
                 showModule(Section.RESERVE);
             }
-        });
+        }, this::refreshBadges);
+        NotificationStore.refresh(this);
 
         heroOrGreetingSlot.removeAllViews();
         heroOrGreetingSlot.addView(dashboardHome.getRootView());
@@ -408,6 +459,9 @@ public class LandingActivity extends Activity {
         stopService(new Intent(this, ChatPollingService.class));
         ProfileStore.clearAuthToken(this);
         ProfileStore.clearActiveReservation(this);
+        ProfileStore.clearChatCursor(this);
+        ProfileStore.clearAlertCursor(this);
+        ProfileStore.setNotificationsSyncPending(this, false);
         badgeHandler.removeCallbacks(badgeTick);
         leaveCategoryBrowse();
         loggedIn = false;
@@ -419,6 +473,8 @@ public class LandingActivity extends Activity {
         feedbackController = null;
         chatController = null;
         notificationController = null;
+        NotificationStore.setChangeListener(null);
+        NotificationStore.clear();
 
         heroOrGreetingSlot.removeAllViews();
         heroOrGreetingSlot.addView(heroSectionView);
@@ -480,7 +536,7 @@ public class LandingActivity extends Activity {
                     reserveCatalog.showPicker();
                     // Opening Reserve itself clears its own badge, same as Chat already does via
                     // onShown()/UnreadChatStore.markSeen() — no need to detour through Alerts.
-                    NotificationStore.markReadByType(NotificationStore.Type.RESERVATION);
+                    NotificationStore.markReadByType(this, NotificationStore.Type.RESERVATION);
                     refreshBadges();
                     showModule(section);
                 });
@@ -594,6 +650,8 @@ public class LandingActivity extends Activity {
         } else if (section == Section.FEEDBACK) {
             content = feedbackController.getRootView();
             feedbackController.onShown();
+            // Opening Feedback shows the reply the alert is about, so it counts as read.
+            NotificationStore.markReadByType(this, NotificationStore.Type.FEEDBACK);
         } else if (section == Section.PROFILE) {
             content = profileController.getRootView();
             profileController.onShown();
@@ -617,6 +675,12 @@ public class LandingActivity extends Activity {
             showModule(Section.RESERVE);
             reserveCatalog.showReservationDetails(summary, backToProfile);
         }
+    }
+
+    /** Book flow success screen's View Booking: opens that booking in Profile's history. */
+    private void openBookingInHistory(String reference) {
+        showModule(Section.PROFILE);
+        profileController.showBookingByReference(reference);
     }
 
     private void leavingChat() {
@@ -751,18 +815,43 @@ public class LandingActivity extends Activity {
      * a directionless fade.
      */
     private void swapContent(View newContent, boolean showTopNavBar, int slideDirection) {
+        // A rapid follow-up tap or swipe can retrigger this before the previous transition's
+        // withEndAction has run, while both its screens are still children. Finish that
+        // transition right here instead: bumping the generation turns its pending end action
+        // into a no-op (otherwise it could later remove a screen that is being shown again),
+        // cancelling and resetting both properties normalizes whichever one it didn't touch
+        // (fade never resets translationX, slide never resets alpha) so a persisted view like
+        // landingHomeScroll can't get stuck off-screen or invisible, and only the screen it was
+        // heading to (the newest child) is kept.
+        int generation = ++swapGeneration;
+        for (int i = 0; i < landingContentContainer.getChildCount(); i++) {
+            View child = landingContentContainer.getChildAt(i);
+            child.animate().cancel();
+            child.setAlpha(1f);
+            child.setTranslationX(0f);
+        }
+        while (landingContentContainer.getChildCount() > 1) {
+            landingContentContainer.removeViewAt(0);
+        }
+
+        newContent.animate().cancel();
+        newContent.setAlpha(1f);
+        newContent.setTranslationX(0f);
+
+        // Already the screen showing (e.g. a double tap on the same tab): addView would throw
+        // "child already has a parent", and the old-children cleanup below would remove it.
+        if (newContent.getParent() == landingContentContainer) {
+            setNavBarPresent(showTopNavBar);
+            return;
+        }
+        if (newContent.getParent() instanceof ViewGroup) {
+            ((ViewGroup) newContent.getParent()).removeView(newContent);
+        }
+
         List<View> oldChildren = new ArrayList<>();
         for (int i = 0; i < landingContentContainer.getChildCount(); i++) {
             oldChildren.add(landingContentContainer.getChildAt(i));
         }
-        // A rapid follow-up swipe can retrigger this before the previous transition's
-        // withEndAction has run; cancelling first and resetting both properties normalizes
-        // whichever one the previous transition didn't touch (fade never resets translationX,
-        // slide never resets alpha), so a persisted view like landingHomeScroll can't get stuck
-        // off-screen or invisible from a leftover animation value.
-        newContent.animate().cancel();
-        newContent.setAlpha(1f);
-        newContent.setTranslationX(0f);
 
         landingContentContainer.addView(newContent);
         if (newContent instanceof ScrollView) {
@@ -777,6 +866,9 @@ public class LandingActivity extends Activity {
                     .setDuration(CONTENT_FADE_MS)
                     .setInterpolator(new DecelerateInterpolator())
                     .withEndAction(() -> {
+                        if (generation != swapGeneration) {
+                            return;
+                        }
                         for (View old : oldChildren) {
                             landingContentContainer.removeView(old);
                         }
@@ -792,6 +884,9 @@ public class LandingActivity extends Activity {
                 .setDuration(CONTENT_SLIDE_MS)
                 .setInterpolator(new DecelerateInterpolator())
                 .withEndAction(() -> {
+                    if (generation != swapGeneration) {
+                        return;
+                    }
                     for (View old : oldChildren) {
                         landingContentContainer.removeView(old);
                         old.setTranslationX(0f);
@@ -845,6 +940,24 @@ public class LandingActivity extends Activity {
      * copyWidth to restore a full buffer in that direction, so a true edge is never reached in
      * ordinary use and the strip just appears to keep going forever either way.
      */
+    /**
+     * Fills each gallery tile with its bundled photo (named by the tile's tag) through Glide, so the
+     * photos decode off the main thread at tile size and each tile shows a skeleton until its photo
+     * is ready, instead of the layout inflater decoding all of them synchronously.
+     */
+    private void loadGalleryTiles(LinearLayout content) {
+        for (int i = 0; i < content.getChildCount(); i++) {
+            View tile = content.getChildAt(i);
+            ImageView photo = (ImageView) ((ViewGroup) tile).getChildAt(0);
+            Object name = photo.getTag();
+            int res = name == null ? 0
+                    : getResources().getIdentifier(name.toString(), "drawable", getPackageName());
+            if (res != 0) {
+                ImageLoader.loadResource(photo, res, R.drawable.ic_gallery);
+            }
+        }
+    }
+
     private void setupInfiniteGallery(HorizontalScrollView galleryScroll, LinearLayout content) {
         content.post(() -> {
             // Side padding of (viewport - tile) / 2 means a tile is centred on screen whenever
@@ -973,15 +1086,19 @@ public class LandingActivity extends Activity {
         ApiClient.bookingApi().getRoomTypes().enqueue(new Callback<RoomTypeListResponse>() {
             @Override
             public void onResponse(Call<RoomTypeListResponse> call, Response<RoomTypeListResponse> response) {
-                List<RoomTypeAvailability> roomTypes = response.isSuccessful() && response.body() != null
-                        && response.body().room_types != null
-                        ? response.body().room_types : new ArrayList<>();
-                bindRoomTypes(container, emptyState, roomTypes);
+                boolean ok = response.isSuccessful() && response.body() != null
+                        && response.body().room_types != null;
+                if (!ok && hasLoadedOnce(container)) {
+                    return;
+                }
+                bindRoomTypes(container, emptyState, ok ? response.body().room_types : new ArrayList<>());
             }
 
             @Override
             public void onFailure(Call<RoomTypeListResponse> call, Throwable t) {
-                bindRoomTypes(container, emptyState, new ArrayList<>());
+                if (!hasLoadedOnce(container)) {
+                    bindRoomTypes(container, emptyState, new ArrayList<>());
+                }
             }
         });
     }
@@ -990,57 +1107,74 @@ public class LandingActivity extends Activity {
         ApiClient.bookingApi().getCottageTypes().enqueue(new Callback<CottageTypeListResponse>() {
             @Override
             public void onResponse(Call<CottageTypeListResponse> call, Response<CottageTypeListResponse> response) {
-                List<CottageKtvOption> cottages = response.isSuccessful() && response.body() != null
-                        && response.body().cottages != null
-                        ? response.body().cottages : new ArrayList<>();
-                bindCottageKtvOptions(container, emptyState, cottages, getString(R.string.service_type_cottage), true, Section.COTTAGES);
+                boolean ok = response.isSuccessful() && response.body() != null
+                        && response.body().cottages != null;
+                if (!ok && hasLoadedOnce(container)) {
+                    return;
+                }
+                bindCottageKtvOptions(container, emptyState, ok ? response.body().cottages : new ArrayList<>(),
+                        getString(R.string.service_type_cottage), true, Section.COTTAGES);
             }
 
             @Override
             public void onFailure(Call<CottageTypeListResponse> call, Throwable t) {
-                bindCottageKtvOptions(container, emptyState, new ArrayList<>(), getString(R.string.service_type_cottage), true, Section.COTTAGES);
+                if (!hasLoadedOnce(container)) {
+                    bindCottageKtvOptions(container, emptyState, new ArrayList<>(), getString(R.string.service_type_cottage), true, Section.COTTAGES);
+                }
             }
         });
     }
 
     private void fetchKtvTypes(LinearLayout container, TextView emptyState) {
-        // Actual KTV units (booking/ktv-units); falls back to the Type list if that call fails.
+        // KTV Rooms are listed as individual units (booking/ktv-units), never grouped by Type.
         ApiClient.bookingApi().getKtvUnits(new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date()), null, null).enqueue(new Callback<KtvUnitListResponse>() {
             @Override
             public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
-                if (response.isSuccessful() && response.body() != null && response.body().ktv_units != null) {
-                    bindCottageKtvOptions(container, emptyState, response.body().toOptions(0),
-                            getString(R.string.service_type_ktv), true, Section.KTV);
-                } else {
-                    fetchKtvTypesFallback(container, emptyState);
+                boolean ok = response.isSuccessful() && response.body() != null && response.body().ktv_units != null;
+                if (!ok && hasLoadedOnce(container)) {
+                    return;
                 }
+                bindCottageKtvOptions(container, emptyState, ok ? response.body().toOptions(0) : new ArrayList<>(),
+                        getString(R.string.service_type_ktv), true, Section.KTV);
             }
 
             @Override
             public void onFailure(Call<KtvUnitListResponse> call, Throwable t) {
-                fetchKtvTypesFallback(container, emptyState);
+                if (!hasLoadedOnce(container)) {
+                    bindCottageKtvOptions(container, emptyState, new ArrayList<>(), getString(R.string.service_type_ktv), true, Section.KTV);
+                }
             }
         });
     }
 
-    private void fetchKtvTypesFallback(LinearLayout container, TextView emptyState) {
-        ApiClient.bookingApi().getKtvTypes().enqueue(new Callback<KtvTypeListResponse>() {
-            @Override
-            public void onResponse(Call<KtvTypeListResponse> call, Response<KtvTypeListResponse> response) {
-                List<CottageKtvOption> ktvRooms = response.isSuccessful() && response.body() != null
-                        && response.body().ktv_rooms != null
-                        ? response.body().ktv_rooms : new ArrayList<>();
-                bindCottageKtvOptions(container, emptyState, ktvRooms, getString(R.string.service_type_ktv), true, Section.KTV);
-            }
-
-            @Override
-            public void onFailure(Call<KtvTypeListResponse> call, Throwable t) {
-                bindCottageKtvOptions(container, emptyState, new ArrayList<>(), getString(R.string.service_type_ktv), true, Section.KTV);
-            }
-        });
+    /** Whether a browse list has already been bound once; the background refresh uses this to
+     *  keep what's on screen when a later poll fails, instead of wiping it to "nothing here". */
+    private static boolean hasLoadedOnce(LinearLayout container) {
+        return container.getTag() != null;
     }
 
-    private void bindRoomTypes(LinearLayout container, TextView emptyState, List<RoomTypeAvailability> roomTypes) {
+    /** Records the data just bound to a browse list; false when it is identical to what is
+     *  already showing, so the poll can skip rebuilding (and flickering) every card. */
+    private static boolean markBound(LinearLayout container, Object data) {
+        Object previous = container.getTag();
+        if (previous != null && LiveSync.sameData(previous, data)) {
+            return false;
+        }
+        container.setTag(data);
+        return true;
+    }
+
+    private void bindRoomTypes(LinearLayout container, TextView emptyState, List<RoomTypeAvailability> allRoomTypes) {
+        // A room type with no available unit is not listed at all.
+        List<RoomTypeAvailability> roomTypes = new ArrayList<>();
+        for (RoomTypeAvailability roomType : allRoomTypes) {
+            if (roomType.available_quantity > 0) {
+                roomTypes.add(roomType);
+            }
+        }
+        if (!markBound(container, roomTypes)) {
+            return;
+        }
         emptyState.setVisibility(roomTypes.isEmpty() ? View.VISIBLE : View.GONE);
         container.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
@@ -1051,8 +1185,18 @@ public class LandingActivity extends Activity {
         }
     }
 
-    private void bindCottageKtvOptions(LinearLayout container, TextView emptyState, List<CottageKtvOption> options,
+    private void bindCottageKtvOptions(LinearLayout container, TextView emptyState, List<CottageKtvOption> allOptions,
                                         String fallbackCategory, boolean bookable, Section origin) {
+        // A cottage type / KTV unit that is not available is not listed at all.
+        List<CottageKtvOption> options = new ArrayList<>();
+        for (CottageKtvOption option : allOptions) {
+            if (option.available_quantity > 0) {
+                options.add(option);
+            }
+        }
+        if (!markBound(container, options)) {
+            return;
+        }
         emptyState.setVisibility(options.isEmpty() ? View.VISIBLE : View.GONE);
         container.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
@@ -1113,10 +1257,14 @@ public class LandingActivity extends Activity {
     private String formatPriceBreakdown(List<PriceBreakdownEntry> entries) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < entries.size(); i++) {
-            if (i > 0) {
+            PriceBreakdownEntry entry = entries.get(i);
+            // Overnight is no longer offered for Cottages — hide its price line.
+            if (ReservationCatalog.RATE_TYPE_OVERNIGHT.equals(entry.label)) {
+                continue;
+            }
+            if (sb.length() > 0) {
                 sb.append('\n');
             }
-            PriceBreakdownEntry entry = entries.get(i);
             sb.append(getString(R.string.format_price_breakdown_line, entry.label, formatMoney(entry.amount)));
         }
         return sb.toString();
@@ -1184,17 +1332,17 @@ public class LandingActivity extends Activity {
         View bookButton = card.findViewById(R.id.roomTypeCardBookButton);
         bookButton.setVisibility(bookable ? View.VISIBLE : View.GONE);
         if (bookable) {
-            bookButton.setOnClickListener(v -> handleCardTap(origin, roomTypeName, categoryName,
+            bookButton.setOnClickListener(ClickGuard.wrap(v -> handleCardTap(origin, roomTypeName, categoryName,
                     capacity, description, pricePerNight, variantId, imagePathForStorage, priceBreakdown, availableQty,
-                    PendingRoomSelection.PURPOSE_BOOK));
+                    PendingRoomSelection.PURPOSE_BOOK)));
         }
 
         View reserveButton = card.findViewById(R.id.roomTypeCardReserveButton);
         reserveButton.setVisibility(bookable ? View.VISIBLE : View.GONE);
         if (bookable) {
-            reserveButton.setOnClickListener(v -> handleCardTap(origin, roomTypeName, categoryName,
+            reserveButton.setOnClickListener(ClickGuard.wrap(v -> handleCardTap(origin, roomTypeName, categoryName,
                     capacity, description, pricePerNight, variantId, imagePathForStorage, priceBreakdown, availableQty,
-                    PendingRoomSelection.PURPOSE_RESERVE));
+                    PendingRoomSelection.PURPOSE_RESERVE)));
         }
     }
 
@@ -1221,17 +1369,7 @@ public class LandingActivity extends Activity {
 
     /** Loads a photo from the backend, falling back to a placeholder icon. */
     private void loadImage(ImageView imageView, String imagePath) {
-        String url = ApiClient.imageUrl(imagePath);
-        if (url == null) {
-            imageView.setImageResource(R.drawable.ic_bed);
-            return;
-        }
-        Glide.with(this)
-                .load(url)
-                .placeholder(R.drawable.ic_bed)
-                .error(R.drawable.ic_bed)
-                .centerCrop()
-                .into(imageView);
+        ImageLoader.load(imageView, ApiClient.imageUrl(imagePath), R.drawable.ic_bed);
     }
 
     private String formatMoney(double amount) {
@@ -1272,7 +1410,7 @@ public class LandingActivity extends Activity {
         navBar.post(() -> v.setPadding(v.getPaddingLeft(), v.getPaddingTop() + navBar.getHeight(),
                 v.getPaddingRight(), v.getPaddingBottom()));
         ((TextView) v.findViewById(R.id.roomOverviewHeaderTitle)).setText(headerTitleRes);
-        v.findViewById(R.id.roomOverviewBackButton).setOnClickListener(view -> showCategory(roomOverviewOrigin));
+        v.findViewById(R.id.roomOverviewBackButton).setOnClickListener(ClickGuard.wrap(view -> showCategory(roomOverviewOrigin)));
 
         // Image
         ImageView imageView = v.findViewById(R.id.roomOverviewImage);
@@ -1327,7 +1465,7 @@ public class LandingActivity extends Activity {
         Button ctaButton = v.findViewById(R.id.roomOverviewBookNowButton);
         boolean reserve = room.purpose == PendingRoomSelection.PURPOSE_RESERVE;
         ctaButton.setText(reserve ? R.string.button_reserve_now : R.string.button_book_now);
-        ctaButton.setOnClickListener(view -> {
+        ctaButton.setOnClickListener(ClickGuard.wrap(view -> {
             Runnable backToThisOverview = () -> showRoomOverview(room);
             if (reserve) {
                 reserveCatalog.showHotelFlow(room.type, room.variantId, backToThisOverview);
@@ -1339,7 +1477,7 @@ public class LandingActivity extends Activity {
             // The wizard's own Dates screen (its "first interface") re-shows the bottom nav;
             // every screen past that hides it again — see HotelBookingFlowController#showScreen,
             // which now owns this for every entry point, not just this one.
-        });
+        }));
 
         setBottomNavHidden(false);
         swapContent(v, true);

@@ -52,7 +52,7 @@
     <string name="landing_gallery_next">Next image</string>
     <string name="landing_about_resort_title">Agua Frio Garden Resort, Inc.</string>
     <string name="landing_about_resort_body">Welcome to Agua Frio Garden Resort, Inc., located at Purok Ramos, Barangay Sta. Cruz, Koronadal City, South Cotabato. We offer a welcoming destination where families, friends, and groups can relax, enjoy quality time together, and create memorable experiences.</string>
-    <string name="landing_about_resort_body2">Discover our resort facilities and services, including swimming pools, cottages for day-use and overnight stays, hotel room accommodations, KTV rooms, and dining services. Whether you\'re planning a family getaway, a gathering with friends, or a special celebration, Agua Frio Garden Resort offers a relaxing environment for your leisure and recreation needs.</string>
+    <string name="landing_about_resort_body2">Discover our resort facilities and services, including swimming pools, cottages for day-use and night-use, hotel room accommodations, KTV rooms, and dining services. Whether you\'re planning a family getaway, a gathering with friends, or a special celebration, Agua Frio Garden Resort offers a relaxing environment for your leisure and recreation needs.</string>
     <string name="landing_contact_title">Official Contact Information</string>
     <string name="landing_contact_phone">+63 933 819 9018</string>
     <string name="landing_contact_email">aguafrioinc@gmail.com</string>
@@ -136,6 +136,8 @@
     <string name="hint_otp_code">Enter 6-digit code</string>
     <string name="button_verify">VERIFY</string>
     <string name="resend_code">Resend Code</string>
+    <string name="recovery_code_sent">A password reset code was sent to %1$s.</string>
+    <string name="error_recovery_failed">Something went wrong. Please try again.</string>
     <string name="resend_code_sent">A new code has been sent to your email.</string>
     <string name="error_otp_required">Please enter the 6-digit code.</string>
     <string name="account_created_message">Account created successfully! You can now log in.</string>
@@ -349,6 +351,23 @@
     <string name="row_change_password_subtitle">Update your account password</string>
     <string name="row_valid_id_title">Valid ID</string>
     <string name="row_valid_id_subtitle">View your uploaded valid ID</string>
+    <string name="row_statement_title">Statement of Account</string>
+    <string name="row_statement_subtitle">Your payments and balances per booking</string>
+    <string name="statement_title">Statement of Account</string>
+    <string name="statement_total_billed">Total billed</string>
+    <string name="statement_total_paid">Total paid</string>
+    <string name="statement_balance_due">Balance due</string>
+    <string name="statement_empty">You have no bookings yet, so there is no statement to show.</string>
+    <string name="statement_no_payments">No payment recorded yet</string>
+    <string name="statement_payment_line">%1$s · %2$s</string>
+    <string name="statement_reference_line">Ref. %1$s</string>
+    <string name="statement_payment_pending">Pending verification</string>
+    <string name="statement_payment_verified">Verified</string>
+    <string name="statement_payment_cancelled">Cancelled</string>
+    <string name="statement_line_total">Total</string>
+    <string name="statement_line_paid">Paid</string>
+    <string name="statement_line_balance">Balance</string>
+    <string name="statement_method_gcash">GCash</string>
     <string name="row_enable_notifications_title">Enable Notifications</string>
     <string name="row_enable_notifications_subtitle">Get updates on your bookings</string>
     <string name="row_dark_mode_title">Dark Mode</string>
@@ -415,7 +434,10 @@
     <string name="reservation_cancelled_notification_body_no_reason">Your reservation was cancelled by the resort.</string>
     <string name="reservation_booked_notification_title">Reservation Confirmed</string>
     <string name="reservation_booked_notification_body">Your reservation has been confirmed and is now booked.</string>
+    <string name="guest_alerts_channel_name">Resort updates</string>
+    <string name="guest_alerts_channel_desc">Updates from the resort staff, such as payments received and replies to your feedback</string>
     <string name="notif_button_view_reservation">VIEW RESERVATION</string>
+    <string name="notif_button_view_feedback">VIEW RESPONSE</string>
     <string name="badge_count_overflow">9+</string>
 
     <string name="chip_room_availability">Check Room Availability</string>
@@ -575,7 +597,6 @@
     <string-array name="cottage_use_options">
         <item>@string/rate_type_day</item>
         <item>@string/rate_type_night</item>
-        <item>@string/rate_type_overnight</item>
     </string-array>
     <string name="label_total_guest">Total Guest</string>
     <string name="label_start_time">Start Time</string>
@@ -586,6 +607,7 @@
     <string name="toast_ktv_duration_unavailable">No KTV room offers that duration.</string>
     <string name="label_ktv_no_rates">No KTV rates are available right now.</string>
     <string name="toast_ktv_no_rates">KTV rates are not available right now. Please try again later.</string>
+    <string name="format_ktv_session_hours">KTV Session: %1$d Hours</string>
     <string name="label_guest_count">Guest Count</string>
     <string name="button_select">SELECT</string>
     <string name="button_selected">SELECTED</string>
@@ -615,6 +637,9 @@
     <string name="unavailable_room_message">This room is unavailable for your selected dates.</string>
     <string name="unavailable_cottage_message">This cottage is unavailable for your selected schedule.</string>
     <string name="unavailable_ktv_message">This KTV room is unavailable for your selected schedule.</string>
+    <string name="empty_room_selection">No rooms are available for your selected dates and guests. Please go back and try different ones.</string>
+    <string name="empty_cottage_selection">No cottages are available for your selected date and schedule. Please go back and try a different one.</string>
+    <string name="empty_ktv_selection">No KTV rooms are available for your selected schedule. Please go back and try a different one.</string>
     <string name="toast_feature_coming_soon">This feature is coming soon.</string>
 
     <!-- "Add Another ..." browse screens (see HotelBookingFlowController's bindRoomBrowse/
@@ -649,6 +674,7 @@
     <string name="dialog_no_amenity_title">No Amenities Selected</string>
     <string name="dialog_no_amenity_message">You haven\'t selected any amenities. Please select an amenity or tap Skip to continue without one.</string>
     <string name="button_loading">Loading…</string>
+    <string name="toast_availability_changed">Availability just changed, so your selection was updated.</string>
     <string name="toast_amenities_load_failed">We couldn\'t load amenities right now. Please try again.</string>
 
 
@@ -725,11 +751,12 @@
     <string name="label_booking_reference">Booking Reference</string>
     <string name="button_view_booking">View Booking</string>
     <string name="button_back_to_home">Back to Home</string>
-    <string name="toast_view_booking_placeholder">Your booking history isn\'t available yet — check back soon!</string>
 
     <!-- Reservation Summary's RESERVE button confirmation (see
          HotelBookingFlowController#bindReservationConfirmed) — a terminal, mock "request
          submitted" screen, no real backend endpoint yet. -->
+    <string name="reservation_payment_reminder_title">Payment Reminder</string>
+    <string name="reservation_payment_reminder_message">Please complete your payment within 7 days. Please note that your reservation may be forfeited if another guest completes the payment before you. You will receive a notification if another guest has already paid for the same reservation.</string>
     <string name="reservation_confirmed_title">Reservation Request Submitted</string>
     <string name="reservation_confirmed_message">Your reservation request has been successfully submitted. Please settle the required thirty percent (30%) down payment within seven (7) calendar days to secure and confirm your reservation.\n\nOur staff will verify your payment and reservation details. You will receive a confirmation notification once your reservation has been successfully confirmed.</string>
     <string name="button_view_reservation">View Reservation</string>
@@ -793,5 +820,36 @@
 
     <string name="notification_screen_title">Notifications</string>
     <string name="notification_empty_message">You have no notifications yet.</string>
+    <string name="notification_archived_empty_message">No archived notifications.</string>
+    <string name="notification_tab_inbox">INBOX</string>
+    <string name="notification_tab_archived">ARCHIVED</string>
+    <string name="notification_mark_all_read">MARK ALL AS READ</string>
+    <string name="notification_mark_read">MARK AS READ</string>
+    <string name="notification_mark_unread">MARK AS UNREAD</string>
+    <string name="notification_archive">ARCHIVE</string>
+    <string name="notification_unarchive">UNARCHIVE</string>
+    <string name="notification_tab_inbox_count">INBOX (%1$d)</string>
+    <string name="notification_more_options">More options</string>
+    <string name="notification_group_today">Today</string>
+    <string name="notification_group_yesterday">Yesterday</string>
+    <string name="notification_group_earlier">Earlier</string>
+    <string name="notification_yesterday_at">Yesterday, %1$s</string>
+    <string name="notification_menu_mark_all_read">Mark all as read</string>
+
+    <string name="toast_cottage_seats_needed">Your party of %1$d needs cottages that seat at least %1$d guests together. Your selection seats %2$d, so please add more cottages.</string>
+
+    <!-- Promo Coupons (Summary page card + picker) -->
+    <string name="promo_coupons_title">Promo Coupons</string>
+    <string name="promo_coupons_none">No available coupons</string>
+    <string name="promo_coupons_checking">Checking available coupons…</string>
+    <string name="promo_coupons_failed">Couldn\'t check coupons. Tap to try again.</string>
+    <string name="promo_coupons_applied">%1$s · %2$s applied</string>
+    <plurals name="promo_coupons_available">
+        <item quantity="one">%d coupon available</item>
+        <item quantity="other">%d coupons available</item>
+    </plurals>
+    <string name="promo_coupon_you_save">You save %1$s</string>
+    <string name="promo_coupon_remove">Remove coupon</string>
+    <string name="label_promo_coupon_discount">Promo Coupon (%1$s)</string>
 
 </resources>

@@ -20,7 +20,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
-        android:fontFamily="serif"
+        android:fontFamily="@font/poppins"
         android:text="@string/recovery_success_heading"
         android:textColor="?attr/textPrimary"
         android:textSize="20sp"

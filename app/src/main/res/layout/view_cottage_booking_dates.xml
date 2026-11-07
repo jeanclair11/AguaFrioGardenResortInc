@@ -43,12 +43,12 @@
                 android:layout_marginTop="22dp"
                 android:text="@string/label_date" />
 
-            <LinearLayout
+            <com.aguafriogarden.resortinc.AuthInputField
                 android:id="@+id/cottageDatesDateField"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_selector"
+                android:background="@drawable/bg_auth_input"
                 android:clickable="true"
                 android:focusable="true"
                 android:orientation="horizontal"
@@ -82,8 +82,8 @@
                     android:src="@drawable/ic_chevron_down"
                     android:importantForAccessibility="no" />
 
-            </LinearLayout>
-            <TextView android:id="@+id/cottageDatesDateError" style="@style/FieldError" />
+            </com.aguafriogarden.resortinc.AuthInputField>
+            <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/cottageDatesDateError" style="@style/AuthFieldError" />
 
             <!-- Cottage Use (Day Use/Night Use/Overnight) — replaces a raw time picker, same
                  concept as the receptionist side's own Create Reservation > Cottage screen; see
@@ -94,14 +94,11 @@
                 android:layout_marginTop="18dp"
                 android:text="@string/label_cottage_use" />
 
-            <LinearLayout style="@style/InputField" android:paddingEnd="4dp">
+            <com.aguafriogarden.resortinc.AuthInputField style="@style/AuthInputField">
                 <Spinner
                     android:id="@+id/cottageDatesUseSpinner"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="@null"
-                    android:spinnerMode="dropdown" />
-            </LinearLayout>
+                    style="@style/AuthSpinner" />
+            </com.aguafriogarden.resortinc.AuthInputField>
 
             <!-- Guests -->
             <TextView
@@ -109,11 +106,11 @@
                 android:layout_marginTop="18dp"
                 android:text="@string/label_stay_guests" />
 
-            <LinearLayout
+            <com.aguafriogarden.resortinc.AuthInputField
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_selector"
+                android:background="@drawable/bg_auth_input"
                 android:orientation="vertical"
                 android:padding="14dp">
 
@@ -257,7 +254,7 @@
 
                 </LinearLayout>
 
-            </LinearLayout>
+            </com.aguafriogarden.resortinc.AuthInputField>
 
             <TextView
                 android:layout_width="match_parent"

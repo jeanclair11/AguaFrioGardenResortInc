@@ -7,11 +7,15 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.MediaStore;
 import android.text.InputFilter;
+import android.util.Log;
 import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -32,6 +36,7 @@ import android.widget.Toast;
 
 import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.ErrorResponse;
+import com.aguafriogarden.resortinc.network.ForgotPasswordResponse;
 import com.aguafriogarden.resortinc.network.MessageResponse;
 import com.aguafriogarden.resortinc.network.RegisterResponse;
 import com.aguafriogarden.resortinc.network.VerifyResponse;
@@ -143,6 +148,9 @@ public class MainActivity extends Activity {
     private static class RecoveryState {
         String email = "";
         String otp = "";
+        String resetToken = "";
+        /** True while a request is in flight, so a double tap can't send two codes. */
+        boolean busy;
     }
 
     private SignUpState signUpState = new SignUpState();
@@ -412,10 +420,10 @@ public class MainActivity extends Activity {
         ImageView toggle = card.findViewById(R.id.passwordToggle);
         AuthUiUtils.attachPasswordToggle(password, toggle);
 
-        card.findViewById(R.id.forgotPassword).setOnClickListener(v ->
-                showScreen(SCREEN_RECOVERY, true));
-        card.findViewById(R.id.goToSignUp).setOnClickListener(v ->
-                showScreen(SCREEN_SIGN_UP, true));
+        card.findViewById(R.id.forgotPassword).setOnClickListener(ClickGuard.wrap(v ->
+                showScreen(SCREEN_RECOVERY, true)));
+        card.findViewById(R.id.goToSignUp).setOnClickListener(ClickGuard.wrap(v ->
+                showScreen(SCREEN_SIGN_UP, true)));
 
         // Editing a field clears its stale error.
         AuthUiUtils.afterTextChanged(username, () -> {
@@ -438,7 +446,7 @@ public class MainActivity extends Activity {
             return false;
         });
 
-        loginButton.setOnClickListener(v -> attemptLogin(card));
+        loginButton.setOnClickListener(ClickGuard.wrap(v -> attemptLogin(card)));
         updateLoginButton(card);
     }
 
@@ -559,9 +567,7 @@ public class MainActivity extends Activity {
         List<String> options = new ArrayList<>();
         options.add(getString(promptRes));
         options.addAll(Arrays.asList(getResources().getStringArray(optionsRes)));
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this, android.R.layout.simple_spinner_item, options);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> adapter = new AuthSpinnerAdapter(this, options);
         spinner.setAdapter(adapter);
         spinner.setSelection(selection);
     }
@@ -584,9 +590,7 @@ public class MainActivity extends Activity {
             List<String> options = new ArrayList<>();
             options.add(getString(R.string.province_prompt));
             options.addAll(provinces);
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                    this, android.R.layout.simple_spinner_item, options);
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            ArrayAdapter<String> adapter = new AuthSpinnerAdapter(this, options);
             provinceSpinner.setAdapter(adapter);
 
             int restoreIndex = s.province.isEmpty() ? 0 : Math.max(0, options.indexOf(s.province));
@@ -624,9 +628,7 @@ public class MainActivity extends Activity {
             List<String> options = new ArrayList<>();
             options.add(getString(R.string.city_prompt));
             options.addAll(cities);
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                    this, android.R.layout.simple_spinner_item, options);
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            ArrayAdapter<String> adapter = new AuthSpinnerAdapter(this, options);
             citySpinner.setAdapter(adapter);
             citySpinner.setEnabled(true);
 
@@ -665,9 +667,7 @@ public class MainActivity extends Activity {
             List<String> options = new ArrayList<>();
             options.add(getString(R.string.barangay_prompt));
             options.addAll(barangays);
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                    this, android.R.layout.simple_spinner_item, options);
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            ArrayAdapter<String> adapter = new AuthSpinnerAdapter(this, options);
             barangaySpinner.setAdapter(adapter);
             barangaySpinner.setEnabled(true);
 
@@ -699,9 +699,8 @@ public class MainActivity extends Activity {
 
     private void setSingleOptionSpinner(Spinner spinner, int promptRes) {
         spinner.setOnItemSelectedListener(null);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item,
+        ArrayAdapter<String> adapter = new AuthSpinnerAdapter(this,
                 Collections.singletonList(getString(promptRes)));
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
         spinner.setSelection(0);
     }
@@ -717,7 +716,7 @@ public class MainActivity extends Activity {
 
         EditText birthDate = card.findViewById(R.id.birthDateField);
         birthDate.setText(s.birthDate);
-        birthDate.setOnClickListener(v -> showDatePicker(birthDate));
+        birthDate.setOnClickListener(ClickGuard.wrap(v -> showDatePicker(birthDate)));
 
         EditText phoneNumber = card.findViewById(R.id.phoneNumberField);
         phoneNumber.setFilters(new InputFilter[]{DIGITS_ONLY_FILTER, new InputFilter.LengthFilter(PHONE_NUMBER_LENGTH)});
@@ -725,20 +724,20 @@ public class MainActivity extends Activity {
 
         setUpAddressSpinners(card);
 
-        card.findViewById(R.id.signUp1BackButton).setOnClickListener(v -> {
+        card.findViewById(R.id.signUp1BackButton).setOnClickListener(ClickGuard.wrap(v -> {
             saveSignUpStep1(card);
             showScreen(SCREEN_LOGIN, true);
-        });
-        card.findViewById(R.id.goToLogin).setOnClickListener(v -> {
+        }));
+        card.findViewById(R.id.goToLogin).setOnClickListener(ClickGuard.wrap(v -> {
             saveSignUpStep1(card);
             showScreen(SCREEN_LOGIN, true);
-        });
-        card.findViewById(R.id.signUp1ProceedButton).setOnClickListener(v -> {
+        }));
+        card.findViewById(R.id.signUp1ProceedButton).setOnClickListener(ClickGuard.wrap(v -> {
             saveSignUpStep1(card);
             if (validateSignUpStep1(card)) {
                 showScreen(SCREEN_SIGN_UP_2, true);
             }
-        });
+        }));
     }
 
     private void saveSignUpStep1(View card) {
@@ -802,16 +801,16 @@ public class MainActivity extends Activity {
         AuthUiUtils.afterTextChanged(password, () ->
                 AuthUiUtils.updatePasswordStrength(password.getText().toString(), strengthText));
 
-        card.findViewById(R.id.signUp2BackButton).setOnClickListener(v -> {
+        card.findViewById(R.id.signUp2BackButton).setOnClickListener(ClickGuard.wrap(v -> {
             saveSignUpStep2(card);
             showScreen(SCREEN_SIGN_UP, true);
-        });
-        card.findViewById(R.id.signUp2ProceedButton).setOnClickListener(v -> {
+        }));
+        card.findViewById(R.id.signUp2ProceedButton).setOnClickListener(ClickGuard.wrap(v -> {
             saveSignUpStep2(card);
             if (validateSignUpStep2(card)) {
                 showScreen(SCREEN_SIGN_UP_3, true);
             }
-        });
+        }));
     }
 
     private void saveSignUpStep2(View card) {
@@ -870,15 +869,15 @@ public class MainActivity extends Activity {
             }
         });
 
-        card.findViewById(R.id.uploadGovIdButton).setOnClickListener(v -> pickImage(PICK_IMAGE_GOV_ID));
-        card.findViewById(R.id.captureGovIdButton).setOnClickListener(v -> captureGovId());
-        card.findViewById(R.id.uploadProfileButton).setOnClickListener(v -> pickImage(PICK_IMAGE_PROFILE));
+        card.findViewById(R.id.uploadGovIdButton).setOnClickListener(ClickGuard.wrap(v -> pickImage(PICK_IMAGE_GOV_ID)));
+        card.findViewById(R.id.captureGovIdButton).setOnClickListener(ClickGuard.wrap(v -> captureGovId()));
+        card.findViewById(R.id.uploadProfileButton).setOnClickListener(ClickGuard.wrap(v -> pickImage(PICK_IMAGE_PROFILE)));
 
-        card.findViewById(R.id.signUp3BackButton).setOnClickListener(v -> {
+        card.findViewById(R.id.signUp3BackButton).setOnClickListener(ClickGuard.wrap(v -> {
             saveSignUpStep3(card);
             showScreen(SCREEN_SIGN_UP_2, true);
-        });
-        createButton.setOnClickListener(v -> attemptCreateAccount(card));
+        }));
+        createButton.setOnClickListener(ClickGuard.wrap(v -> attemptCreateAccount(card)));
     }
 
     private void saveSignUpStep3(View card) {
@@ -943,6 +942,7 @@ public class MainActivity extends Activity {
 
             @Override
             public void onFailure(Call<RegisterResponse> call, Throwable t) {
+                Log.e("SignUp", "register request failed", t);
                 setCreateAccountLoading(card, false);
                 Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_LONG).show();
             }
@@ -997,27 +997,84 @@ public class MainActivity extends Activity {
         return (value == null || value.isEmpty()) ? null : textPart(value);
     }
 
-    /** Reads the picked gallery image or captured camera preview into an upload-ready request body. */
+    /** Longest edge, in pixels, of an uploaded photo; phone cameras produce far more than the server needs. */
+    private static final int UPLOAD_MAX_EDGE_PX = 1600;
+    private static final int UPLOAD_JPEG_QUALITY = 80;
+
+    /**
+     * Reads the picked gallery image or captured camera preview into an upload-ready request body,
+     * downscaled and re-encoded as JPEG so multi-megabyte photos don't time out the sign-up request.
+     */
     private RequestBody imagePart(Uri uri, Bitmap bitmap) {
         try {
+            Bitmap source = bitmap;
             if (uri != null) {
-                try (InputStream in = getContentResolver().openInputStream(uri)) {
-                    if (in == null) {
-                        return null;
-                    }
-                    byte[] bytes = readAllBytes(in);
-                    String mime = getContentResolver().getType(uri);
-                    return RequestBody.create(bytes, MediaType.parse(mime != null ? mime : "image/jpeg"));
-                }
-            } else if (bitmap != null) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out);
-                return RequestBody.create(out.toByteArray(), MediaType.parse("image/jpeg"));
+                source = decodeScaled(uri);
             }
+            if (source == null) {
+                return null;
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            Bitmap scaled = scaleDown(source);
+            scaled.compress(Bitmap.CompressFormat.JPEG, UPLOAD_JPEG_QUALITY, out);
+            return RequestBody.create(out.toByteArray(), MediaType.parse("image/jpeg"));
         } catch (IOException e) {
             return null;
         }
-        return null;
+    }
+
+    /** Decodes a gallery image at reduced size (never loading the full-resolution bitmap) and applies its EXIF rotation. */
+    private Bitmap decodeScaled(Uri uri) throws IOException {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                return null;
+            }
+            BitmapFactory.decodeStream(in, null, bounds);
+        }
+
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inSampleSize = 1;
+        while (Math.max(bounds.outWidth, bounds.outHeight) / (opts.inSampleSize * 2) >= UPLOAD_MAX_EDGE_PX) {
+            opts.inSampleSize *= 2;
+        }
+        Bitmap decoded;
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) {
+                return null;
+            }
+            decoded = BitmapFactory.decodeStream(in, null, opts);
+        }
+        if (decoded == null) {
+            return null;
+        }
+
+        int orientation = ExifInterface.ORIENTATION_NORMAL;
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in != null) {
+                orientation = new ExifInterface(in).getAttributeInt(
+                        ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+            }
+        }
+        Matrix matrix = new Matrix();
+        switch (orientation) {
+            case ExifInterface.ORIENTATION_ROTATE_90: matrix.postRotate(90); break;
+            case ExifInterface.ORIENTATION_ROTATE_180: matrix.postRotate(180); break;
+            case ExifInterface.ORIENTATION_ROTATE_270: matrix.postRotate(270); break;
+            default: return decoded;
+        }
+        return Bitmap.createBitmap(decoded, 0, 0, decoded.getWidth(), decoded.getHeight(), matrix, true);
+    }
+
+    private static Bitmap scaleDown(Bitmap src) {
+        int longest = Math.max(src.getWidth(), src.getHeight());
+        if (longest <= UPLOAD_MAX_EDGE_PX) {
+            return src;
+        }
+        float ratio = (float) UPLOAD_MAX_EDGE_PX / longest;
+        return Bitmap.createScaledBitmap(src,
+                Math.round(src.getWidth() * ratio), Math.round(src.getHeight() * ratio), true);
     }
 
     private static MultipartBody.Part toMultipart(String fieldName, String filename, RequestBody body) {
@@ -1040,8 +1097,8 @@ public class MainActivity extends Activity {
 
         AuthUiUtils.afterTextChanged(otpField, () -> otpError.setVisibility(View.GONE));
 
-        card.findViewById(R.id.verifyOtpButton).setOnClickListener(v -> attemptVerifyOtp(card));
-        card.findViewById(R.id.resendOtpButton).setOnClickListener(v -> attemptResendOtp(card));
+        card.findViewById(R.id.verifyOtpButton).setOnClickListener(ClickGuard.wrap(v -> attemptVerifyOtp(card)));
+        card.findViewById(R.id.resendOtpButton).setOnClickListener(ClickGuard.wrap(v -> attemptResendOtp(card)));
     }
 
     private void attemptVerifyOtp(View card) {
@@ -1205,20 +1262,57 @@ public class MainActivity extends Activity {
         EditText emailField = card.findViewById(R.id.emailField);
         emailField.setText(recoveryState.email);
 
-        card.findViewById(R.id.backToLogin).setOnClickListener(v ->
-                showScreen(SCREEN_LOGIN, true));
+        card.findViewById(R.id.backToLogin).setOnClickListener(ClickGuard.wrap(v ->
+                showScreen(SCREEN_LOGIN, true)));
 
-        card.findViewById(R.id.sendOtpButton).setOnClickListener(v -> {
+        View sendButton = card.findViewById(R.id.sendOtpButton);
+        sendButton.setOnClickListener(ClickGuard.wrap(v -> {
             String email = emailField.getText().toString().trim();
             if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
                 Toast.makeText(this, R.string.error_email_invalid, Toast.LENGTH_SHORT).show();
                 return;
             }
             recoveryState.email = email;
-            // Mock API call success
-            Toast.makeText(this, "OTP sent to " + email, Toast.LENGTH_SHORT).show();
-            showScreen(SCREEN_RECOVERY_OTP, true);
-        });
+            if (recoveryState.busy) {
+                return;
+            }
+            setRecoveryBusy(sendButton, true);
+            ApiClient.authApi().forgotPassword(email).enqueue(new Callback<ForgotPasswordResponse>() {
+                @Override
+                public void onResponse(Call<ForgotPasswordResponse> call, Response<ForgotPasswordResponse> response) {
+                    setRecoveryBusy(sendButton, false);
+                    if (response.isSuccessful() && response.body() != null && response.body().reset_token != null) {
+                        recoveryState.resetToken = response.body().reset_token;
+                        Toast.makeText(MainActivity.this, getString(R.string.recovery_code_sent, email),
+                                Toast.LENGTH_SHORT).show();
+                        showScreen(SCREEN_RECOVERY_OTP, true);
+                    } else {
+                        Toast.makeText(MainActivity.this, recoveryErrorMessage(response.errorBody(), R.string.error_recovery_failed),
+                                Toast.LENGTH_LONG).show();
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<ForgotPasswordResponse> call, Throwable t) {
+                    setRecoveryBusy(sendButton, false);
+                    Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_LONG).show();
+                }
+            });
+        }));
+    }
+
+    private void setRecoveryBusy(View button, boolean busy) {
+        recoveryState.busy = busy;
+        button.setEnabled(!busy);
+        button.setAlpha(busy ? 0.6f : 1f);
+    }
+
+    /** The server's own message for a failed recovery call (unknown email, wrong/expired code,
+     *  weak password...), or the given fallback when the body has none. */
+    private String recoveryErrorMessage(okhttp3.ResponseBody errorBody, int fallbackRes) {
+        ErrorResponse error = ApiClient.parseError(errorBody);
+        String message = error.firstMessage();
+        return message != null && !message.isEmpty() ? message : getString(fallbackRes);
     }
 
     private void bindRecoveryOtpCard(View card) {
@@ -1231,10 +1325,10 @@ public class MainActivity extends Activity {
 
         AuthUiUtils.setupOtpBoxes(boxes, () -> otpError.setVisibility(View.GONE));
 
-        card.findViewById(R.id.backToLogin).setOnClickListener(v ->
-                showScreen(SCREEN_LOGIN, true));
+        card.findViewById(R.id.backToLogin).setOnClickListener(ClickGuard.wrap(v ->
+                showScreen(SCREEN_LOGIN, true)));
 
-        card.findViewById(R.id.verifyOtpButton).setOnClickListener(v -> {
+        card.findViewById(R.id.verifyOtpButton).setOnClickListener(ClickGuard.wrap(v -> {
             StringBuilder sb = new StringBuilder();
             for (EditText box : boxes) sb.append(box.getText().toString().trim());
             String otp = sb.toString();
@@ -1245,12 +1339,47 @@ public class MainActivity extends Activity {
                 return;
             }
             recoveryState.otp = otp;
-            // Mock verification success
-            showScreen(SCREEN_RECOVERY_RESET, true);
-        });
+            if (recoveryState.busy) {
+                return;
+            }
+            View verifyButton = card.findViewById(R.id.verifyOtpButton);
+            setRecoveryBusy(verifyButton, true);
+            ApiClient.authApi().verifyResetCode(recoveryState.resetToken, otp).enqueue(new Callback<MessageResponse>() {
+                @Override
+                public void onResponse(Call<MessageResponse> call, Response<MessageResponse> response) {
+                    setRecoveryBusy(verifyButton, false);
+                    if (response.isSuccessful()) {
+                        showScreen(SCREEN_RECOVERY_RESET, true);
+                    } else {
+                        showError(otpError, recoveryErrorMessage(response.errorBody(), R.string.error_recovery_failed));
+                    }
+                }
 
-        card.findViewById(R.id.resendOtpButton).setOnClickListener(v ->
-                Toast.makeText(this, R.string.resend_code_sent, Toast.LENGTH_SHORT).show());
+                @Override
+                public void onFailure(Call<MessageResponse> call, Throwable t) {
+                    setRecoveryBusy(verifyButton, false);
+                    Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_LONG).show();
+                }
+            });
+        }));
+
+        card.findViewById(R.id.resendOtpButton).setOnClickListener(ClickGuard.wrap(v ->
+                ApiClient.authApi().resendResetCode(recoveryState.resetToken).enqueue(new Callback<MessageResponse>() {
+                    @Override
+                    public void onResponse(Call<MessageResponse> call, Response<MessageResponse> response) {
+                        if (response.isSuccessful()) {
+                            Toast.makeText(MainActivity.this, R.string.resend_code_sent, Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(MainActivity.this, recoveryErrorMessage(response.errorBody(), R.string.error_recovery_failed),
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<MessageResponse> call, Throwable t) {
+                        Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_SHORT).show();
+                    }
+                })));
     }
 
     private void bindRecoveryResetCard(View card) {
@@ -1261,10 +1390,10 @@ public class MainActivity extends Activity {
         AuthUiUtils.attachPasswordToggle(newPass, card.findViewById(R.id.newPasswordToggle));
         AuthUiUtils.attachPasswordToggle(confirmPass, card.findViewById(R.id.confirmPasswordToggle));
 
-        card.findViewById(R.id.backToLogin).setOnClickListener(v ->
-                showScreen(SCREEN_LOGIN, true));
+        card.findViewById(R.id.backToLogin).setOnClickListener(ClickGuard.wrap(v ->
+                showScreen(SCREEN_LOGIN, true)));
 
-        card.findViewById(R.id.resetPasswordButton).setOnClickListener(v -> {
+        card.findViewById(R.id.resetPasswordButton).setOnClickListener(ClickGuard.wrap(v -> {
             String p1 = newPass.getText().toString();
             String p2 = confirmPass.getText().toString();
 
@@ -1279,9 +1408,30 @@ public class MainActivity extends Activity {
                 return;
             }
 
-            // Mock password reset success
-            showScreen(SCREEN_RECOVERY_SUCCESS, true);
-        });
+            if (recoveryState.busy) {
+                return;
+            }
+            View resetButton = card.findViewById(R.id.resetPasswordButton);
+            setRecoveryBusy(resetButton, true);
+            ApiClient.authApi().resetPassword(recoveryState.resetToken, p1, p2).enqueue(new Callback<MessageResponse>() {
+                @Override
+                public void onResponse(Call<MessageResponse> call, Response<MessageResponse> response) {
+                    setRecoveryBusy(resetButton, false);
+                    if (response.isSuccessful()) {
+                        recoveryState = new RecoveryState();
+                        showScreen(SCREEN_RECOVERY_SUCCESS, true);
+                    } else {
+                        showError(error, recoveryErrorMessage(response.errorBody(), R.string.error_recovery_failed));
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<MessageResponse> call, Throwable t) {
+                    setRecoveryBusy(resetButton, false);
+                    Toast.makeText(MainActivity.this, R.string.error_network, Toast.LENGTH_LONG).show();
+                }
+            });
+        }));
 
         AuthUiUtils.afterTextChanged(newPass, () -> error.setVisibility(View.GONE));
         AuthUiUtils.afterTextChanged(confirmPass, () -> error.setVisibility(View.GONE));

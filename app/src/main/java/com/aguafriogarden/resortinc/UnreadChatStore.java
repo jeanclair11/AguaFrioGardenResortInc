@@ -23,6 +23,10 @@ final class UnreadChatStore {
         return unreadCount;
     }
 
+    static boolean isChatVisible() {
+        return chatVisible;
+    }
+
     static void setChatVisible(boolean visible) {
         chatVisible = visible;
     }

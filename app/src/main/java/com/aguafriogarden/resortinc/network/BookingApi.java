@@ -46,6 +46,15 @@ public interface BookingApi {
             @Query("start_time") String startTime,
             @Query("rate_label") String rateLabel);
 
+    /** Same list, with the party size: the server reports a unit whose maximum capacity is below
+     *  {@code guests} as not available (the booking wizard's lookups). */
+    @GET("booking/ktv-units")
+    Call<KtvUnitListResponse> getKtvUnitsForParty(
+            @Query("event_date") String eventDate,
+            @Query("start_time") String startTime,
+            @Query("rate_label") String rateLabel,
+            @Query("guests") Integer guests);
+
     @GET("booking/cottages-ktv")
     Call<CottageKtvListResponse> getCottagesKtv(@Header("Authorization") String bearerToken);
 
@@ -70,14 +79,30 @@ public interface BookingApi {
     Call<CottageAvailabilityResponse> checkCottageAvailability(
             @Header("Authorization") String bearerToken,
             @Field("date") String date,
-            @Field("use") String use);
+            @Field("use") String use,
+            @Field("adults") int adults,
+            @Field("children") int children);
 
     @GET("booking/amenities")
-    Call<AmenityListResponse> getAmenities(@Header("Authorization") String bearerToken);
+    Call<AmenityListResponse> getAmenities(
+            @Header("Authorization") String bearerToken,
+            @Query("facility_type") String facilityType);
 
     /** Every reservation/booking the logged-in guest has, real or still-pending — backs the My
      *  Reservations list, fetched fresh every time it's opened so it survives app restarts and
      *  re-logins (it's never cached locally). */
+    /**
+     * Promo Coupons (Promo Management "Promo Discount" promos) the booking qualifies for. Takes the
+     * same form fields the matching submit would send (see HotelBookingFlowController), so the
+     * server judges dates, nights, guests, facilities and usage limit on exactly what will be
+     * booked; only eligible coupons come back.
+     */
+    @FormUrlEncoded
+    @POST("booking/promo-coupons")
+    Call<PromoCouponListResponse> getPromoCoupons(
+            @Header("Authorization") String bearerToken,
+            @FieldMap Map<String, String> fields);
+
     @GET("booking/my-bookings")
     Call<MyBookingsResponse> getMyBookings(@Header("Authorization") String bearerToken);
 
