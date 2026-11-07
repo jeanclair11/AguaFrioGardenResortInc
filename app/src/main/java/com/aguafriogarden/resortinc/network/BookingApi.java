@@ -73,7 +73,9 @@ public interface BookingApi {
             @Field("use") String use);
 
     @GET("booking/amenities")
-    Call<AmenityListResponse> getAmenities(@Header("Authorization") String bearerToken);
+    Call<AmenityListResponse> getAmenities(
+            @Header("Authorization") String bearerToken,
+            @Query("facility_type") String facilityType);
 
     /** Every reservation/booking the logged-in guest has, real or still-pending — backs the My
      *  Reservations list, fetched fresh every time it's opened so it survives app restarts and

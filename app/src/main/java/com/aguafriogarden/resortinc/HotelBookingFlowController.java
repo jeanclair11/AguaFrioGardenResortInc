@@ -60,10 +60,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import okhttp3.MediaType;
@@ -853,7 +855,7 @@ final class HotelBookingFlowController {
 
     private void syncAmenities(String bearer, int screen, View screenView) {
         liveSyncInFlight = true;
-        ApiClient.bookingApi().getAmenities(bearer).enqueue(new Callback<AmenityListResponse>() {
+        ApiClient.bookingApi().getAmenities(bearer, amenityFacilityType()).enqueue(new Callback<AmenityListResponse>() {
             @Override
             public void onResponse(Call<AmenityListResponse> call, Response<AmenityListResponse> response) {
                 liveSyncInFlight = false;
@@ -3998,7 +4000,7 @@ final class HotelBookingFlowController {
         nextButton.setEnabled(false);
         nextButton.setText(R.string.button_loading);
 
-        ApiClient.bookingApi().getAmenities("Bearer " + token).enqueue(new Callback<AmenityListResponse>() {
+        ApiClient.bookingApi().getAmenities("Bearer " + token, amenityFacilityType()).enqueue(new Callback<AmenityListResponse>() {
             @Override
             public void onResponse(Call<AmenityListResponse> call, Response<AmenityListResponse> response) {
                 isLoadingAmenities = false;
@@ -4008,6 +4010,13 @@ final class HotelBookingFlowController {
                 if (response.isSuccessful() && response.body() != null) {
                     availableAmenities = response.body().amenities != null
                             ? response.body().amenities : new ArrayList<>();
+                    // Drop picks for amenities no longer offered for this facility type, so a
+                    // stale quantity can never be billed or submitted for a hidden amenity.
+                    Set<Integer> offeredIds = new HashSet<>();
+                    for (AmenityAvailability amenity : availableAmenities) {
+                        offeredIds.add(amenity.id);
+                    }
+                    amenityQuantities.keySet().retainAll(offeredIds);
                     for (AmenityAvailability amenity : availableAmenities) {
                         amenityQuantities.putIfAbsent(amenity.id, 0);
                     }
@@ -4123,6 +4132,23 @@ final class HotelBookingFlowController {
             activeContinuation = CONTINUATION_NONE;
             multiAdvance((Button) sourceButton);
         });
+    }
+
+    /**
+     * The Admin Amenity Management facility type the Choose Amenity list must match: the
+     * backend returns only amenities tagged for it (or untagged ones). Amenities in a
+     * multi-facility run belong to the Hotel Room booking, so that is always "room".
+     */
+    private String amenityFacilityType() {
+        if (!multiMode) {
+            if (activeContinuation == CONTINUATION_COTTAGE) {
+                return "cottage";
+            }
+            if (activeContinuation == CONTINUATION_KTV) {
+                return "ktv_room";
+            }
+        }
+        return "room";
     }
 
     private boolean amenityCanIncrement(AmenityAvailability amenity, int currentQty) {
