@@ -213,6 +213,17 @@
 
             </FrameLayout>
 
+            <!-- Package Promo carousel (see PackageBanners), above the gallery; hidden until the
+                 admin has a package on sale. 16dp side margins match the banner width maths. -->
+            <FrameLayout
+                android:id="@+id/landingPackagesSlot"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="22dp"
+                android:layout_marginEnd="16dp"
+                android:visibility="gone" />
+
             <!-- Gallery -->
             <LinearLayout
                 android:layout_width="match_parent"

@@ -297,6 +297,8 @@ public class LandingActivity extends Activity {
             }
             badgeHandler.post(badgeTick);
         }
+        homePackagesHandler.removeCallbacks(homePackagesTick);
+        homePackagesHandler.post(homePackagesTick);
         if (currentCategoryFetch != null) {
             // Catch up on whatever changed while the app was in the background right away,
             // rather than showing stale cards until the first poll tick.
@@ -313,6 +315,7 @@ public class LandingActivity extends Activity {
             badgeHandler.removeCallbacks(badgeTick);
         }
         stopCategoryRefresh();
+        homePackagesHandler.removeCallbacks(homePackagesTick);
     }
 
     @Override
@@ -335,7 +338,7 @@ public class LandingActivity extends Activity {
     /** Steps back through whichever sub-screen is showing before falling through to the default (exit) behavior. */
     private boolean consumeBackPress() {
         if (currentSection == Section.ROOM_OVERVIEW) {
-            showCategory(roomOverviewOrigin);
+            showSectionRoot(roomOverviewOrigin);
             return true;
         }
         if (loggedIn) {
@@ -441,9 +444,35 @@ public class LandingActivity extends Activity {
 
     // ---- Package Promos ---------------------------------------------------------------------
 
-    /** Loads the packages on sale into the carousel above a browse list. A failed poll leaves
-     *  whatever is already showing in place. */
-    private void fetchPackagePromos(FrameLayout slot, Section origin) {
+    private static final long HOME_PACKAGES_REFRESH_MS = 8000L;
+    private final Handler homePackagesHandler = new Handler(Looper.getMainLooper());
+    private final Runnable homePackagesTick = new Runnable() {
+        @Override
+        public void run() {
+            if (currentSection == Section.HOME) {
+                fetchHomePackages();
+            }
+            homePackagesHandler.postDelayed(this, HOME_PACKAGES_REFRESH_MS);
+        }
+    };
+
+    /** Back target of a screen that was opened from the Home page or one of the browse lists. */
+    private void showSectionRoot(Section origin) {
+        if (origin == Section.HOME) {
+            showHome();
+        } else {
+            showCategory(origin);
+        }
+    }
+
+    /** Loads the packages on sale into the carousel above the Home gallery. Re-run while Home is
+     *  showing, so an admin edit, deactivation or expiry appears without reopening the app. A
+     *  failed poll leaves whatever is already showing in place. */
+    private void fetchHomePackages() {
+        FrameLayout slot = findViewById(R.id.landingPackagesSlot);
+        if (slot == null) {
+            return;
+        }
         ApiClient.bookingApi().getPackagePromos().enqueue(new Callback<PackagePromoListResponse>() {
             @Override
             public void onResponse(Call<PackagePromoListResponse> call, Response<PackagePromoListResponse> response) {
@@ -451,7 +480,7 @@ public class LandingActivity extends Activity {
                     return;
                 }
                 PackageBanners.bind(LandingActivity.this, slot, response.body().packages,
-                        promo -> showPackageDetails(promo, origin));
+                        promo -> showPackageDetails(promo, Section.HOME));
             }
 
             @Override
@@ -477,7 +506,7 @@ public class LandingActivity extends Activity {
         View v = LayoutInflater.from(this).inflate(R.layout.view_package_details, landingContentContainer, false);
         navBar.post(() -> v.setPadding(v.getPaddingLeft(), v.getPaddingTop() + navBar.getHeight(),
                 v.getPaddingRight(), v.getPaddingBottom()));
-        v.findViewById(R.id.packageDetailsBackButton).setOnClickListener(ClickGuard.wrap(view -> showCategory(origin)));
+        v.findViewById(R.id.packageDetailsBackButton).setOnClickListener(ClickGuard.wrap(view -> showSectionRoot(origin)));
 
         ImageLoader.load(v.findViewById(R.id.packageDetailsImage), ApiClient.imageUrl(promo.image_path), R.drawable.ic_bed);
         ((TextView) v.findViewById(R.id.packageDetailsName)).setText(promo.name);
@@ -851,6 +880,7 @@ public class LandingActivity extends Activity {
         setBottomNavHidden(false);
         retintBottomNav();
         updateSwipeChrome();
+        fetchHomePackages();
         if (loggedIn) {
             refreshBadges();
         }
@@ -892,14 +922,6 @@ public class LandingActivity extends Activity {
                 break;
         }
         if (fetchAction != null) {
-            // Package Promos ride along with the category's own refresh, so an admin edit,
-            // deactivation or expiry shows up on the next poll.
-            FrameLayout packageSlot = browse.findViewById(R.id.categoryBrowsePackages);
-            Runnable listFetch = fetchAction;
-            fetchAction = () -> {
-                fetchPackagePromos(packageSlot, section);
-                listFetch.run();
-            };
             fetchAction.run();
             startCategoryRefresh(fetchAction);
         } else {

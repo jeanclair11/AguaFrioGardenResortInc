@@ -272,8 +272,10 @@ final class PackageBanners {
             smoothScrollToPage(page);
         }
 
-        @Override
-        public boolean onTouchEvent(MotionEvent event) {
+        /** Runs for every touch that starts on a banner, including ones a banner's own click handler
+         *  consumes: until the gesture turns out to be vertical, the page's tab-swipe and vertical
+         *  scroll must not take it from the carousel. */
+        private void trackGesture(MotionEvent event) {
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     flung = false;
@@ -291,6 +293,17 @@ final class PackageBanners {
                 default:
                     break;
             }
+        }
+
+        @Override
+        public boolean onInterceptTouchEvent(MotionEvent event) {
+            trackGesture(event);
+            return super.onInterceptTouchEvent(event);
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            trackGesture(event);
             boolean handled = super.onTouchEvent(event);
             int action = event.getActionMasked();
             if ((action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) && !flung) {
