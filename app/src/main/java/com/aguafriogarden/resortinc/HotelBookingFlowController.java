@@ -2117,12 +2117,7 @@ final class HotelBookingFlowController {
             updatePaymentOptionCards(fullCard, partialCard);
         });
 
-        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
-        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
-        termsBox.setChecked(termsChecked);
-        cancellationBox.setChecked(cancellationChecked);
-        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
-        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+        bindPolicyAgreement(v, R.id.hotelBillingProceedButton);
 
         v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (paymentOption == PAYMENT_NONE) {
@@ -2520,12 +2515,7 @@ final class HotelBookingFlowController {
             updatePaymentOptionCards(fullCard, partialCard);
         });
 
-        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
-        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
-        termsBox.setChecked(termsChecked);
-        cancellationBox.setChecked(cancellationChecked);
-        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
-        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+        bindPolicyAgreement(v, R.id.hotelBillingProceedButton);
 
         v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (paymentOption == PAYMENT_NONE) {
@@ -2764,12 +2754,7 @@ final class HotelBookingFlowController {
         bindLine(v.findViewById(R.id.reservationSummaryDownPaymentRow), R.string.label_down_payment_30,
                 computePartialAmount(grandTotal));
 
-        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
-        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
-        termsBox.setChecked(termsChecked);
-        cancellationBox.setChecked(cancellationChecked);
-        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
-        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+        bindPolicyAgreement(v, R.id.reservationSummaryReserveButton);
 
         // Hotel Rooms, Cottages and KTV Rooms all submit a real reservation request to the shared
         // backend (submitReservationRequest / submitCottageReservationRequest /
@@ -4262,12 +4247,7 @@ final class HotelBookingFlowController {
             updatePaymentOptionCards(fullCard, partialCard);
         });
 
-        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
-        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
-        termsBox.setChecked(termsChecked);
-        cancellationBox.setChecked(cancellationChecked);
-        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
-        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+        bindPolicyAgreement(v, R.id.hotelBillingProceedButton);
 
         v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (paymentOption == PAYMENT_NONE) {
@@ -4983,12 +4963,7 @@ final class HotelBookingFlowController {
             updatePaymentOptionCards(fullCard, partialCard);
         });
 
-        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
-        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
-        termsBox.setChecked(termsChecked);
-        cancellationBox.setChecked(cancellationChecked);
-        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
-        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+        bindPolicyAgreement(v, R.id.hotelBillingProceedButton);
 
         v.findViewById(R.id.hotelBillingProceedButton).setOnClickListener(ClickGuard.wrap(view -> {
             if (paymentOption == PAYMENT_NONE) {
@@ -5098,14 +5073,35 @@ final class HotelBookingFlowController {
         bindLine(v.findViewById(R.id.reservationSummaryDownPaymentRow), R.string.label_down_payment_30,
                 computePartialAmount(grandTotal));
 
-        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
-        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
-        termsBox.setChecked(termsChecked);
-        cancellationBox.setChecked(cancellationChecked);
-        termsBox.setOnCheckedChangeListener((button, checked) -> termsChecked = checked);
-        cancellationBox.setOnCheckedChangeListener((button, checked) -> cancellationChecked = checked);
+        bindPolicyAgreement(v, R.id.reservationSummaryReserveButton);
 
         v.findViewById(R.id.reservationSummaryReserveButton).setOnClickListener(ClickGuard.wrap(view -> submitMultiReservation(v)));
+    }
+
+    /**
+     * Wires the Terms and Conditions + Cancellation Policy checkboxes of a Billing or
+     * Reservation Summary screen to its action button: the button stays disabled (greyed, by
+     * bg_button_primary's disabled state) until both boxes are ticked, and re-evaluates on
+     * every tick/untick. The ticks live in termsChecked/cancellationChecked so they survive
+     * stepping back and forward between screens.
+     */
+    private void bindPolicyAgreement(View v, int actionButtonId) {
+        CheckBox termsBox = v.findViewById(R.id.checkboxTerms);
+        CheckBox cancellationBox = v.findViewById(R.id.checkboxCancellation);
+        Button actionButton = v.findViewById(actionButtonId);
+        Runnable refresh = () -> actionButton.setEnabled(termsChecked && cancellationChecked);
+
+        termsBox.setChecked(termsChecked);
+        cancellationBox.setChecked(cancellationChecked);
+        termsBox.setOnCheckedChangeListener((button, checked) -> {
+            termsChecked = checked;
+            refresh.run();
+        });
+        cancellationBox.setOnCheckedChangeListener((button, checked) -> {
+            cancellationChecked = checked;
+            refresh.run();
+        });
+        refresh.run();
     }
 
     /** Adds one facility's block to a multi-facility request, as bracket-notation keys
