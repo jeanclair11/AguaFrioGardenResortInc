@@ -104,14 +104,9 @@ final class HotelBookingFlowController {
     private static final int SCREEN_COTTAGE_DATES = 11;
     // KTV Overview's "Book Now" entry only — see #bindKtvDatesEntry and #showKtvDatesEntry.
     private static final int SCREEN_KTV_DATES = 12;
-    // Hotel Rooms has no selection/browse screens of its own: Choose Your Stay Dates lists the rooms
-    // free for the chosen dates itself (see bindRoomDates), and SCREEN_ROOM_GUESTS follows it.
-    // "Your Selected ..." screens (Cottage/KTV), reached from their dates screens above only.
-    private static final int SCREEN_COTTAGE_SELECTION = 14;
-    private static final int SCREEN_KTV_SELECTION = 15;
-    // "Add Another ..." browse screens (Cottage/KTV), reached from the selection screens above only.
-    private static final int SCREEN_COTTAGE_BROWSE = 17;
-    private static final int SCREEN_KTV_BROWSE = 18;
+    // Hotel Rooms, Cottage and KTV share one shape: the dates (or schedule) screen lists what is free
+    // for it itself (see bindRoomDates / bindCottageDatesEntry / bindKtvDatesEntry), then a Number of
+    // Guests screen (SCREEN_xxx_GUESTS, see bindGuests) comes before Review Your Selection.
     // Cottage/KTV flows' own Review Your Selection, reached from Your Selected Cottage/KTV Room/s
     // only — separate from SCREEN_REVIEW, which is Hotel Rooms-only (stay dates/nights, room rows).
     private static final int SCREEN_COTTAGE_REVIEW = 19;
@@ -158,6 +153,8 @@ final class HotelBookingFlowController {
     // Hotel Rooms: Number of Guests, between Choose Your Stay Dates (dates + rooms) and Review Your
     // Selection. The party never limits the booking — see RoomSelectionRules.
     private static final int SCREEN_ROOM_GUESTS = 39;
+    private static final int SCREEN_COTTAGE_GUESTS = 40;
+    private static final int SCREEN_KTV_GUESTS = 41;
 
     private static final int FAC_ROOM = PendingRoomSelection.TYPE_ROOM;
     private static final int FAC_COTTAGE = PendingRoomSelection.TYPE_COTTAGE;
@@ -278,9 +275,6 @@ final class HotelBookingFlowController {
     // the dates-entry screen's back arrow (and system back, see handleBackPressed) return to
     // whichever picker/Overview screen the flow was entered from.
     private Runnable onBackToOverview;
-    // Whether "other available" alternatives are shown below the originally-chosen item — always
-    // true once that item turns out unavailable, otherwise only after "Add Another Room" is tapped.
-    private boolean selectionShowOthers = false;
 
     // ---- Persisted answers (survive navigating away and back) -----------
     private long checkInMillis = -1;
@@ -303,6 +297,9 @@ final class HotelBookingFlowController {
     private int ktvStartHour = -1;
     private int ktvStartMinute = -1;
     private int ktvGuestCount = 1;
+    // The party as entered on Number of Guests; KTV itself is booked on ktvGuestCount (their sum).
+    private int ktvAdults = 1;
+    private int ktvChildren = 0;
 
     private List<CottageKtvOption> cottageItems = new ArrayList<>();
     private List<CottageKtvOption> ktvItems = new ArrayList<>();
@@ -311,12 +308,6 @@ final class HotelBookingFlowController {
      *  #loadKtvSessionHours) and feeds availability/pricing lookups, the end-time calc, the
      *  Review/Billing rows and the submitted ktv[duration_hours]. 0 until loaded. */
     private int ktvDurationHours = 0;
-    private boolean isLoadingCottageKtv = false;
-    private boolean cottageKtvLoaded = false;
-    /** Guards fetchCottageAvailability() (Cottage's own live, date+Cottage Use-scoped check —
-     *  see that method) — separate from isLoadingCottageKtv/cottageKtvLoaded above, which is
-     *  KTV's own dateless, cached-once fetch and no longer touched by the Cottage flow. */
-    private boolean isLoadingCottageAvailability = false;
     private List<RoomTypeAvailability> availableRoomTypes = new ArrayList<>();
     private final Map<Integer, Integer> roomQuantities = new LinkedHashMap<>();
     // Choose Your Stay Dates (see bindRoomDates): availableRoomTypes is what the server said was free
@@ -437,7 +428,6 @@ final class HotelBookingFlowController {
             adults = 1;
         }
         selectionOriginVariantId = variantId;
-        selectionShowOthers = false;
         resetRoomSelection();
         this.onBackToOverview = onBackToOverview;
         this.reserveMode = reserveOnly;
@@ -470,7 +460,7 @@ final class HotelBookingFlowController {
         multiMode = false;
         activePackage = null;
         selectionOriginVariantId = variantId;
-        selectionShowOthers = false;
+        resetFacilitySelection();
         this.onBackToOverview = onBackToOverview;
         this.reserveMode = reserveOnly;
         showScreen(SCREEN_COTTAGE_DATES);
@@ -487,7 +477,7 @@ final class HotelBookingFlowController {
         multiMode = false;
         activePackage = null;
         selectionOriginVariantId = variantId;
-        selectionShowOthers = false;
+        resetFacilitySelection();
         this.onBackToOverview = onBackToOverview;
         this.reserveMode = reserveOnly;
         showScreen(SCREEN_KTV_DATES);
@@ -513,8 +503,8 @@ final class HotelBookingFlowController {
         multiIndex = 0;
         multiQuantities.clear();
         selectionOriginVariantId = -1;
-        selectionShowOthers = false;
         resetRoomSelection();
+        resetFacilitySelection();
         activeContinuation = CONTINUATION_NONE;
         this.onBackToOverview = onBackToOverview;
         this.reserveMode = reserveOnly;
@@ -546,11 +536,19 @@ final class HotelBookingFlowController {
                 : facility == FAC_KTV ? SCREEN_KTV_DATES : SCREEN_ROOM_DATES;
     }
 
-    /** The last screen of a facility's own step — where Next moves on to the next facility (for Hotel
-     *  Rooms that is Number of Guests, which follows the dates-and-rooms screen). */
+    /** The last screen of a facility's own step — where Next moves on to the next facility: Number of
+     *  Guests for the first facility of a booking (it is the one that asks for the party), the
+     *  facility's own dates screen for a later one of a multi-facility booking (the party was
+     *  carried over from the first). */
     private int selectionScreenForFacility(int facility) {
-        return facility == FAC_COTTAGE ? SCREEN_COTTAGE_SELECTION
-                : facility == FAC_KTV ? SCREEN_KTV_SELECTION : SCREEN_ROOM_GUESTS;
+        boolean asksForGuests = multiQueue.indexOf(facility) <= 0;
+        if (facility == FAC_COTTAGE) {
+            return asksForGuests ? SCREEN_COTTAGE_GUESTS : SCREEN_COTTAGE_DATES;
+        }
+        if (facility == FAC_KTV) {
+            return asksForGuests ? SCREEN_KTV_GUESTS : SCREEN_KTV_DATES;
+        }
+        return SCREEN_ROOM_GUESTS;
     }
 
     /** Steps back one screen at a time. The Room/Cottage/KTV Dates entry screens are the flow's
@@ -571,14 +569,10 @@ final class HotelBookingFlowController {
             case SCREEN_ROOM_GUESTS:
                 showScreen(SCREEN_ROOM_DATES);
                 return true;
-            case SCREEN_COTTAGE_SELECTION:
-                if (multiMode && multiIndex > 0) {
-                    multiStepBack();
-                    return true;
-                }
+            case SCREEN_COTTAGE_GUESTS:
                 showScreen(SCREEN_COTTAGE_DATES);
                 return true;
-            case SCREEN_KTV_SELECTION:
+            case SCREEN_KTV_GUESTS:
                 showScreen(SCREEN_KTV_DATES);
                 return true;
             case SCREEN_PACKAGE_DATES:
@@ -590,17 +584,11 @@ final class HotelBookingFlowController {
             case SCREEN_PACKAGE_PAYMENT:
                 showScreen(SCREEN_PACKAGE_BILLING);
                 return true;
-            case SCREEN_COTTAGE_BROWSE:
-                showScreen(SCREEN_COTTAGE_SELECTION);
-                return true;
-            case SCREEN_KTV_BROWSE:
-                showScreen(SCREEN_KTV_SELECTION);
-                return true;
             case SCREEN_COTTAGE_REVIEW:
-                showScreen(SCREEN_COTTAGE_SELECTION);
+                showScreen(SCREEN_COTTAGE_GUESTS);
                 return true;
             case SCREEN_KTV_REVIEW:
-                showScreen(SCREEN_KTV_SELECTION);
+                showScreen(SCREEN_KTV_GUESTS);
                 return true;
             case SCREEN_REVIEW:
                 // SCREEN_REVIEW is only ever reached from Number of Guests' Next button.
@@ -746,10 +734,8 @@ final class HotelBookingFlowController {
     private static boolean isLiveSyncScreen(int screen) {
         switch (screen) {
             case SCREEN_ROOM_DATES:
-            case SCREEN_COTTAGE_SELECTION:
-            case SCREEN_COTTAGE_BROWSE:
-            case SCREEN_KTV_SELECTION:
-            case SCREEN_KTV_BROWSE:
+            case SCREEN_COTTAGE_DATES:
+            case SCREEN_KTV_DATES:
             case SCREEN_AMENITY:
                 return true;
             default:
@@ -790,13 +776,11 @@ final class HotelBookingFlowController {
             case SCREEN_ROOM_DATES:
                 loadRoomAvailability(screenView, false);
                 break;
-            case SCREEN_COTTAGE_SELECTION:
-            case SCREEN_COTTAGE_BROWSE:
-                syncCottageAvailability(bearer, screen, screenView);
+            case SCREEN_COTTAGE_DATES:
+                loadFacilityAvailability(screenView, FAC_COTTAGE, false);
                 break;
-            case SCREEN_KTV_SELECTION:
-            case SCREEN_KTV_BROWSE:
-                syncKtvUnits(screen, screenView);
+            case SCREEN_KTV_DATES:
+                loadFacilityAvailability(screenView, FAC_KTV, false);
                 break;
             case SCREEN_AMENITY:
                 syncAmenities(bearer, screen, screenView);
@@ -819,80 +803,10 @@ final class HotelBookingFlowController {
     }
 
     private void applyLiveUpdate(int screen, View screenView, boolean selectionAdjusted) {
-        if (screen == SCREEN_ROOM_DATES) {
-            // Only the room list is redrawn: re-binding the whole screen would restart the fetch.
-            renderRoomList(screenView);
-        } else {
-            bindScreen(screen, screenView);
-        }
+        bindScreen(screen, screenView);
         if (selectionAdjusted) {
             Toast.makeText(activity, R.string.toast_availability_changed, Toast.LENGTH_LONG).show();
         }
-    }
-
-    private void syncCottageAvailability(String bearer, int screen, View screenView) {
-        if (cottageDateMillis < 0) {
-            return;
-        }
-        String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(cottageDateMillis));
-        liveSyncInFlight = true;
-        ApiClient.bookingApi().checkCottageAvailability(bearer, dateStr, cottageUseKey(), cottageAdults, cottageChildren)
-                .enqueue(new Callback<CottageAvailabilityResponse>() {
-                    @Override
-                    public void onResponse(Call<CottageAvailabilityResponse> call, Response<CottageAvailabilityResponse> response) {
-                        liveSyncInFlight = false;
-                        if (!response.isSuccessful() || response.body() == null
-                                || response.body().cottages == null
-                                || !liveScreenStillCurrent(screen, screenView)
-                                || LiveSync.sameData(cottageItems, response.body().cottages)) {
-                            return;
-                        }
-                        cottageItems = new ArrayList<>(response.body().cottages);
-                        applyLiveUpdate(screen, screenView, clampPicks(roomQuantities, availabilityOf(cottageItems)));
-                    }
-
-                    @Override
-                    public void onFailure(Call<CottageAvailabilityResponse> call, Throwable t) {
-                        liveSyncInFlight = false;
-                    }
-                });
-    }
-
-    private void syncKtvUnits(int screen, View screenView) {
-        SimpleDateFormat day = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-        String eventDate = ktvDateMillis >= 0 ? day.format(new Date(ktvDateMillis)) : null;
-        String startTime = ktvStartHour >= 0
-                ? String.format(Locale.US, "%02d:%02d", ktvStartHour, ktvStartMinute) : null;
-        liveSyncInFlight = true;
-        ApiClient.bookingApi().getKtvUnitsForParty(eventDate, startTime, null, ktvGuestCount).enqueue(new Callback<KtvUnitListResponse>() {
-            @Override
-            public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
-                liveSyncInFlight = false;
-                if (!response.isSuccessful() || response.body() == null || response.body().ktv_units == null
-                        || !liveScreenStillCurrent(screen, screenView)) {
-                    return;
-                }
-                List<CottageKtvOption> latest = new ArrayList<>(response.body().toOptions(ktvDurationHours));
-                if (LiveSync.sameData(ktvItems, latest)) {
-                    return;
-                }
-                ktvItems = latest;
-                applyLiveUpdate(screen, screenView, clampPicks(roomQuantities, availabilityOf(ktvItems)));
-            }
-
-            @Override
-            public void onFailure(Call<KtvUnitListResponse> call, Throwable t) {
-                liveSyncInFlight = false;
-            }
-        });
-    }
-
-    private static Map<Integer, Integer> availabilityOf(List<CottageKtvOption> items) {
-        Map<Integer, Integer> available = new LinkedHashMap<>();
-        for (CottageKtvOption item : items) {
-            available.put(item.group_id, item.available_quantity);
-        }
-        return available;
     }
 
     private void syncAmenities(String bearer, int screen, View screenView) {
@@ -942,10 +856,9 @@ final class HotelBookingFlowController {
             case SCREEN_KTV_DATES:
                 return R.layout.view_ktv_booking_dates;
             case SCREEN_ROOM_GUESTS:
+            case SCREEN_COTTAGE_GUESTS:
+            case SCREEN_KTV_GUESTS:
                 return R.layout.view_room_guests;
-            case SCREEN_COTTAGE_SELECTION:
-            case SCREEN_KTV_SELECTION:
-                return R.layout.view_item_selection;
             case SCREEN_COTTAGE_REVIEW:
                 return R.layout.view_cottage_review;
             case SCREEN_KTV_REVIEW:
@@ -980,9 +893,6 @@ final class HotelBookingFlowController {
                 return R.layout.view_hotel_billing;
             case SCREEN_PACKAGE_PAYMENT:
                 return R.layout.view_hotel_payment;
-            case SCREEN_COTTAGE_BROWSE:
-            case SCREEN_KTV_BROWSE:
-                return R.layout.view_item_browse;
             default:
                 throw new IllegalStateException("Unknown screen: " + screen);
         }
@@ -1015,19 +925,13 @@ final class HotelBookingFlowController {
                 bindKtvDatesEntry(v);
                 break;
             case SCREEN_ROOM_GUESTS:
-                bindRoomGuests(v);
+                bindGuests(v, FAC_ROOM);
                 break;
-            case SCREEN_COTTAGE_SELECTION:
-                bindCottageSelection(v);
+            case SCREEN_COTTAGE_GUESTS:
+                bindGuests(v, FAC_COTTAGE);
                 break;
-            case SCREEN_KTV_SELECTION:
-                bindKtvSelection(v);
-                break;
-            case SCREEN_COTTAGE_BROWSE:
-                bindCottageBrowse(v);
-                break;
-            case SCREEN_KTV_BROWSE:
-                bindKtvBrowse(v);
+            case SCREEN_KTV_GUESTS:
+                bindGuests(v, FAC_KTV);
                 break;
             case SCREEN_COTTAGE_REVIEW:
                 bindCottageReview(v);
@@ -1373,78 +1277,6 @@ final class HotelBookingFlowController {
         }
     }
 
-    // ---- Screen 0b-2: Number of Guests (Hotel Rooms) ------------------------------------
-
-    /**
-     * "Number of Guests", asked once the dates and rooms are chosen. The party never limits the
-     * booking: when it is larger than the combined standard capacity of the rooms picked (capacity x
-     * quantity, summed) an informational notice appears and disappears as the numbers change, and
-     * Next stays available either way. A Reserve/Book of several facilities carries on to the next
-     * facility from here instead of Review.
-     */
-    private void bindRoomGuests(View v) {
-        bindHeader(v, R.id.roomGuestsHeaderBar, R.string.room_guests_title, () -> showScreen(SCREEN_ROOM_DATES));
-
-        EditText adultsValue = v.findViewById(R.id.roomGuestsAdultsValue);
-        EditText childrenValue = v.findViewById(R.id.roomGuestsChildrenValue);
-        View notice = v.findViewById(R.id.roomGuestsCapacityNotice);
-        Runnable updateNotice = () -> notice.setVisibility(partyExceedsRoomCapacity() ? View.VISIBLE : View.GONE);
-
-        adults = Math.min(adults, RoomSelectionRules.MAX_ADULTS);
-        children = Math.min(children, RoomSelectionRules.MAX_CHILDREN);
-        AuthUiUtils.bindQuantityStepper(adultsValue, v.findViewById(R.id.roomGuestsAdultsMinus),
-                v.findViewById(R.id.roomGuestsAdultsPlus), adults, 0, RoomSelectionRules.MAX_ADULTS, value -> {
-                    adults = value;
-                    updateNotice.run();
-                });
-        AuthUiUtils.bindQuantityStepper(childrenValue, v.findViewById(R.id.roomGuestsChildrenMinus),
-                v.findViewById(R.id.roomGuestsChildrenPlus), children, 0, RoomSelectionRules.MAX_CHILDREN, value -> {
-                    children = value;
-                    updateNotice.run();
-                });
-        // Typing a number updates the notice as it is typed, not only once the field loses focus.
-        AuthUiUtils.afterTextChanged(adultsValue, () -> {
-            adults = readGuestCount(adultsValue, RoomSelectionRules.MAX_ADULTS);
-            updateNotice.run();
-        });
-        AuthUiUtils.afterTextChanged(childrenValue, () -> {
-            children = readGuestCount(childrenValue, RoomSelectionRules.MAX_CHILDREN);
-            updateNotice.run();
-        });
-        updateNotice.run();
-
-        Button nextButton = v.findViewById(R.id.roomGuestsNextButton);
-        nextButton.setOnClickListener(ClickGuard.wrap(view -> {
-            // Read what is in the fields: a number typed just before tapping Next hasn't lost focus yet.
-            adults = readGuestCount(adultsValue, RoomSelectionRules.MAX_ADULTS);
-            children = readGuestCount(childrenValue, RoomSelectionRules.MAX_CHILDREN);
-            if (adults + children < 1) {
-                Toast.makeText(activity, R.string.toast_guests_required, Toast.LENGTH_LONG).show();
-                return;
-            }
-            // Never blocked by the party being larger than the rooms: the notice is all there is.
-            if (multiMode) {
-                multiAdvance(nextButton);
-                return;
-            }
-            showScreen(SCREEN_REVIEW);
-        }));
-    }
-
-    private static int readGuestCount(EditText field, int max) {
-        try {
-            return Math.max(0, Math.min(max, Integer.parseInt(field.getText().toString().trim())));
-        } catch (NumberFormatException e) {
-            return 0;
-        }
-    }
-
-    /** Whether the party is larger than the standard capacity of the rooms picked — drives the
-     *  informational notice only. */
-    private boolean partyExceedsRoomCapacity() {
-        return RoomSelectionRules.exceedsCapacity(availableRoomTypes, roomQuantities, adults, children);
-    }
-
     /**
      * Populates the same fields bindReservationDetails/bindReservationPayment already read
      * (normally set live by submitReservationRequest/snapshotReservationDisplayData) directly
@@ -1521,35 +1353,32 @@ final class HotelBookingFlowController {
         }
     }
 
-    // ---- Screen 0c: Choose Your Visit Date (Cottage Overview entry only) --
+    // ---- Screen 0c: Choose Your Visit Date + the cottages free for it (Cottage) ---------
 
     /** Cottage Use dropdown order — index must match R.array.cottage_use_options exactly. */
     private static final String[] COTTAGE_USE_OPTIONS =
             {ReservationCatalog.RATE_TYPE_DAY, ReservationCatalog.RATE_TYPE_NIGHT};
 
     /**
-     * Focused Cottage Use/date/adults/children/Next form for Cottage Overview's "Book Now" (see
-     * #showCottageDatesEntry). No raw time picker — Cottage Use (Day Use/Night Use/Overnight)
-     * already captures the relevant period, same concept as the receptionist side's own Create
-     * Reservation > Cottage screen. Feeds the same shared cottageRateType/cottageDateMillis/
-     * cottageAdults/cottageChildren fields the tabbed Book-tab screen's Cottage tab uses, so
-     * tapping Next just switches to that screen (with the Cottage tab forced active) and
-     * collapses its search panel to reveal the already-loaded cottage catalog below — reusing
-     * its browse/select logic rather than duplicating it here.
+     * "Choose Your Visit Date": the date and Cottage Use at the top and, below them, every cottage
+     * type with a unit free for that date and use, each with its own quantity stepper (see
+     * #renderFacilityList). A type with nothing free is not listed. The party is asked for on the
+     * next screen (see #bindGuests) and never filters or limits the cottages here. Like the Hotel
+     * Rooms screen, the list follows the schedule (see #loadFacilityAvailability).
+     *
+     * <p>No raw time picker — Cottage Use (Day Use/Night Use/Overnight) already captures the
+     * period, same concept as the receptionist side's own Create Reservation > Cottage screen. In a
+     * multi-facility booking after the first facility the date is carried over and locked.
      */
     private void bindCottageDatesEntry(View v) {
-        bindHeader(v, R.id.cottageDatesHeaderBar, R.string.cottage_dates_title, onBackToOverview);
+        bindHeader(v, R.id.cottageDatesHeaderBar, R.string.cottage_dates_title, this::handleBackPressed);
 
         View dateField = v.findViewById(R.id.cottageDatesDateField);
         TextView dateText = v.findViewById(R.id.cottageDatesDateText);
         TextView dateError = v.findViewById(R.id.cottageDatesDateError);
         Spinner useSpinner = v.findViewById(R.id.cottageDatesUseSpinner);
-        EditText adultsValue = v.findViewById(R.id.cottageDatesAdultsValue);
-        EditText childrenValue = v.findViewById(R.id.cottageDatesChildrenValue);
-        TextView totalGuestValue = v.findViewById(R.id.cottageDatesTotalGuestValue);
 
         updateCottageDateField(dateText);
-        totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
 
         ArrayAdapter<String> useAdapter = new AuthSpinnerAdapter(activity,
                 Arrays.asList(activity.getResources().getStringArray(R.array.cottage_use_options)),
@@ -1566,49 +1395,54 @@ final class HotelBookingFlowController {
         useSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View item, int position, long id) {
-                cottageRateType = COTTAGE_USE_OPTIONS[position];
+                String use = COTTAGE_USE_OPTIONS[position];
+                // The initial selection reports the value already in force: nothing to refresh.
+                if (!use.equals(cottageRateType)) {
+                    cottageRateType = use;
+                    onFacilityScheduleChanged(v, FAC_COTTAGE);
+                }
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
-                // A Spinner backed by a non-empty adapter always has a selection once shown —
-                // nothing to do here.
+                // A Spinner backed by a non-empty adapter always has a selection once shown.
             }
         });
 
-        dateField.setOnClickListener(ClickGuard.wrap(view -> GlassDatePicker.showDatePickerDialog(
-                activity, cottageDateMillis, System.currentTimeMillis() - 1000L, millis -> {
-                    cottageDateMillis = millis;
-                    updateCottageDateField(dateText);
-                    dateError.setVisibility(View.GONE);
-                })));
-
-        AuthUiUtils.bindQuantityStepper(adultsValue, v.findViewById(R.id.cottageDatesAdultsMinus),
-                v.findViewById(R.id.cottageDatesAdultsPlus), cottageAdults, 1, Integer.MAX_VALUE, value -> {
-                    cottageAdults = value;
-                    totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-                });
-        AuthUiUtils.bindQuantityStepper(childrenValue, v.findViewById(R.id.cottageDatesChildrenMinus),
-                v.findViewById(R.id.cottageDatesChildrenPlus), cottageChildren, 0, Integer.MAX_VALUE, value -> {
-                    cottageChildren = value;
-                    totalGuestValue.setText(String.valueOf(cottageAdults + cottageChildren));
-                });
+        // In the multi-facility flow the date is carried over from the first facility and isn't
+        // asked for again — only the Cottage Use is.
+        if (multiMode && multiIndex > 0) {
+            dateField.setAlpha(0.6f);
+        } else {
+            dateField.setOnClickListener(ClickGuard.wrap(view -> GlassDatePicker.showDatePickerDialog(
+                    activity, cottageDateMillis, System.currentTimeMillis() - 1000L, millis -> {
+                        boolean changed = millis != cottageDateMillis;
+                        cottageDateMillis = millis;
+                        updateCottageDateField(dateText);
+                        dateError.setVisibility(View.GONE);
+                        if (changed) {
+                            onFacilityScheduleChanged(v, FAC_COTTAGE);
+                        }
+                    })));
+        }
+        v.findViewById(R.id.facilityListRetryButton)
+                .setOnClickListener(ClickGuard.wrap(view -> loadFacilityAvailability(v, FAC_COTTAGE, true)));
 
         v.findViewById(R.id.cottageDatesNextButton).setOnClickListener(ClickGuard.wrap(view -> {
-            boolean valid = true;
             if (cottageDateMillis < 0) {
                 showError(dateError, R.string.error_date_required);
-                valid = false;
-            } else if (cottageDateMillis < System.currentTimeMillis() - ONE_DAY_MS) {
+                return;
+            }
+            if (!cottageDateIsCurrent()) {
                 showError(dateError, R.string.error_date_past);
-                valid = false;
-            } else {
-                dateError.setVisibility(View.GONE);
+                return;
             }
-            if (valid) {
-                proceedToCottageSelection(v);
-            }
+            dateError.setVisibility(View.GONE);
+            continueFromFacilityDates(v, FAC_COTTAGE);
         }));
+
+        renderFacilityList(v, FAC_COTTAGE);
+        loadFacilityAvailability(v, FAC_COTTAGE, true);
     }
 
     /** Maps the guest's Cottage Use choice (see cottageRateType) to the backend's day/night/
@@ -1623,117 +1457,26 @@ final class HotelBookingFlowController {
         return "day";
     }
 
-    /** Advances to Your Selected Cottage/s via a real, live availability check (see
-     *  #fetchCottageAvailability) for the guest's chosen Date and Cottage Use. */
-    private void proceedToCottageSelection(View datesView) {
-        fetchCottageAvailability(datesView.findViewById(R.id.cottageDatesNextButton), () -> {
-            if (multiMode) {
-                multiResetProgress();
-                roomQuantities.clear();
-            }
-        });
+    private boolean cottageDateIsCurrent() {
+        return cottageDateMillis >= System.currentTimeMillis() - ONE_DAY_MS;
     }
 
-    /**
-     * Real, live availability check for the guest's chosen Date and Cottage Use — the Cottage
-     * equivalent of loadRoomAvailability() for Hotel Rooms: checked against actual
-     * Bookings and other guests'/staff's Pending holds for that exact date and period (see the
-     * backend's Concerns\HandlesCottageAvailability, shared with the Receptionist's own Create
-     * Reservation > Cottage wizard so both sides can never disagree), unlike getCottagesKtv()'s
-     * static in-stock count. Never cached client-side — changing the Date or Cottage Use and
-     * tapping Next again always re-checks for real, replacing cottageItems on success.
-     */
-    private void fetchCottageAvailability(Button nextButton, Runnable onResultAccepted) {
-        if (isLoadingCottageAvailability) {
-            return;
+    /** "yyyy-MM-dd|use" for the chosen visit, or null until there is a usable date. */
+    private String cottageDatesKey() {
+        if (cottageDateMillis < 0 || !cottageDateIsCurrent()) {
+            return null;
         }
-        String token = ProfileStore.getAuthToken(activity);
-        if (token.isEmpty()) {
-            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
-            return;
-        }
-
-        isLoadingCottageAvailability = true;
-        nextButton.setEnabled(false);
-        nextButton.setText(R.string.button_checking_availability);
-
-        String dateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(cottageDateMillis));
-        ApiClient.bookingApi().checkCottageAvailability("Bearer " + token, dateStr, cottageUseKey(), cottageAdults, cottageChildren)
-                .enqueue(new Callback<CottageAvailabilityResponse>() {
-                    @Override
-                    public void onResponse(Call<CottageAvailabilityResponse> call, Response<CottageAvailabilityResponse> response) {
-                        isLoadingCottageAvailability = false;
-                        nextButton.setEnabled(true);
-                        nextButton.setText(R.string.button_next);
-                        if (!response.isSuccessful() || response.body() == null) {
-                            if (response.code() == 401) {
-                                Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
-                            } else {
-                                Toast.makeText(activity, R.string.toast_availability_check_failed, Toast.LENGTH_LONG).show();
-                            }
-                            return;
-                        }
-                        if (onResultAccepted != null) {
-                            onResultAccepted.run();
-                        }
-                        cottageItems = response.body().cottages != null
-                                ? new ArrayList<>(response.body().cottages) : new ArrayList<>();
-                        for (CottageKtvOption item : cottageItems) {
-                            if (!roomQuantities.containsKey(item.group_id)) {
-                                roomQuantities.put(item.group_id, 0);
-                            }
-                        }
-                        resetAndPreselectCottageSelection();
-                        restoreMultiQuantities(FAC_COTTAGE);
-                        showScreen(SCREEN_COTTAGE_SELECTION);
-                    }
-
-                    @Override
-                    public void onFailure(Call<CottageAvailabilityResponse> call, Throwable t) {
-                        isLoadingCottageAvailability = false;
-                        nextButton.setEnabled(true);
-                        nextButton.setText(R.string.button_next);
-                        Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
-                    }
-                });
+        return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(cottageDateMillis)) + "|" + cottageUseKey();
     }
 
-    /**
-     * Every time the guest (re-)enters Your Selected Cottage/s from the dates screen — including
-     * after going Back and changing the date/time/guests — this wipes any cottage quantities and
-     * "show everything inline" state left over from a previous attempt (the cottage catalog
-     * itself is cached and never re-fetched, unlike Hotel Rooms' dated search, so nothing else
-     * naturally clears this), then pre-selects quantity 1 for the guest's originally-chosen
-     * cottage if it's available under the new criteria. Only the origin's identity survives
-     * across attempts — everything else is re-derived fresh.
-     */
-    private void resetAndPreselectCottageSelection() {
-        for (CottageKtvOption item : cottageItems) {
-            roomQuantities.put(item.group_id, 0);
-        }
-        selectionShowOthers = false;
-
-        // The party size is already part of the availability result (cottage-availability only
-        // reports a type as in stock when its free units together can seat everyone), so only
-        // in-stock status matters here; Next then checks the chosen cottages seat the party.
-        for (CottageKtvOption item : cottageItems) {
-            if (item.variant_id == selectionOriginVariantId && item.available_quantity > 0) {
-                roomQuantities.put(item.group_id, 1);
-                return;
-            }
-        }
-    }
-
-    // ---- Screen 0d: Plan Your KTV Session (KTV Overview entry only) -------
+    // ---- Screen 0d: Plan Your KTV Session + the KTV rooms free for it (KTV) -------------
 
     /**
-     * Focused rate-type/date/start-time/guest-count/Next form for KTV Overview's "Book Now"
-     * (see #showKtvDatesEntry). End Time and Duration are read-only, recomputed whenever the
-     * rate type or start time changes, mirroring the tabbed screen's KTV tab. Feeds the same
-     * shared ktvDateMillis/ktvStartHour/ktvStartMinute/ktvGuestCount fields that tab
-     * uses, so tapping Next just switches to that screen (with the KTV tab forced active) and
-     * collapses its search panel to reveal the already-loaded KTV catalog below — reusing its
-     * browse/select logic rather than duplicating it here.
+     * "Plan Your KTV Session": the date and start time at the top (end time and duration read-only,
+     * the duration being what HR configured in KTV Room Management) and, below them, every KTV room
+     * that is free for that slot, each a SELECT toggle (a KTV room is one physical room). A room
+     * that is taken is not listed. The party is asked for on the next screen (see #bindGuests) and
+     * never filters the rooms here. In a multi-facility booking the date is carried over and locked.
      */
     private void bindKtvDatesEntry(View v) {
         bindHeader(v, R.id.ktvDatesHeaderBar, R.string.ktv_dates_title, this::handleBackPressed);
@@ -1744,22 +1487,25 @@ final class HotelBookingFlowController {
         View startTimeField = v.findViewById(R.id.ktvDatesStartTimeField);
         TextView startTimeText = v.findViewById(R.id.ktvDatesStartTimeText);
         TextView startTimeError = v.findViewById(R.id.ktvDatesStartTimeError);
-        EditText guestCountValue = v.findViewById(R.id.ktvDatesGuestCountValue);
 
         updateKtvDateField(dateText);
         updateKtvStartTimeField(startTimeText);
         updateKtvDatesEndTimeAndDuration(v);
         loadKtvSessionHours(v);
         // In the multi-facility flow the date is carried over from the first facility and isn't
-        // asked for again — only the session details (rate type, start time, guests) are.
+        // asked for again — only the session details (start time) are.
         if (multiMode && multiIndex > 0) {
             dateField.setAlpha(0.6f);
         } else {
             dateField.setOnClickListener(ClickGuard.wrap(view -> GlassDatePicker.showDatePickerDialog(
                     activity, ktvDateMillis, System.currentTimeMillis() - 1000L, millis -> {
+                        boolean changed = millis != ktvDateMillis;
                         ktvDateMillis = millis;
                         updateKtvDateField(dateText);
                         dateError.setVisibility(View.GONE);
+                        if (changed) {
+                            onFacilityScheduleChanged(v, FAC_KTV);
+                        }
                     })));
         }
 
@@ -1768,18 +1514,21 @@ final class HotelBookingFlowController {
             int initialHour = ktvStartHour >= 0 ? ktvStartHour : now.get(Calendar.HOUR_OF_DAY);
             int initialMinute = ktvStartMinute >= 0 ? ktvStartMinute : now.get(Calendar.MINUTE);
             TimePickerDialog dialog = new TimePickerDialog(activity, (picker, hour, minute) -> {
+                boolean changed = hour != ktvStartHour || minute != ktvStartMinute;
                 ktvStartHour = hour;
                 ktvStartMinute = minute;
                 updateKtvStartTimeField(startTimeText);
                 updateKtvDatesEndTimeAndDuration(v);
                 startTimeError.setVisibility(View.GONE);
+                if (changed) {
+                    onFacilityScheduleChanged(v, FAC_KTV);
+                }
             }, initialHour, initialMinute, false);
             ThemeManager.applyGlassEffect(dialog.getWindow());
             dialog.show();
         }));
-
-        AuthUiUtils.bindQuantityStepper(guestCountValue, v.findViewById(R.id.ktvDatesGuestCountMinus),
-                v.findViewById(R.id.ktvDatesGuestCountPlus), ktvGuestCount, 1, Integer.MAX_VALUE, value -> ktvGuestCount = value);
+        v.findViewById(R.id.facilityListRetryButton)
+                .setOnClickListener(ClickGuard.wrap(view -> loadFacilityAvailability(v, FAC_KTV, true)));
 
         v.findViewById(R.id.ktvDatesNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             boolean valid = true;
@@ -1790,7 +1539,7 @@ final class HotelBookingFlowController {
             if (ktvDateMillis < 0) {
                 showError(dateError, R.string.error_date_required);
                 valid = false;
-            } else if (ktvDateMillis < System.currentTimeMillis() - ONE_DAY_MS) {
+            } else if (!ktvDateIsCurrent()) {
                 showError(dateError, R.string.error_date_past);
                 valid = false;
             } else {
@@ -1803,53 +1552,25 @@ final class HotelBookingFlowController {
                 startTimeError.setVisibility(View.GONE);
             }
             if (valid) {
-                proceedToKtvSelection(v);
+                continueFromFacilityDates(v, FAC_KTV);
             }
         }));
+
+        renderFacilityList(v, FAC_KTV);
+        loadFacilityAvailability(v, FAC_KTV, true);
     }
 
-    /** Ensures the Cottages & KTV catalog is loaded (see {@link #fetchCottagesKtvData}) before
-     *  advancing to Your Selected KTV Room/s, showing a brief loading state on Next if a fetch
-     *  is needed. */
-    private void proceedToKtvSelection(View datesView) {
-        Button nextButton = datesView.findViewById(R.id.ktvDatesNextButton);
-        if (multiMode && multiIndex == 0) {
-            multiResetProgress();
-            roomQuantities.clear();
-        }
-        nextButton.setEnabled(false);
-        nextButton.setText(R.string.button_checking_availability);
-        fetchCottagesKtvData(nextButton, () -> {
-            nextButton.setEnabled(true);
-            nextButton.setText(R.string.button_next);
-            resetAndPreselectKtvSelection();
-            restoreMultiQuantities(FAC_KTV);
-            showScreen(SCREEN_KTV_SELECTION);
-        });
+    private boolean ktvDateIsCurrent() {
+        return ktvDateMillis >= System.currentTimeMillis() - ONE_DAY_MS;
     }
 
-    /**
-     * Every time the guest (re-)enters Your Selected KTV Room/s from the dates screen —
-     * including after going Back and changing the date/time/guests — this wipes any KTV
-     * quantities and "show everything inline" state left over from a previous attempt (see
-     * {@link #resetAndPreselectCottageSelection}'s note on why nothing else clears this
-     * automatically), then pre-selects quantity 1 for the guest's originally-chosen KTV room if
-     * it's available under the new criteria. Only the origin's identity survives across
-     * attempts — everything else is re-derived fresh.
-     */
-    private void resetAndPreselectKtvSelection() {
-        for (CottageKtvOption item : ktvItems) {
-            roomQuantities.put(item.group_id, 0);
+    /** "yyyy-MM-dd|HH:mm" for the chosen session, or null until there is a usable date and start time. */
+    private String ktvScheduleKey() {
+        if (ktvDateMillis < 0 || !ktvDateIsCurrent() || ktvStartHour < 0) {
+            return null;
         }
-        selectionShowOthers = false;
-
-        for (CottageKtvOption item : ktvItems) {
-            if (item.variant_id == selectionOriginVariantId && item.available_quantity > 0
-                    && meetsCapacity(item.capacity, ktvGuestCount)) {
-                roomQuantities.put(item.group_id, 1);
-                return;
-            }
-        }
+        return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(ktvDateMillis)) + "|"
+                + String.format(Locale.US, "%02d:%02d", ktvStartHour, ktvStartMinute);
     }
 
     /** Sets the session length from what HR configured in KTV Room Management: the hours of the
@@ -1902,160 +1623,463 @@ final class HotelBookingFlowController {
         endTimeText.setAlpha(1f);
     }
 
-    // ---- Screen 0e/f: "Your Selected ..." (Cottage/KTV Overview entry only) ---------
+    // ---- Cottage / KTV: the schedule's available list ------------------------------------
 
-    /**
-     * Shows the cottage the guest originally chose pre-selected with a quantity control if it's
-     * in stock, or grayed out with an unavailable message otherwise — plus other available
-     * cottage types below. Cottages have no per-
-     * date/time availability check on the backend (only overall stock, see
-     * fetchCottagesKtvData) so "available" here means in-stock, not conflict-checked against the
-     * guest's chosen date/schedule. The party size does count: the backend reports a type as in
-     * stock only when its free units together can seat everyone (a party can book several
-     * units — see "Add Another Cottage" below — and Next checks the chosen ones seat the whole
-     * party). Capacity is shown on the card (see R.string.cottage_capacity_format). Next is a placeholder for now — Cottage bookings don't
-     * have a Review/Billing/Payment continuation yet.
-     */
-    private void bindCottageSelection(View v) {
-        bindHeader(v, R.id.itemSelectionHeaderBar, R.string.cottage_selection_title,
-                this::handleBackPressed);
-        if (multiMode) {
-            bindMultiCottageUseRow(v);
-        }
+    /** Where one facility's schedule-based availability stands (see loadFacilityAvailability). */
+    private static final class FacilityLoad {
+        /** The schedule the facility's items were fetched for; null until fetched, or once the
+         *  schedule changed. */
+        String key;
+        boolean loading;
+        boolean failed;
+        Call<?> call;
 
-        CottageKtvOption origin = null;
-        for (CottageKtvOption item : cottageItems) {
-            if (item.variant_id == selectionOriginVariantId) {
-                origin = item;
-                break;
+        void cancel() {
+            if (call != null) {
+                call.cancel();
+                call = null;
             }
         }
-        boolean originAvailable = origin != null && origin.available_quantity > 0;
-        if (!originAvailable) {
-            selectionShowOthers = true;
+
+        void reset() {
+            cancel();
+            key = null;
+            loading = false;
+            failed = false;
+        }
+    }
+
+    private final FacilityLoad cottageLoad = new FacilityLoad();
+    private final FacilityLoad ktvLoad = new FacilityLoad();
+
+    private FacilityLoad loadOf(int facility) {
+        return facility == FAC_COTTAGE ? cottageLoad : ktvLoad;
+    }
+
+    private List<CottageKtvOption> itemsOf(int facility) {
+        return facility == FAC_COTTAGE ? cottageItems : ktvItems;
+    }
+
+    private String facilityKey(int facility) {
+        return facility == FAC_COTTAGE ? cottageDatesKey() : ktvScheduleKey();
+    }
+
+    private int facilityDatesScreen(int facility) {
+        return facility == FAC_COTTAGE ? SCREEN_COTTAGE_DATES : SCREEN_KTV_DATES;
+    }
+
+    /** A fresh Cottage/KTV step: nothing picked and nothing fetched yet. The schedule the guest
+     *  already entered is kept. */
+    private void resetFacilitySelection() {
+        cottageLoad.reset();
+        ktvLoad.reset();
+        cottageItems = new ArrayList<>();
+        ktvItems = new ArrayList<>();
+        roomQuantities.clear();
+        originAutoSelected = false;
+    }
+
+    /** The date, Cottage Use or start time changed: the list is fetched again for the new schedule. */
+    private void onFacilityScheduleChanged(View v, int facility) {
+        if (multiMode && multiIndex == 0) {
+            // The later facilities were set up from this first one's date, so they start over.
+            multiResetProgress();
+        }
+        loadFacilityAvailability(v, facility, true);
+    }
+
+    /** Next on a Cottage/KTV dates screen once the schedule is valid: needs at least one item, then
+     *  asks for the party (or, after the first facility of a multi-facility booking, where the party
+     *  was already given, carries on). */
+    private void continueFromFacilityDates(View v, int facility) {
+        FacilityLoad load = loadOf(facility);
+        if (load.loading) {
+            return;
+        }
+        if (!Objects.equals(facilityKey(facility), load.key)) {
+            // The items for this schedule never loaded (the last check failed): try again.
+            loadFacilityAvailability(v, facility, true);
+            return;
+        }
+        if (FacilitySelectionRules.itemCount(itemsOf(facility), roomQuantities) <= 0) {
+            Toast.makeText(activity, facility == FAC_COTTAGE ? R.string.toast_select_cottage
+                    : R.string.toast_select_ktv, Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (multiMode && multiIndex > 0) {
+            multiAdvance();
+            return;
+        }
+        showScreen(facility == FAC_COTTAGE ? SCREEN_COTTAGE_GUESTS : SCREEN_KTV_GUESTS);
+    }
+
+    /** Draws the list for the current state: a hint until there is a schedule, "checking" while it
+     *  loads, a retry after a failure, a note when nothing is free, otherwise one card per item that
+     *  has availability (the guest's original pick first). */
+    private void renderFacilityList(View v, int facility) {
+        boolean cottage = facility == FAC_COTTAGE;
+        FacilityLoad load = loadOf(facility);
+        LinearLayout container = v.findViewById(R.id.facilityListContainer);
+        TextView title = v.findViewById(R.id.facilityListTitle);
+        TextView message = v.findViewById(R.id.facilityListMessage);
+        View retryButton = v.findViewById(R.id.facilityListRetryButton);
+        Button nextButton = v.findViewById(cottage ? R.id.cottageDatesNextButton : R.id.ktvDatesNextButton);
+        title.setText(cottage ? R.string.cottage_selection_title : R.string.ktv_selection_title);
+        container.removeAllViews();
+        message.setVisibility(View.GONE);
+        retryButton.setVisibility(View.GONE);
+        nextButton.setEnabled(!load.loading);
+        nextButton.setText(load.loading ? R.string.button_checking_availability : R.string.button_next);
+        bindFacilityCarriedNotice(v, facility);
+
+        String key = facilityKey(facility);
+        if (key == null) {
+            showRoomListMessage(message, cottage ? R.string.cottage_dates_pick_hint : R.string.ktv_dates_pick_hint);
+            return;
+        }
+        if (!key.equals(load.key)) {
+            if (load.failed) {
+                showRoomListMessage(message, R.string.toast_availability_check_failed);
+                retryButton.setVisibility(View.VISIBLE);
+            } else {
+                showRoomListMessage(message, cottage ? R.string.facility_loading_cottages : R.string.facility_loading_ktv);
+            }
+            return;
         }
 
+        List<CottageKtvOption> bookable = FacilitySelectionRules.bookable(itemsOf(facility), selectionOriginVariantId);
+        if (bookable.isEmpty()) {
+            showRoomListMessage(message, cottage ? R.string.empty_cottage_selection : R.string.empty_ktv_selection);
+            return;
+        }
         LayoutInflater inflater = LayoutInflater.from(activity);
-        FrameLayout originSlot = v.findViewById(R.id.itemSelectionOriginSlot);
-        originSlot.removeAllViews();
-        // An unavailable choice is not shown at all (no greyed-out card) — only what can be booked.
-        if (origin != null && originAvailable) {
-            View card = buildSelectableCard(inflater, originSlot, origin.image_path,
-                    formatShowcaseName(origin.variant_name, null), origin.capacity, true, origin.description,
-                    activity.getString(R.string.format_price_with_unit, formatMoney((int) Math.round(resolvedItemPrice(origin))), resolvedItemPriceUnit(origin)),
-                    origin.group_id, origin.available_quantity, R.string.unit_label_cottage, originAvailable, !originAvailable,
-                    R.string.unavailable_cottage_message, () -> bindCottageSelection(v));
-            originSlot.addView(card);
+        for (CottageKtvOption item : bookable) {
+            int qty = RoomSelectionRules.quantityOf(roomQuantities, item.group_id);
+            // The stepper tops out at what is free for this schedule, never above.
+            container.addView(buildSelectableCard(inflater, container, item.image_path,
+                    formatShowcaseName(item.variant_name, null), item.capacity, cottage, item.description,
+                    activity.getString(R.string.format_price_with_unit, formatMoney((int) Math.round(resolvedItemPrice(item))), resolvedItemPriceUnit(item)),
+                    item.group_id, item.available_quantity,
+                    cottage ? R.string.unit_label_cottage : R.string.unit_label_ktv_room, qty > 0, false,
+                    cottage ? R.string.unavailable_cottage_message : R.string.unavailable_ktv_message,
+                    () -> renderFacilityList(v, facility)));
         }
-
-        LinearLayout otherContainer = v.findViewById(R.id.itemSelectionOtherContainer);
-        otherContainer.removeAllViews();
-        Button addAnotherButton = v.findViewById(R.id.itemSelectionAddAnotherButton);
-        addAnotherButton.setText(R.string.button_add_another_cottage);
-
-        if (selectionShowOthers) {
-            // The origin was unavailable: show every alternative right here, inline, so the
-            // guest — who has nothing selected yet — can immediately pick a replacement.
-            addAnotherButton.setVisibility(View.GONE);
-            for (CottageKtvOption item : cottageItems) {
-                if (item.variant_id == selectionOriginVariantId || item.available_quantity <= 0) {
-                    continue;
-                }
-                View card = buildSelectableCard(inflater, otherContainer, item.image_path,
-                        formatShowcaseName(item.variant_name, null), item.capacity, true, item.description,
-                        activity.getString(R.string.format_price_with_unit, formatMoney((int) Math.round(resolvedItemPrice(item))), resolvedItemPriceUnit(item)),
-                        item.group_id, item.available_quantity, R.string.unit_label_cottage, false, false,
-                        R.string.unavailable_cottage_message, () -> bindCottageSelection(v));
-                otherContainer.addView(card);
-            }
-            if (otherContainer.getChildCount() == 0) {
-                addNothingAvailableNotice(otherContainer, R.string.empty_cottage_selection);
-            }
-        } else {
-            // The origin is available: only list cottage types the guest has already added via
-            // the dedicated Cottages browse screen — browsing everything else happens there.
-            for (CottageKtvOption item : cottageItems) {
-                if (item.variant_id == selectionOriginVariantId) {
-                    continue;
-                }
-                int qty = roomQuantities.containsKey(item.group_id) ? roomQuantities.get(item.group_id) : 0;
-                if (qty <= 0) {
-                    continue;
-                }
-                View card = buildSelectableCard(inflater, otherContainer, item.image_path,
-                        formatShowcaseName(item.variant_name, null), item.capacity, true, item.description,
-                        activity.getString(R.string.format_price_with_unit, formatMoney((int) Math.round(resolvedItemPrice(item))), resolvedItemPriceUnit(item)),
-                        item.group_id, item.available_quantity, R.string.unit_label_cottage, false, false,
-                        R.string.unavailable_cottage_message, () -> bindCottageSelection(v));
-                otherContainer.addView(card);
-            }
-            addAnotherButton.setVisibility(View.VISIBLE);
-            addAnotherButton.setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_COTTAGE_BROWSE)));
-        }
-
-        v.findViewById(R.id.itemSelectionNextButton).setOnClickListener(ClickGuard.wrap(view -> {
-            int total = 0;
-            for (CottageKtvOption item : cottageItems) {
-                if (roomQuantities.containsKey(item.group_id)) {
-                    total += roomQuantities.get(item.group_id);
-                }
-            }
-            if (total <= 0) {
-                Toast.makeText(activity, R.string.dialog_no_room_message, Toast.LENGTH_LONG).show();
-                return;
-            }
-            // The chosen cottages together must seat the whole party (the server enforces the same
-            // rule); a type with no capacity configured can't be judged, so it never blocks.
-            int guests = cottageAdults + cottageChildren;
-            int seats = 0;
-            boolean capacityUnknown = false;
-            for (CottageKtvOption item : cottageItems) {
-                int qty = roomQuantities.containsKey(item.group_id) ? roomQuantities.get(item.group_id) : 0;
-                if (qty > 0) {
-                    capacityUnknown |= item.capacity <= 0;
-                    seats += qty * item.capacity;
-                }
-            }
-            if (!capacityUnknown && seats < guests) {
-                Toast.makeText(activity, activity.getString(R.string.toast_cottage_seats_needed, guests, seats),
-                        Toast.LENGTH_LONG).show();
-                return;
-            }
-            if (multiMode) {
-                multiAdvance(v.findViewById(R.id.itemSelectionNextButton));
-                return;
-            }
-            showScreen(SCREEN_COTTAGE_REVIEW);
-        }));
     }
 
     /**
-     * The dedicated "Cottages" browse screen reached from "Add Another Cottage" on Your Selected
-     * Cottage/s (see bindCottageSelection) — lists every in-stock cottage type except the
-     * guest's original pick, each with its own quantity control. Next returns to Your Selected
-     * Cottage/s, which then shows any of these given a quantity above the origin card.
+     * Fetches what is free for the chosen schedule: a Cottage's date and Cottage Use (the same
+     * backend rules the receptionist's Create Reservation uses), a KTV room's date and slot. The party
+     * is never sent, so it never hides an item. A newer request replaces an older one, and an answer
+     * for a schedule the guest has since changed, or for a screen they have left, is ignored.
+     *
+     * @param foreground true when the guest caused it (screen opened, schedule changed, retry): the
+     *                   list shows "checking" until the answer arrives unless it is already current,
+     *                   and a failure is reported. False for the live-sync tick, which is silent and
+     *                   never interrupts a fetch already running.
      */
-    private void bindCottageBrowse(View v) {
-        bindHeader(v, R.id.itemBrowseHeaderBar, R.string.cottage_browse_title,
-                () -> showScreen(SCREEN_COTTAGE_SELECTION));
-        ((TextView) v.findViewById(R.id.itemBrowseSubtitle)).setText(R.string.label_browse_available_cottages);
-
-        LinearLayout container = v.findViewById(R.id.itemBrowseContainer);
-        container.removeAllViews();
-        LayoutInflater inflater = LayoutInflater.from(activity);
-        for (CottageKtvOption item : cottageItems) {
-            if (item.variant_id == selectionOriginVariantId || item.available_quantity <= 0) {
-                continue;
+    private void loadFacilityAvailability(View v, int facility, boolean foreground) {
+        FacilityLoad load = loadOf(facility);
+        String key = facilityKey(facility);
+        if (key == null) {
+            // No usable schedule: nothing to look up, and nothing fetched for an earlier one stays on offer.
+            load.reset();
+            if (foreground) {
+                renderFacilityList(v, facility);
             }
-            View card = buildSelectableCard(inflater, container, item.image_path,
-                    formatShowcaseName(item.variant_name, null), item.capacity, true, item.description,
-                    activity.getString(R.string.format_price_with_unit, formatMoney((int) Math.round(resolvedItemPrice(item))), resolvedItemPriceUnit(item)),
-                    item.group_id, item.available_quantity, R.string.unit_label_cottage, false, false,
-                    R.string.unavailable_cottage_message, () -> bindCottageBrowse(v));
-            container.addView(card);
+            return;
+        }
+        if (!foreground && load.call != null) {
+            return;
+        }
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            if (foreground) {
+                Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+        load.cancel();
+        if (foreground) {
+            load.failed = false;
+            load.loading = !key.equals(load.key);
+            renderFacilityList(v, facility);
         }
 
-        v.findViewById(R.id.itemBrowseNextButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_COTTAGE_SELECTION)));
+        String[] parts = key.split("\\|");
+        if (facility == FAC_COTTAGE) {
+            Call<CottageAvailabilityResponse> call = ApiClient.bookingApi()
+                    .checkCottageAvailability("Bearer " + token, parts[0], parts[1], null, null);
+            load.call = call;
+            call.enqueue(new Callback<CottageAvailabilityResponse>() {
+                @Override
+                public void onResponse(Call<CottageAvailabilityResponse> call, Response<CottageAvailabilityResponse> response) {
+                    onFacilityResponse(v, facility, key, call, foreground, response.code(),
+                            response.isSuccessful() && response.body() != null
+                                    ? (response.body().cottages != null
+                                    ? new ArrayList<>(response.body().cottages) : new ArrayList<>()) : null);
+                }
+
+                @Override
+                public void onFailure(Call<CottageAvailabilityResponse> call, Throwable t) {
+                    onFacilityFailure(v, facility, key, call, foreground);
+                }
+            });
+        } else {
+            Call<KtvUnitListResponse> call = ApiClient.bookingApi().getKtvUnitsForParty(parts[0], parts[1], null, null);
+            load.call = call;
+            call.enqueue(new Callback<KtvUnitListResponse>() {
+                @Override
+                public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
+                    List<CottageKtvOption> items = null;
+                    if (response.isSuccessful() && response.body() != null) {
+                        if (ktvDurationHours <= 0) {
+                            // Before the session length has loaded, take it from these same packages.
+                            List<Integer> configured = response.body().durationOptions();
+                            ktvDurationHours = configured.isEmpty() ? 0 : configured.get(0);
+                            if (v.isAttachedToWindow()) {
+                                updateKtvDatesEndTimeAndDuration(v);
+                            }
+                        }
+                        items = new ArrayList<>(response.body().toOptions(ktvDurationHours));
+                    }
+                    onFacilityResponse(v, facility, key, call, foreground, response.code(), items);
+                }
+
+                @Override
+                public void onFailure(Call<KtvUnitListResponse> call, Throwable t) {
+                    onFacilityFailure(v, facility, key, call, foreground);
+                }
+            });
+        }
+    }
+
+    /** {@code items} is null when the request failed (HTTP error {@code httpCode}). */
+    private void onFacilityResponse(View v, int facility, String key, Call<?> call, boolean foreground,
+                                    int httpCode, List<CottageKtvOption> items) {
+        FacilityLoad load = loadOf(facility);
+        if (load.call == call) {
+            load.call = null;
+        }
+        if (!facilityScreenStillShows(v, facility, key)) {
+            return;
+        }
+        if (items != null) {
+            applyFacilityAvailability(v, facility, key, items);
+        } else {
+            facilityLookupFailed(v, facility, key, foreground,
+                    httpCode == 401 ? R.string.toast_session_expired : R.string.toast_availability_check_failed);
+        }
+    }
+
+    private void onFacilityFailure(View v, int facility, String key, Call<?> call, boolean foreground) {
+        if (call.isCanceled()) {
+            return;
+        }
+        FacilityLoad load = loadOf(facility);
+        if (load.call == call) {
+            load.call = null;
+        }
+        if (facilityScreenStillShows(v, facility, key)) {
+            facilityLookupFailed(v, facility, key, foreground, R.string.toast_network_error);
+        }
+    }
+
+    private boolean facilityScreenStillShows(View v, int facility, String key) {
+        return currentScreen == facilityDatesScreen(facility) && currentScreenView == v
+                && key.equals(facilityKey(facility));
+    }
+
+    /** What the server says is free for {@code key}: replaces the list, drops the picks that are no
+     *  longer free and lowers the ones above what is left (telling the guest), and starts the item
+     *  the guest came in on at quantity 1 when they haven't picked anything yet. */
+    private void applyFacilityAvailability(View v, int facility, String key, List<CottageKtvOption> latest) {
+        FacilityLoad load = loadOf(facility);
+        boolean unchanged = key.equals(load.key) && LiveSync.sameData(itemsOf(facility), latest);
+        load.loading = false;
+        load.failed = false;
+        if (unchanged) {
+            return;
+        }
+        if (facility == FAC_COTTAGE) {
+            cottageItems = latest;
+        } else {
+            ktvItems = latest;
+        }
+        load.key = key;
+        boolean adjusted = RoomSelectionRules.clampPicks(roomQuantities, FacilitySelectionRules.availableByGroup(latest));
+        selectOriginItemIfNothingPicked(facility);
+        renderFacilityList(v, facility);
+        if (adjusted) {
+            Toast.makeText(activity, R.string.toast_availability_changed, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void facilityLookupFailed(View v, int facility, String key, boolean foreground, int messageRes) {
+        FacilityLoad load = loadOf(facility);
+        load.loading = false;
+        if (!key.equals(load.key)) {
+            // Nothing current to show for this schedule: the list offers a retry.
+            load.failed = true;
+            renderFacilityList(v, facility);
+        }
+        if (foreground) {
+            Toast.makeText(activity, messageRes, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** The cottage / KTV room the guest chose before the schedule is set to quantity 1 — once, and
+     *  only while they haven't picked anything — provided it is free for that schedule. */
+    private void selectOriginItemIfNothingPicked(int facility) {
+        List<CottageKtvOption> items = itemsOf(facility);
+        if (originAutoSelected || selectionOriginVariantId < 0
+                || FacilitySelectionRules.itemCount(items, roomQuantities) > 0) {
+            return;
+        }
+        for (CottageKtvOption item : items) {
+            if (item.variant_id == selectionOriginVariantId && item.available_quantity > 0) {
+                roomQuantities.put(item.group_id, 1);
+                originAutoSelected = true;
+                return;
+            }
+        }
+    }
+
+    /** After the first facility of a multi-facility booking the party isn't asked for again; if the
+     *  carried party is larger than this selection's capacity the notice shows right here. */
+    private void bindFacilityCarriedNotice(View v, int facility) {
+        View notice = v.findViewById(R.id.facilityListCapacityNotice);
+        boolean show = multiMode && multiIndex > 0 && partyExceedsCapacity(facility);
+        notice.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (show) {
+            setCapacityNoticeText(notice, facility);
+        }
+    }
+
+    // ---- Number of Guests (Hotel Rooms, Cottage and KTV) --------------------------------
+
+    private int guestAdults(int facility) {
+        return facility == FAC_COTTAGE ? cottageAdults : facility == FAC_KTV ? ktvAdults : adults;
+    }
+
+    private int guestChildren(int facility) {
+        return facility == FAC_COTTAGE ? cottageChildren : facility == FAC_KTV ? ktvChildren : children;
+    }
+
+    private void setGuests(int facility, int adultCount, int childCount) {
+        if (facility == FAC_COTTAGE) {
+            cottageAdults = adultCount;
+            cottageChildren = childCount;
+        } else if (facility == FAC_KTV) {
+            ktvAdults = adultCount;
+            ktvChildren = childCount;
+            // KTV is booked and priced on the party's total (ktv[guest_count]).
+            ktvGuestCount = adultCount + childCount;
+        } else {
+            adults = adultCount;
+            children = childCount;
+        }
+    }
+
+    /** Whether the party is larger than the standard capacity of what is picked — drives the
+     *  informational notice only. */
+    private boolean partyExceedsCapacity(int facility) {
+        if (facility == FAC_COTTAGE) {
+            return FacilitySelectionRules.exceedsCapacity(cottageItems, roomQuantities, cottageAdults + cottageChildren);
+        }
+        if (facility == FAC_KTV) {
+            return FacilitySelectionRules.exceedsCapacity(ktvItems, roomQuantities, ktvGuestCount);
+        }
+        return RoomSelectionRules.exceedsCapacity(availableRoomTypes, roomQuantities, adults, children);
+    }
+
+    /** The notice's wording for the facility: rooms, cottages or KTV rooms. */
+    private void setCapacityNoticeText(View notice, int facility) {
+        ((TextView) notice.findViewById(R.id.capacityNoticeText)).setText(
+                facility == FAC_COTTAGE ? R.string.notice_guests_exceed_capacity_cottage
+                        : facility == FAC_KTV ? R.string.notice_guests_exceed_capacity_ktv
+                        : R.string.notice_guests_exceed_capacity);
+    }
+
+    /**
+     * "Number of Guests", asked once the schedule and the items are chosen — the same screen for
+     * Hotel Rooms, Cottage and KTV. The party never limits the booking: when it is larger than the
+     * combined standard capacity of what was picked (capacity x quantity, summed) an informational
+     * notice appears and disappears as the numbers change, and Next stays available either way. A
+     * multi-facility booking carries on to the next facility from here instead of Review.
+     */
+    private void bindGuests(View v, int facility) {
+        bindHeader(v, R.id.roomGuestsHeaderBar, R.string.room_guests_title,
+                () -> showScreen(datesScreenForFacility(facility)));
+
+        if (facility == FAC_COTTAGE) {
+            ((TextView) v.findViewById(R.id.roomGuestsSubtitle)).setText(R.string.cottage_guests_subtitle);
+            TextView note = v.findViewById(R.id.roomGuestsNote);
+            note.setText(R.string.note_entrance_fee_calculation);
+            note.setVisibility(View.VISIBLE);
+        } else if (facility == FAC_KTV) {
+            ((TextView) v.findViewById(R.id.roomGuestsSubtitle)).setText(R.string.ktv_guests_subtitle);
+            if (ktvAdults + ktvChildren != ktvGuestCount) {
+                // The total was set elsewhere (carried over in a multi-facility booking).
+                ktvAdults = Math.max(1, ktvGuestCount);
+                ktvChildren = 0;
+            }
+        }
+
+        EditText adultsValue = v.findViewById(R.id.roomGuestsAdultsValue);
+        EditText childrenValue = v.findViewById(R.id.roomGuestsChildrenValue);
+        View notice = v.findViewById(R.id.roomGuestsCapacityNotice);
+        setCapacityNoticeText(notice, facility);
+        Runnable updateNotice = () -> notice.setVisibility(partyExceedsCapacity(facility) ? View.VISIBLE : View.GONE);
+
+        // At least one adult: the booking is made under an adult (the server requires it too).
+        setGuests(facility, Math.min(Math.max(1, guestAdults(facility)), RoomSelectionRules.MAX_ADULTS),
+                Math.min(guestChildren(facility), RoomSelectionRules.MAX_CHILDREN));
+        AuthUiUtils.bindQuantityStepper(adultsValue, v.findViewById(R.id.roomGuestsAdultsMinus),
+                v.findViewById(R.id.roomGuestsAdultsPlus), guestAdults(facility), 1, RoomSelectionRules.MAX_ADULTS, value -> {
+                    setGuests(facility, value, guestChildren(facility));
+                    updateNotice.run();
+                });
+        AuthUiUtils.bindQuantityStepper(childrenValue, v.findViewById(R.id.roomGuestsChildrenMinus),
+                v.findViewById(R.id.roomGuestsChildrenPlus), guestChildren(facility), 0, RoomSelectionRules.MAX_CHILDREN, value -> {
+                    setGuests(facility, guestAdults(facility), value);
+                    updateNotice.run();
+                });
+        // Typing a number updates the notice as it is typed, not only once the field loses focus.
+        AuthUiUtils.afterTextChanged(adultsValue, () -> {
+            setGuests(facility, readGuestCount(adultsValue, RoomSelectionRules.MAX_ADULTS), guestChildren(facility));
+            updateNotice.run();
+        });
+        AuthUiUtils.afterTextChanged(childrenValue, () -> {
+            setGuests(facility, guestAdults(facility), readGuestCount(childrenValue, RoomSelectionRules.MAX_CHILDREN));
+            updateNotice.run();
+        });
+        updateNotice.run();
+
+        v.findViewById(R.id.roomGuestsNextButton).setOnClickListener(ClickGuard.wrap(view -> {
+            // Read what is in the fields: a number typed just before tapping Next hasn't lost focus yet.
+            int adultCount = readGuestCount(adultsValue, RoomSelectionRules.MAX_ADULTS);
+            int childCount = readGuestCount(childrenValue, RoomSelectionRules.MAX_CHILDREN);
+            if (adultCount < 1) {
+                Toast.makeText(activity, R.string.toast_adults_required, Toast.LENGTH_LONG).show();
+                return;
+            }
+            setGuests(facility, adultCount, childCount);
+            // Never blocked by the party being larger than the selection: the notice is all there is.
+            if (multiMode) {
+                multiAdvance();
+                return;
+            }
+            showScreen(facility == FAC_COTTAGE ? SCREEN_COTTAGE_REVIEW
+                    : facility == FAC_KTV ? SCREEN_KTV_REVIEW : SCREEN_REVIEW);
+        }));
+    }
+
+    private static int readGuestCount(EditText field, int max) {
+        try {
+            return Math.max(0, Math.min(max, Integer.parseInt(field.getText().toString().trim())));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     /**
@@ -2067,7 +2091,7 @@ final class HotelBookingFlowController {
      */
     private void bindCottageReview(View v) {
         bindHeader(v, R.id.cottageReviewHeaderBar, R.string.hotel_review_title,
-                () -> showScreen(SCREEN_COTTAGE_SELECTION));
+                () -> showScreen(SCREEN_COTTAGE_GUESTS));
 
         bindRow(v.findViewById(R.id.cottageReviewRowRateType), R.string.label_selected_rate_type,
                 cottageRateTypeLabel());
@@ -2093,6 +2117,8 @@ final class HotelBookingFlowController {
             container.addView(row);
         }
 
+        bindReviewCapacityNotice(v, FAC_COTTAGE);
+
         EditText specialRequestField = v.findViewById(R.id.cottageReviewSpecialRequestField);
         specialRequestField.setText(specialRequest);
         AuthUiUtils.afterTextChanged(specialRequestField,
@@ -2102,6 +2128,14 @@ final class HotelBookingFlowController {
             activeContinuation = CONTINUATION_COTTAGE;
             fetchAmenities(v);
         }));
+    }
+
+    /** The informational notice on Review Your Selection, shown only while the party is larger than
+     *  the combined standard capacity of what was picked. */
+    private void bindReviewCapacityNotice(View v, int facility) {
+        View notice = v.findViewById(R.id.reviewCapacityNotice);
+        setCapacityNoticeText(notice, facility);
+        notice.setVisibility(partyExceedsCapacity(facility) ? View.VISIBLE : View.GONE);
     }
 
     private String cottageRateTypeLabel() {
@@ -2347,146 +2381,6 @@ final class HotelBookingFlowController {
     }
 
     /**
-     * Shows the KTV room the guest originally chose pre-selected with a quantity control if it's
-     * in stock and fits their guest count, or grayed out with an unavailable message otherwise —
-     * plus other available KTV rooms below, same pattern as {@link #bindCottageSelection}. Same
-     * stock-only availability caveat as {@link #bindCottageSelection} applies. Next is a
-     * placeholder for now — KTV bookings don't have a Review/Billing/Payment continuation yet.
-     */
-    private void bindKtvSelection(View v) {
-        bindHeader(v, R.id.itemSelectionHeaderBar, R.string.ktv_selection_title,
-                () -> showScreen(SCREEN_KTV_DATES));
-
-        CottageKtvOption origin = null;
-        for (CottageKtvOption item : ktvItems) {
-            if (item.variant_id == selectionOriginVariantId) {
-                origin = item;
-                break;
-            }
-        }
-        boolean originAvailable = origin != null && origin.available_quantity > 0
-                && meetsCapacity(origin.capacity, ktvGuestCount);
-        if (!originAvailable) {
-            selectionShowOthers = true;
-        }
-
-        LayoutInflater inflater = LayoutInflater.from(activity);
-        FrameLayout originSlot = v.findViewById(R.id.itemSelectionOriginSlot);
-        originSlot.removeAllViews();
-        // An unavailable choice is not shown at all (no greyed-out card) — only what can be booked.
-        if (origin != null && originAvailable) {
-            View card = buildSelectableCard(inflater, originSlot, origin.image_path,
-                    formatShowcaseName(origin.variant_name, null), origin.capacity, false, origin.description,
-                    activity.getString(R.string.format_price_with_unit, formatMoney((int) Math.round(resolvedItemPrice(origin))), resolvedItemPriceUnit(origin)),
-                    origin.group_id, origin.available_quantity, R.string.unit_label_ktv_room, originAvailable, !originAvailable,
-                    R.string.unavailable_ktv_message, () -> bindKtvSelection(v));
-            originSlot.addView(card);
-        }
-
-        LinearLayout otherContainer = v.findViewById(R.id.itemSelectionOtherContainer);
-        otherContainer.removeAllViews();
-        Button addAnotherButton = v.findViewById(R.id.itemSelectionAddAnotherButton);
-        addAnotherButton.setText(R.string.button_add_another_ktv);
-
-        if (selectionShowOthers) {
-            // The origin was unavailable: show every alternative right here, inline, so the
-            // guest — who has nothing selected yet — can immediately pick a replacement.
-            addAnotherButton.setVisibility(View.GONE);
-            for (CottageKtvOption item : ktvItems) {
-                if (item.variant_id == selectionOriginVariantId
-                        || item.available_quantity <= 0 || !meetsCapacity(item.capacity, ktvGuestCount)) {
-                    continue;
-                }
-                View card = buildSelectableCard(inflater, otherContainer, item.image_path,
-                        formatShowcaseName(item.variant_name, null), item.capacity, false, item.description,
-                        activity.getString(R.string.format_price_with_unit, formatMoney((int) Math.round(resolvedItemPrice(item))), resolvedItemPriceUnit(item)),
-                        item.group_id, item.available_quantity, R.string.unit_label_ktv_room, false, false,
-                        R.string.unavailable_ktv_message, () -> bindKtvSelection(v));
-                otherContainer.addView(card);
-            }
-            if (otherContainer.getChildCount() == 0) {
-                addNothingAvailableNotice(otherContainer, R.string.empty_ktv_selection);
-            }
-        } else {
-            // The origin is available: only list KTV rooms the guest has already added via the
-            // dedicated KTV Rooms browse screen — browsing everything else happens there.
-            for (CottageKtvOption item : ktvItems) {
-                if (item.variant_id == selectionOriginVariantId) {
-                    continue;
-                }
-                int qty = roomQuantities.containsKey(item.group_id) ? roomQuantities.get(item.group_id) : 0;
-                if (qty <= 0) {
-                    continue;
-                }
-                View card = buildSelectableCard(inflater, otherContainer, item.image_path,
-                        formatShowcaseName(item.variant_name, null), item.capacity, false, item.description,
-                        activity.getString(R.string.format_price_with_unit, formatMoney((int) Math.round(resolvedItemPrice(item))), resolvedItemPriceUnit(item)),
-                        item.group_id, item.available_quantity, R.string.unit_label_ktv_room, false, false,
-                        R.string.unavailable_ktv_message, () -> bindKtvSelection(v));
-                otherContainer.addView(card);
-            }
-            addAnotherButton.setVisibility(View.VISIBLE);
-            addAnotherButton.setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_KTV_BROWSE)));
-        }
-
-        v.findViewById(R.id.itemSelectionNextButton).setOnClickListener(ClickGuard.wrap(view -> {
-            int total = 0;
-            for (CottageKtvOption item : ktvItems) {
-                if (roomQuantities.containsKey(item.group_id)) {
-                    total += roomQuantities.get(item.group_id);
-                }
-            }
-            if (total <= 0) {
-                Toast.makeText(activity, R.string.dialog_no_room_message, Toast.LENGTH_LONG).show();
-                return;
-            }
-            for (CottageKtvOption item : ktvItems) {
-                Integer picked = roomQuantities.get(item.group_id);
-                if (picked != null && picked > 0 && item.capacity > 0 && ktvGuestCount > item.capacity) {
-                    Toast.makeText(activity, activity.getString(R.string.toast_ktv_over_capacity,
-                            item.variant_name, item.capacity), Toast.LENGTH_LONG).show();
-                    return;
-                }
-            }
-            if (multiMode) {
-                multiAdvance(v.findViewById(R.id.itemSelectionNextButton));
-                return;
-            }
-            showScreen(SCREEN_KTV_REVIEW);
-        }));
-    }
-
-    /**
-     * The dedicated "KTV Rooms" browse screen reached from "Add Another KTV Room" on Your
-     * Selected KTV Room/s (see bindKtvSelection) — lists every in-stock KTV room except the
-     * guest's original pick, each with its own quantity control. Next returns to Your Selected
-     * KTV Room/s, which then shows any of these given a quantity above the origin card.
-     */
-    private void bindKtvBrowse(View v) {
-        bindHeader(v, R.id.itemBrowseHeaderBar, R.string.ktv_browse_title,
-                () -> showScreen(SCREEN_KTV_SELECTION));
-        ((TextView) v.findViewById(R.id.itemBrowseSubtitle)).setText(R.string.label_browse_available_ktv);
-
-        LinearLayout container = v.findViewById(R.id.itemBrowseContainer);
-        container.removeAllViews();
-        LayoutInflater inflater = LayoutInflater.from(activity);
-        for (CottageKtvOption item : ktvItems) {
-            if (item.variant_id == selectionOriginVariantId
-                    || item.available_quantity <= 0 || !meetsCapacity(item.capacity, ktvGuestCount)) {
-                continue;
-            }
-            View card = buildSelectableCard(inflater, container, item.image_path,
-                    formatShowcaseName(item.variant_name, null), item.capacity, false, item.description,
-                    activity.getString(R.string.format_price_with_unit, formatMoney((int) Math.round(resolvedItemPrice(item))), resolvedItemPriceUnit(item)),
-                    item.group_id, item.available_quantity, R.string.unit_label_ktv_room, false, false,
-                    R.string.unavailable_ktv_message, () -> bindKtvBrowse(v));
-            container.addView(card);
-        }
-
-        v.findViewById(R.id.itemBrowseNextButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_KTV_SELECTION)));
-    }
-
-    /**
      * KTV flow's own Review Your Selection (see view_ktv_review.xml) — rate type/date/start
      * time/end time/total guests, every KTV room the guest added on Your Selected KTV Room/s,
      * and a special request note. Separate from bindReview, which is Hotel Rooms-only; Next is a
@@ -2495,7 +2389,7 @@ final class HotelBookingFlowController {
      */
     private void bindKtvReview(View v) {
         bindHeader(v, R.id.ktvReviewHeaderBar, R.string.hotel_review_title,
-                () -> showScreen(SCREEN_KTV_SELECTION));
+                () -> showScreen(SCREEN_KTV_GUESTS));
 
         bindRow(v.findViewById(R.id.ktvReviewRowRateType), R.string.label_duration, ktvDurationLabel());
         bindRow(v.findViewById(R.id.ktvReviewRowDate), R.string.label_date, formatDate(ktvDateMillis));
@@ -2521,6 +2415,8 @@ final class HotelBookingFlowController {
                     R.string.format_price_with_unit, formatMoney((int) Math.round(resolvedItemPrice(item))), resolvedItemPriceUnit(item)));
             container.addView(row);
         }
+
+        bindReviewCapacityNotice(v, FAC_KTV);
 
         EditText specialRequestField = v.findViewById(R.id.ktvReviewSpecialRequestField);
         specialRequestField.setText(specialRequest);
@@ -2940,7 +2836,7 @@ final class HotelBookingFlowController {
                 adults,
                 children,
                 specialRequest,
-                couponFields(quantityFieldMap("room_quantities", roomQuantities))
+                couponFields(withAmenityFields(quantityFieldMap("room_quantities", roomQuantities)))
         ).enqueue(new Callback<ReservationRequestResponse>() {
             @Override
             public void onResponse(Call<ReservationRequestResponse> call, Response<ReservationRequestResponse> response) {
@@ -3003,7 +2899,7 @@ final class HotelBookingFlowController {
                 cottageAdults,
                 cottageChildren,
                 specialRequest,
-                couponFields(quantityFieldMap("cottage_quantities", roomQuantities))
+                couponFields(withAmenityFields(quantityFieldMap("cottage_quantities", roomQuantities)))
         ).enqueue(new Callback<ReservationRequestResponse>() {
             @Override
             public void onResponse(Call<ReservationRequestResponse> call, Response<ReservationRequestResponse> response) {
@@ -3904,6 +3800,8 @@ final class HotelBookingFlowController {
         availableBadge.setVisibility(View.VISIBLE);
         ((TextView) card.findViewById(R.id.itemAvailableBadge)).setText(unitLabelRes == R.string.unit_label_room
                 ? activity.getResources().getQuantityString(R.plurals.format_rooms_available, availableQty, availableQty)
+                : unitLabelRes == R.string.unit_label_cottage
+                ? activity.getResources().getQuantityString(R.plurals.format_cottages_available, availableQty, availableQty)
                 : activity.getString(R.string.format_available_units, availableQty, activity.getString(unitLabelRes)));
         quantityRow.setVisibility(View.VISIBLE);
         card.setAlpha(1f);
@@ -3936,120 +3834,9 @@ final class HotelBookingFlowController {
         return card;
     }
 
-    /**
-     * The Cottages & KTV catalog network call — used by the dedicated Cottage/KTV Overview
-     * selection screens. Runs onLoaded once data has arrived (or immediately, if another caller
-     * already loaded it first). cottageKtvLoaded is only ever set true on a genuine successful
-     * response — a failed/errored attempt resets nextButton and shows a Toast instead (matching
-     * loadRoomAvailability's Hotel Rooms equivalent) so the guest can just tap Next
-     * again, rather than silently caching an empty catalog for the rest of the session with no
-     * way to retry (the bug that made "Available Cottages" render permanently blank after any
-     * one transient failure).
-     */
-    private void fetchCottagesKtvData(Button nextButton, Runnable onLoaded) {
-        // Always re-fetched on entering KTV selection (never served from cottageKtvLoaded) so a
-        // KTV room the admin adds/edits mid-session shows up without restarting the flow.
-        if (isLoadingCottageKtv) {
-            return;
-        }
-        String token = ProfileStore.getAuthToken(activity);
-        if (token.isEmpty()) {
-            nextButton.setEnabled(true);
-            nextButton.setText(R.string.button_next);
-            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
-            return;
-        }
-        isLoadingCottageKtv = true;
-
-        ApiClient.bookingApi().getCottagesKtv("Bearer " + token).enqueue(new Callback<CottageKtvListResponse>() {
-            @Override
-            public void onResponse(Call<CottageKtvListResponse> call, Response<CottageKtvListResponse> response) {
-                isLoadingCottageKtv = false;
-                if (!response.isSuccessful() || response.body() == null) {
-                    nextButton.setEnabled(true);
-                    nextButton.setText(R.string.button_next);
-                    if (response.code() == 401) {
-                        Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
-                    } else {
-                        Toast.makeText(activity, R.string.toast_availability_check_failed, Toast.LENGTH_LONG).show();
-                    }
-                    return;
-                }
-                cottageKtvLoaded = true;
-                cottageItems = new ArrayList<>();
-                ktvItems = new ArrayList<>();
-                if (response.body().cottages != null) {
-                    cottageItems.addAll(response.body().cottages);
-                }
-                for (CottageKtvOption item : cottageItems) {
-                    if (!roomQuantities.containsKey(item.group_id)) {
-                        roomQuantities.put(item.group_id, 0);
-                    }
-                }
-                // KTV is shown only as its actual units (booking/ktv-units, checked against the chosen
-                // slot) — never grouped by Type — so ktvItems stays empty if that call fails.
-                SimpleDateFormat day = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-                String eventDate = ktvDateMillis >= 0 ? day.format(new Date(ktvDateMillis)) : null;
-                String startTime = ktvStartHour >= 0
-                        ? String.format(Locale.US, "%02d:%02d", ktvStartHour, ktvStartMinute) : null;
-                ApiClient.bookingApi().getKtvUnitsForParty(eventDate, startTime, null, ktvGuestCount).enqueue(new Callback<KtvUnitListResponse>() {
-                    @Override
-                    public void onResponse(Call<KtvUnitListResponse> c, Response<KtvUnitListResponse> r) {
-                        if (r.isSuccessful() && r.body() != null && r.body().ktv_units != null) {
-                            ktvItems = new ArrayList<>(r.body().toOptions(ktvDurationHours));
-                        }
-                        finishKtvLoad(onLoaded);
-                    }
-
-                    @Override
-                    public void onFailure(Call<KtvUnitListResponse> c, Throwable t) {
-                        finishKtvLoad(onLoaded);
-                    }
-                });
-            }
-
-            @Override
-            public void onFailure(Call<CottageKtvListResponse> call, Throwable t) {
-                isLoadingCottageKtv = false;
-                nextButton.setEnabled(true);
-                nextButton.setText(R.string.button_next);
-                Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
-            }
-        });
-    }
-
-    private void finishKtvLoad(Runnable onLoaded) {
-        for (CottageKtvOption item : ktvItems) {
-            if (!roomQuantities.containsKey(item.group_id)) {
-                roomQuantities.put(item.group_id, 0);
-            }
-        }
-        onLoaded.run();
-    }
-
-    /** Shown on a selection screen when nothing at all is available for the guest's dates/schedule
-     *  (unavailable options are never listed, so the screen would otherwise be blank). */
-    private void addNothingAvailableNotice(LinearLayout container, int messageRes) {
-        TextView notice = new TextView(activity);
-        notice.setText(messageRes);
-        notice.setTextSize(14f);
-        notice.setTextColor(ThemeManager.color(activity, R.attr.textMuted));
-        notice.setGravity(android.view.Gravity.CENTER);
-        notice.setPadding(0, 32, 0, 32);
-        container.addView(notice, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-    }
-
-    // Hotel Room capacity (total = capacity per room x rooms picked, see RoomSelectionRules) never
-    // blocks a booking: the party is compared with it only to show an informational notice (Number
-    // of Guests and Review Your Selection). KTV, below, still filters by its own capacity.
-
-    /** A room passes the guest-count filter if its listed capacity covers the party, OR if its
-     *  capacity is missing/zero — treating that as unknown data rather than "sleeps nobody" so a
-     *  backend data gap can't silently hide an entire room type from the catalog. */
-    private boolean meetsCapacity(int roomCapacity, int totalGuests) {
-        return roomCapacity <= 0 || roomCapacity >= totalGuests;
-    }
+    // Capacity (total = capacity x quantity picked, see RoomSelectionRules / FacilitySelectionRules)
+    // never blocks a booking for Hotel Rooms, Cottage or KTV: the party is compared with it only to
+    // show an informational notice (Number of Guests and Review Your Selection).
 
     /** Showcase card title format: "TYPE (CATEGORY)", e.g. "Standard (Claricon)" — rendered in
      *  caps by the TextView itself. Falls back to just the type if no category is known. */
@@ -4156,8 +3943,7 @@ final class HotelBookingFlowController {
         ((TextView) v.findViewById(R.id.reviewTotalAmount)).setText(
                 formatCurrency(RoomSelectionRules.roomsTotal(availableRoomTypes, roomQuantities, nights)));
         // Informational only: the booking carries on either way.
-        v.findViewById(R.id.reviewCapacityNotice)
-                .setVisibility(partyExceedsRoomCapacity() ? View.VISIBLE : View.GONE);
+        bindReviewCapacityNotice(v, FAC_ROOM);
 
         EditText specialRequestField = v.findViewById(R.id.reviewSpecialRequestField);
         specialRequestField.setText(specialRequest);
@@ -4324,7 +4110,7 @@ final class HotelBookingFlowController {
             multiQuantities.clear();
             multiAnchorVariantId = selectionOriginVariantId;
             activeContinuation = CONTINUATION_NONE;
-            multiAdvance((Button) sourceButton);
+            multiAdvance();
         });
     }
 
@@ -4728,7 +4514,6 @@ final class HotelBookingFlowController {
         adults = 0;
         children = 0;
         selectionOriginVariantId = -1;
-        selectionShowOthers = false;
         onBackToOverview = null;
         activeContinuation = CONTINUATION_NONE;
         reserveMode = false;
@@ -4749,11 +4534,10 @@ final class HotelBookingFlowController {
         ktvStartHour = -1;
         ktvStartMinute = -1;
         ktvGuestCount = 1;
-        cottageItems = new ArrayList<>();
+        ktvAdults = 1;
+        ktvChildren = 0;
         ktvDurationHours = 0;
-        ktvItems = new ArrayList<>();
-        isLoadingCottageKtv = false;
-        cottageKtvLoaded = false;
+        resetFacilitySelection();
         resetRoomSelection();
         specialRequest = "";
         availableAmenities = new ArrayList<>();
@@ -4803,23 +4587,6 @@ final class HotelBookingFlowController {
         multiQuantities.put(multiQueue.get(multiIndex), new LinkedHashMap<>(roomQuantities));
     }
 
-    /** Re-applies a facility's previously confirmed quantities onto the freshly (re)built
-     *  roomQuantities of its selection screen — only for items still present in that list. */
-    private void restoreMultiQuantities(int facility) {
-        if (!multiMode) {
-            return;
-        }
-        Map<Integer, Integer> saved = multiQuantities.get(facility);
-        if (saved == null) {
-            return;
-        }
-        for (Map.Entry<Integer, Integer> entry : saved.entrySet()) {
-            if (roomQuantities.containsKey(entry.getKey())) {
-                roomQuantities.put(entry.getKey(), entry.getValue());
-            }
-        }
-    }
-
     /** Shows an already-visited facility's selection screen again, exactly as the guest left it. */
     private void multiShowSelection(int facility) {
         roomQuantities.clear();
@@ -4855,71 +4622,38 @@ final class HotelBookingFlowController {
     }
 
     /**
-     * Next on a facility's selection screen in the multi-facility flow: remembers its quantities,
-     * then moves on to the next facility with the already-entered date and guest count carried
-     * over (Cottage goes straight to its availability-filtered selection; KTV shows its session
-     * details screen, since start time and rate type still need answering) — or, after the last
-     * facility, to the combined Review.
+     * Next on a facility's last screen in the multi-facility flow (Number of Guests for the first
+     * facility, its own dates screen for a later one): remembers its quantities, then moves on to
+     * the next facility with the already-entered date and party carried over, showing that
+     * facility's own dates/schedule screen (which lists what is free and asks for the Cottage Use or
+     * KTV start time) — or, after the last facility, to the combined Review.
      */
-    private void multiAdvance(Button nextButton) {
+    private void multiAdvance() {
         saveMultiQuantities();
         if (multiIndex + 1 >= multiQueue.size()) {
             showScreen(SCREEN_MULTI_REVIEW);
             return;
         }
         int next = multiQueue.get(multiIndex + 1);
+        multiIndex++;
+        selectionOriginVariantId = -1;
+        // What the guest picked for this facility on an earlier visit comes back with it; the list
+        // then lowers or drops whatever is no longer free.
+        Map<Integer, Integer> saved = multiQuantities.get(next);
+        roomQuantities.clear();
+        if (saved != null) {
+            roomQuantities.putAll(saved);
+        }
         if (next == FAC_COTTAGE) {
             cottageDateMillis = multiAnchorDateMillis();
             cottageAdults = adults > 0 ? adults : 1;
             cottageChildren = children;
-            fetchCottageAvailability(nextButton, () -> {
-                multiIndex++;
-                selectionOriginVariantId = -1;
-                roomQuantities.clear();
-            });
+            showScreen(SCREEN_COTTAGE_DATES);
             return;
         }
-        multiIndex++;
-        selectionOriginVariantId = -1;
-        roomQuantities.clear();
         ktvDateMillis = multiAnchorDateMillis();
         ktvGuestCount = Math.max(1, multiAnchorGuestCount());
         showScreen(SCREEN_KTV_DATES);
-    }
-
-    /** Cottage Use chooser on the multi-facility Cottage step (see view_item_selection.xml).
-     *  Changing it re-runs the live availability check for the carried-over date, so the list and
-     *  every price shown always match the chosen use. */
-    private void bindMultiCottageUseRow(View v) {
-        v.findViewById(R.id.itemSelectionUseRow).setVisibility(View.VISIBLE);
-        Spinner useSpinner = v.findViewById(R.id.itemSelectionUseSpinner);
-        ArrayAdapter<String> useAdapter = new AuthSpinnerAdapter(activity,
-                Arrays.asList(activity.getResources().getStringArray(R.array.cottage_use_options)),
-                false);
-        useSpinner.setAdapter(useAdapter);
-        for (int i = 0; i < COTTAGE_USE_OPTIONS.length; i++) {
-            if (COTTAGE_USE_OPTIONS[i].equals(cottageRateType)) {
-                useSpinner.setSelection(i);
-                break;
-            }
-        }
-        useSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View item, int position, long id) {
-                String use = COTTAGE_USE_OPTIONS[position];
-                if (use.equals(cottageRateType)) {
-                    return;
-                }
-                cottageRateType = use;
-                multiQuantities.remove(FAC_COTTAGE);
-                fetchCottageAvailability(v.findViewById(R.id.itemSelectionNextButton), roomQuantities::clear);
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-                // A Spinner backed by a non-empty adapter always has a selection once shown.
-            }
-        });
     }
 
     private int multiQty(int facility, int groupId) {
@@ -5484,6 +5218,14 @@ final class HotelBookingFlowController {
         return fields;
     }
 
+    /** Adds the amenities picked on Choose Amenity (loaded from the live booking/amenities list) to a
+     *  Reserve request as "amenity_quantities[id]" fields, so they are saved with the reservation
+     *  itself and counted in its total, not only held in the app until the guest pays. */
+    private Map<String, String> withAmenityFields(Map<String, String> fields) {
+        fields.putAll(quantityFieldMap("amenity_quantities", amenityQuantities));
+        return fields;
+    }
+
     private void putCouponPart(Map<String, RequestBody> parts) {
         if (appliedCoupon != null) {
             parts.put("promo_id", textPart(String.valueOf(appliedCoupon.promo_id)));
@@ -5617,6 +5359,11 @@ final class HotelBookingFlowController {
         Button reserveButton = summaryView.findViewById(R.id.reservationSummaryReserveButton);
         reserveButton.setEnabled(false);
 
+        // Amenities are part of the reservation. In the multi-facility flow they belong to the Hotel
+        // Rooms booking, so they only go when Hotel Rooms are included (as the Summary lists them).
+        if (!multi || multiQueue.contains(FAC_ROOM)) {
+            withAmenityFields(fields);
+        }
         putCouponField(fields);
         ApiClient.bookingApi().createMultiReservation("Bearer " + token, fields)
                 .enqueue(new Callback<ReservationRequestResponse>() {

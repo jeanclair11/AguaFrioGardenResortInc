@@ -72,7 +72,8 @@ public interface BookingApi {
      * checkAvailability() above, checked against actual Bookings/pending holds for that exact
      * date and period (see the backend's HandlesCottageAvailability::cottageAvailableAt()),
      * unlike getCottagesKtv()'s static in-stock count. Always called fresh, never cached client-
-     * side, same as checkAvailability().
+     * side, same as checkAvailability(). The party is optional and the app leaves it out: which
+     * cottages are offered depends on the date and use only, never on how many guests are coming.
      */
     @FormUrlEncoded
     @POST("booking/cottage-availability")
@@ -80,8 +81,8 @@ public interface BookingApi {
             @Header("Authorization") String bearerToken,
             @Field("date") String date,
             @Field("use") String use,
-            @Field("adults") int adults,
-            @Field("children") int children);
+            @Field("adults") Integer adults,
+            @Field("children") Integer children);
 
     @GET("booking/amenities")
     Call<AmenityListResponse> getAmenities(

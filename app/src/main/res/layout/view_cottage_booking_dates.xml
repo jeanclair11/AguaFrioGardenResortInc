@@ -100,170 +100,51 @@
                     style="@style/AuthSpinner" />
             </com.aguafriogarden.resortinc.AuthInputField>
 
-            <!-- Guests -->
+            <!-- The cottages / KTV rooms free for the chosen schedule, filled by
+                 HotelBookingFlowController#renderFacilityList: one card per item that has availability,
+                 each with its own quantity control (a KTV room is a SELECT toggle). An item with
+                 nothing free is never listed. The message line stands in for the list while there is
+                 no schedule yet, while loading, when nothing is free, and on a failure (with the
+                 retry button). The notice only shows on a later step of a multi-facility booking,
+                 where the party was already entered on the first facility. -->
             <TextView
+                android:id="@+id/facilityListTitle"
                 style="@style/FieldLabel"
-                android:layout_marginTop="18dp"
-                android:text="@string/label_stay_guests" />
-
-            <com.aguafriogarden.resortinc.AuthInputField
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_auth_input"
-                android:orientation="vertical"
-                android:padding="14dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/label_adults"
-                        android:textColor="?attr/textPrimary"
-                        android:textSize="14sp" />
-
-                    <ImageView
-                        android:id="@+id/cottageDatesAdultsMinus"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:padding="4dp"
-                        android:src="@drawable/ic_minus"
-                        android:background="@drawable/bg_stepper_button" />
-
-                    <EditText
-                        android:id="@+id/cottageDatesAdultsValue"
-                        android:layout_width="44dp"
-                        android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:text="1"
-                        android:textColor="?attr/textPrimary"
-                        android:textSize="16sp"
-                        android:textStyle="bold"
-                        android:background="@null"
-                        android:padding="0dp"
-                        android:minHeight="0dp"
-                        android:inputType="number"
-                        android:maxLength="2"
-                        android:selectAllOnFocus="true"
-                        android:imeOptions="actionDone"
-                        android:singleLine="true" />
-
-                    <ImageView
-                        android:id="@+id/cottageDatesAdultsPlus"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:padding="4dp"
-                        android:src="@drawable/ic_plus"
-                        android:background="@drawable/bg_stepper_button" />
-
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="12dp"
-                    android:layout_marginBottom="12dp"
-                    android:background="?attr/dividerColor" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/label_children"
-                        android:textColor="?attr/textPrimary"
-                        android:textSize="14sp" />
-
-                    <ImageView
-                        android:id="@+id/cottageDatesChildrenMinus"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:padding="4dp"
-                        android:src="@drawable/ic_minus"
-                        android:background="@drawable/bg_stepper_button" />
-
-                    <EditText
-                        android:id="@+id/cottageDatesChildrenValue"
-                        android:layout_width="44dp"
-                        android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:text="0"
-                        android:textColor="?attr/textPrimary"
-                        android:textSize="16sp"
-                        android:textStyle="bold"
-                        android:background="@null"
-                        android:padding="0dp"
-                        android:minHeight="0dp"
-                        android:inputType="number"
-                        android:maxLength="2"
-                        android:selectAllOnFocus="true"
-                        android:imeOptions="actionDone"
-                        android:singleLine="true" />
-
-                    <ImageView
-                        android:id="@+id/cottageDatesChildrenPlus"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:padding="4dp"
-                        android:src="@drawable/ic_plus"
-                        android:background="@drawable/bg_stepper_button" />
-
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="12dp"
-                    android:layout_marginBottom="12dp"
-                    android:background="?attr/dividerColor" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/label_total_guest"
-                        android:textColor="?attr/textPrimary"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/cottageDatesTotalGuestValue"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="1"
-                        android:textColor="?attr/accentPrimary"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-
-                </LinearLayout>
-
-            </com.aguafriogarden.resortinc.AuthInputField>
+                android:layout_marginTop="26dp" />
 
             <TextView
+                android:id="@+id/facilityListMessage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:lineSpacingExtra="2dp"
-                android:text="@string/note_entrance_fee_calculation"
+                android:layout_marginTop="12dp"
+                android:gravity="center"
+                android:lineSpacingExtra="3dp"
+                android:paddingTop="24dp"
+                android:paddingBottom="24dp"
                 android:textColor="?attr/textOnScreenMuted"
-                android:textSize="11sp" />
+                android:textSize="14sp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/facilityListRetryButton"
+                style="@style/SecondaryButton"
+                android:text="@string/button_try_again"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/facilityListContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical" />
+
+            <include
+                android:id="@+id/facilityListCapacityNotice"
+                layout="@layout/view_guest_capacity_notice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:visibility="gone" />
 
         </LinearLayout>
     </ScrollView>

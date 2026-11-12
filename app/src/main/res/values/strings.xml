@@ -547,6 +547,23 @@
     <string name="room_guests_subtitle">Tell us how many guests will be staying. Any number is fine — you\'ll only see a note if your party is larger than the standard capacity of your rooms.</string>
     <string name="notice_guests_exceed_capacity">Your total number of guests exceeds the standard capacity of your selected rooms. Additional charges for extra guests may apply upon check-in, subject to the resort\'s policies.</string>
     <string name="label_total_booking_amount">Total Booking Amount</string>
+
+    <!-- Cottage and KTV: the same dates-then-guests shape as Hotel Rooms. -->
+    <string name="cottage_dates_pick_hint">Select your visit date to see the cottages available for your schedule.</string>
+    <string name="ktv_dates_pick_hint">Select your date and start time to see the KTV rooms available for your session.</string>
+    <string name="facility_loading_cottages">Checking available cottages…</string>
+    <string name="facility_loading_ktv">Checking available KTV rooms…</string>
+    <string name="toast_select_cottage">Please select at least one cottage before continuing.</string>
+    <string name="toast_select_ktv">Please select at least one KTV room before continuing.</string>
+    <string name="toast_adults_required">Please add at least 1 adult.</string>
+    <string name="cottage_guests_subtitle">Tell us how many guests will be staying. Any number is fine — you\'ll only see a note if your party is larger than the standard capacity of your cottages.</string>
+    <string name="ktv_guests_subtitle">Tell us how many guests will be staying. Any number is fine — you\'ll only see a note if your party is larger than the standard capacity of your KTV rooms.</string>
+    <string name="notice_guests_exceed_capacity_cottage">Your total number of guests exceeds the standard capacity of your selected cottages. Additional charges for extra guests may apply upon check-in, subject to the resort\'s policies.</string>
+    <string name="notice_guests_exceed_capacity_ktv">Your total number of guests exceeds the standard capacity of your selected KTV rooms. Additional charges for extra guests may apply upon check-in, subject to the resort\'s policies.</string>
+    <plurals name="format_cottages_available">
+        <item quantity="one">%1$d Cottage Available</item>
+        <item quantity="other">%1$d Cottages Available</item>
+    </plurals>
     <string name="my_reservations_title">My Reservations</string>
     <string name="history_facility_hall">Function Hall</string>
     <string name="history_view_all">View all  &gt;</string>
@@ -567,13 +584,13 @@
     <!-- Cottage Overview's "Book Now" entry only (see HotelBookingFlowController#bindCottageDatesEntry) —
          the Book/Reserve tabs' shared focused, Cottage-only gate screen. -->
     <string name="cottage_dates_title">Choose Your Visit Date</string>
-    <string name="cottage_dates_subtitle">To help us find the best available cottage for your preferred schedule, please select your visit date and Cottage Use.</string>
+    <string name="cottage_dates_subtitle">Select your visit date and Cottage Use to see the cottages available for that schedule, then choose how many of each you\'d like. You\'ll tell us how many guests are coming on the next step.</string>
     <string name="note_entrance_fee_calculation">Please indicate the number of adults and children in your group for entrance fee calculation. The details will be verified upon entry.</string>
 
     <!-- KTV Overview's "Book Now" entry only (see HotelBookingFlowController#bindKtvDatesEntry) —
          the Book/Reserve tabs' shared focused, KTV-only gate screen. -->
     <string name="ktv_dates_title">Plan Your KTV Session</string>
-    <string name="ktv_dates_subtitle">Please set your preferred date and time so we can check the availability of your chosen KTV room.</string>
+    <string name="ktv_dates_subtitle">Set your preferred date and start time to see the KTV rooms available for that session, then select the ones you\'d like. You\'ll tell us how many guests are coming on the next step.</string>
     <string name="button_next">Next</string>
     <string name="button_add">Add</string>
     <string name="button_reserve">Reserve</string>
@@ -596,12 +613,10 @@
     <string name="label_end_time">End Time</string>
     <string name="label_duration">Duration</string>
     <string name="format_ktv_extra_guests">+%1$d extra guest/s: PHP %2$s</string>
-    <string name="toast_ktv_over_capacity">%1$s accommodates at most %2$d guests.</string>
     <string name="toast_ktv_duration_unavailable">No KTV room offers that duration.</string>
     <string name="label_ktv_no_rates">No KTV rates are available right now.</string>
     <string name="toast_ktv_no_rates">KTV rates are not available right now. Please try again later.</string>
     <string name="format_ktv_session_hours">KTV Session: %1$d Hours</string>
-    <string name="label_guest_count">Guest Count</string>
     <string name="button_select">SELECT</string>
     <string name="button_selected">SELECTED</string>
     <string name="status_available">Available</string>
@@ -625,32 +640,21 @@
     <string name="toast_password_change_failed">Couldn\'t change your password. Please try again.</string>
     <string name="toast_id_upload_failed">Couldn\'t upload your ID. Please try again.</string>
 
-    <!-- Room/Cottage/KTV Overview's "Your Selected ..." screen (see HotelBookingFlowController's
-         bindCottageSelection/bindKtvSelection) — shows the originally-chosen
-         item as pre-selected (with a quantity control) if it's available for the guest's
-         entered dates/time/guests, or grayed-out with an unavailable message if not, plus other
-         available alternatives below. -->
+    <!-- Section titles above the lists of what is free on the Choose Your Stay Dates / Visit Date /
+         Plan Your KTV Session screens (see HotelBookingFlowController#renderRoomList and
+         #renderFacilityList), plus the card badge and the per-item "unavailable" wording. -->
     <string name="room_selection_title">Available Rooms</string>
     <string name="cottage_selection_title">Available Cottages</string>
     <string name="ktv_selection_title">Available KTV Rooms</string>
     <string name="label_selected_badge">✓ SELECTED</string>
-    <string name="button_add_another_cottage">ADD ANOTHER COTTAGE</string>
-    <string name="button_add_another_ktv">ADD ANOTHER KTV ROOM</string>
     <string name="unavailable_room_message">This room is unavailable for your selected dates.</string>
     <string name="unavailable_cottage_message">This cottage is unavailable for your selected schedule.</string>
     <string name="unavailable_ktv_message">This KTV room is unavailable for your selected schedule.</string>
     <string name="empty_room_selection">No rooms are available for your selected dates. Please try different dates.</string>
-    <string name="empty_cottage_selection">No cottages are available for your selected date and schedule. Please go back and try a different one.</string>
-    <string name="empty_ktv_selection">No KTV rooms are available for your selected schedule. Please go back and try a different one.</string>
+    <string name="empty_cottage_selection">No cottages are available for your selected date and Cottage Use. Please try a different date or use.</string>
+    <string name="empty_ktv_selection">No KTV rooms are available for your selected date and time. Please try a different one.</string>
     <string name="toast_feature_coming_soon">This feature is coming soon.</string>
 
-    <!-- "Add Another ..." browse screens (see HotelBookingFlowController's 
-         bindCottageBrowse/bindKtvBrowse) — a separate screen listing every other available item,
-         reached from the "Your Selected ..." screen's Add Another button. -->
-    <string name="cottage_browse_title">Cottages</string>
-    <string name="ktv_browse_title">KTV Rooms</string>
-    <string name="label_browse_available_cottages">Available cottages</string>
-    <string name="label_browse_available_ktv">Available KTV rooms</string>
 
     <string name="hotel_review_title">Review Your Selection</string>
     <string name="hotel_review_subtitle">Here\'s what you\'ve picked for your stay.</string>
@@ -817,7 +821,6 @@
     <string name="notification_yesterday_at">Yesterday, %1$s</string>
     <string name="notification_menu_mark_all_read">Mark all as read</string>
 
-    <string name="toast_cottage_seats_needed">Your party of %1$d needs cottages that seat at least %1$d guests together. Your selection seats %2$d, so please add more cottages.</string>
 
     <!-- Promo Coupons (Summary page card + picker) -->
     <string name="promo_coupons_title">Promo Coupons</string>

@@ -88,6 +88,15 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
 
+            <!-- Shown only while the party is larger than the combined standard capacity of the selection. -->
+            <include
+                android:id="@+id/reviewCapacityNotice"
+                layout="@layout/view_guest_capacity_notice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:visibility="gone" />
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

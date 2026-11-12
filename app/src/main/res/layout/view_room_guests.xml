@@ -28,6 +28,7 @@
                 layout="@layout/view_screen_header" />
 
             <TextView
+                android:id="@+id/roomGuestsSubtitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
@@ -139,6 +140,17 @@
                     android:background="@drawable/bg_stepper_button" />
 
             </com.aguafriogarden.resortinc.AuthInputField>
+
+            <!-- Cottage only: how the entrance fee uses the party (set from code). -->
+            <TextView
+                android:id="@+id/roomGuestsNote"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:lineSpacingExtra="2dp"
+                android:textColor="?attr/textOnScreenMuted"
+                android:textSize="11sp"
+                android:visibility="gone" />
 
             <!-- Shown only while the party is larger than the rooms' combined standard capacity. -->
             <include
