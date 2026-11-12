@@ -745,6 +745,11 @@
     <string name="helper_payment_screenshot">Required — a screenshot of your GCash payment confirmation.</string>
     <string name="button_complete_booking">Complete Booking</string>
     <string name="toast_amount_paid_required">Please enter the amount you paid.</string>
+    <string name="toast_amount_paid_too_low">The amount you entered is less than the required payment of %1$s.</string>
+    <string name="dialog_overpayment_message">The amount you entered is greater than the required payment. Do you want to proceed?</string>
+    <string name="label_payment_applied">Payment applied to booking</string>
+    <string name="label_change">Change</string>
+    <string name="label_excess_payment">Excess payment</string>
     <string name="toast_reference_number_required">Please enter the GCash reference number.</string>
     <string name="toast_reference_number_invalid_length">GCash reference number must be exactly 13 digits.</string>
     <string name="toast_screenshot_required">Please upload a screenshot of your payment.</string>

@@ -74,6 +74,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.IntSupplier;
 
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -350,6 +351,8 @@ final class HotelBookingFlowController {
     private boolean termsChecked;
     private boolean cancellationChecked;
     private String amountPaidText = "";
+    /** Recomputes the live payment summary of the Payment screen on show (null on screens without one). */
+    private Runnable paymentSummaryRefresh;
     private String referenceNumberText = "";
     private Uri screenshotUri;
     private String bookingReference = "";
@@ -2427,6 +2430,7 @@ final class HotelBookingFlowController {
         amountPaidField.setText(amountPaidText);
         referenceField.setText(referenceNumberText);
         AuthUiUtils.afterTextChanged(amountPaidField, () -> amountPaidText = amountPaidField.getText().toString());
+        wirePaymentSummary(v, grandTotal, () -> amountDue);
         amountPaidField.setOnFocusChangeListener((view, hasFocus) -> {
             if (hasFocus) {
                 return;
@@ -2454,8 +2458,7 @@ final class HotelBookingFlowController {
         }
 
         v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(ClickGuard.wrap(view -> {
-            if (amountPaidText.trim().isEmpty()) {
-                Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
+            if (!validateAmountPaid(amountDue)) {
                 return;
             }
             if (referenceNumberText.trim().isEmpty()) {
@@ -2470,7 +2473,7 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
                 return;
             }
-            submitSingleFacilityBooking(v, FAC_COTTAGE);
+            confirmOverpayment(v, amountDue, () -> submitSingleFacilityBooking(v, FAC_COTTAGE));
         }));
     }
 
@@ -2691,6 +2694,7 @@ final class HotelBookingFlowController {
         amountPaidField.setText(amountPaidText);
         referenceField.setText(referenceNumberText);
         AuthUiUtils.afterTextChanged(amountPaidField, () -> amountPaidText = amountPaidField.getText().toString());
+        wirePaymentSummary(v, grandTotal, () -> amountDue);
         amountPaidField.setOnFocusChangeListener((view, hasFocus) -> {
             if (hasFocus) {
                 return;
@@ -2718,8 +2722,7 @@ final class HotelBookingFlowController {
         }
 
         v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(ClickGuard.wrap(view -> {
-            if (amountPaidText.trim().isEmpty()) {
-                Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
+            if (!validateAmountPaid(amountDue)) {
                 return;
             }
             if (referenceNumberText.trim().isEmpty()) {
@@ -2734,7 +2737,7 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
                 return;
             }
-            submitSingleFacilityBooking(v, FAC_KTV);
+            confirmOverpayment(v, amountDue, () -> submitSingleFacilityBooking(v, FAC_KTV));
         }));
     }
 
@@ -3490,6 +3493,7 @@ final class HotelBookingFlowController {
      */
     private void bindReservationPayment(View v) {
         bindHeader(v, R.id.hotelPaymentHeaderBar, R.string.hotel_payment_title, () -> showScreen(SCREEN_RESERVATION_DETAILS));
+        paymentSummaryRefresh = null;
         ((TextView) v.findViewById(R.id.hotelPaymentSubtitle)).setText(R.string.reservation_payment_subtitle);
 
         int grandTotal = reservationSnapshotGrandTotal;
@@ -3507,6 +3511,9 @@ final class HotelBookingFlowController {
         Runnable refreshPaymentOption = () -> {
             updatePaymentOptionCards(fullCard, downCard, reservationPaymentOption);
             bindReservationAmountDue(amountDueView, grandTotal, downPayment);
+            if (paymentSummaryRefresh != null) {
+                paymentSummaryRefresh.run();
+            }
         };
         refreshPaymentOption.run();
         fullCard.setOnClickListener(view -> {
@@ -3525,6 +3532,7 @@ final class HotelBookingFlowController {
         amountPaidField.setText(amountPaidText);
         referenceField.setText(referenceNumberText);
         AuthUiUtils.afterTextChanged(amountPaidField, () -> amountPaidText = amountPaidField.getText().toString());
+        wirePaymentSummary(v, grandTotal, () -> reservationPaymentOption == PAYMENT_PARTIAL ? downPayment : grandTotal);
         amountPaidField.setOnFocusChangeListener((view, hasFocus) -> {
             if (hasFocus) {
                 return;
@@ -3559,8 +3567,7 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.toast_select_payment_option, Toast.LENGTH_LONG).show();
                 return;
             }
-            if (amountPaidText.trim().isEmpty()) {
-                Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
+            if (!validateAmountPaid(reservationPaymentOption == PAYMENT_PARTIAL ? downPayment : grandTotal)) {
                 return;
             }
             if (referenceNumberText.trim().isEmpty()) {
@@ -3575,8 +3582,112 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
                 return;
             }
-            submitReservationPayment(v);
+            confirmOverpayment(v, reservationPaymentOption == PAYMENT_PARTIAL ? downPayment : grandTotal, () -> submitReservationPayment(v));
         }));
+    }
+
+    // ---- Amount paid: validation, overpayment confirmation, live summary -----------------------
+
+    /**
+     * Whether the selected payment method hands out cash change. Every Payment screen pays through
+     * GCash, an online provider: only the amount it actually received is recorded, and an excess is
+     * labelled "Excess payment" instead of cash "Change". Flip this when a cash method is added.
+     */
+    private static final boolean PAYMENT_METHOD_SUPPORTS_CASH = false;
+
+    private static final double AMOUNT_TOLERANCE = 0.005;
+
+    /** The Amount Paid field as a number, or -1 when it is empty or not a number. */
+    private double enteredAmountPaid() {
+        try {
+            return Double.parseDouble(amountPaidText.trim());
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    private String formatCurrencyExact(double amount) {
+        return activity.getString(R.string.format_currency, String.format(Locale.US, "%,.2f", amount));
+    }
+
+    /**
+     * Complete-button check on the amount: it must be a real amount and at least the amount due
+     * (the 30% down payment, or the full total). More than that is allowed, but only after
+     * {@link #confirmOverpayment}.
+     */
+    private boolean validateAmountPaid(int amountDue) {
+        double paid = enteredAmountPaid();
+        if (paid <= 0) {
+            Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
+            return false;
+        }
+        if (paid + AMOUNT_TOLERANCE < amountDue) {
+            Toast.makeText(activity, activity.getString(R.string.toast_amount_paid_too_low, formatCurrency(amountDue)),
+                    Toast.LENGTH_LONG).show();
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Runs {@code proceed} (the real submit) — straight away when the guest paid exactly the amount
+     * due, otherwise after asking "greater than the required payment — proceed?". No closes the
+     * dialog and puts the guest back in the Amount Paid field; nothing is submitted or recorded.
+     */
+    private void confirmOverpayment(View paymentView, int amountDue, Runnable proceed) {
+        if (enteredAmountPaid() <= amountDue + AMOUNT_TOLERANCE) {
+            proceed.run();
+            return;
+        }
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setMessage(R.string.dialog_overpayment_message)
+                .setNegativeButton(R.string.button_no, (d, which) -> {
+                    EditText field = paymentView.findViewById(R.id.paymentAmountPaidField);
+                    field.requestFocus();
+                    field.setSelection(field.getText().length());
+                })
+                .setPositiveButton(R.string.button_yes, (d, which) -> proceed.run())
+                .create();
+        ThemeManager.applyGlassEffect(dialog.getWindow());
+        dialog.show();
+    }
+
+    /**
+     * Live "what happens to this payment" card under the Amount Paid field: the part applied to the
+     * booking (never more than the total), the balance left, and anything beyond the total shown in
+     * green. A 30% down payment of 1,500 on 5,000 that is paid as 2,000 leaves 3,000, not 3,500.
+     * {@code amountDue} is a supplier because the Reservation screen's due amount follows its
+     * Full / 30% cards.
+     */
+    private void wirePaymentSummary(View v, int grandTotal, IntSupplier amountDue) {
+        View card = v.findViewById(R.id.paymentSummaryCard);
+        EditText amountPaidField = v.findViewById(R.id.paymentAmountPaidField);
+        Runnable refresh = () -> {
+            double paid = enteredAmountPaid();
+            int due = amountDue.getAsInt();
+            if (paid <= 0 || due <= 0 || paid + AMOUNT_TOLERANCE < due) {
+                card.setVisibility(View.GONE);
+                return;
+            }
+            double applied = Math.min(paid, grandTotal);
+            double change = Math.max(paid - grandTotal, 0);
+            ((TextView) v.findViewById(R.id.paymentSummaryApplied)).setText(formatCurrencyExact(applied));
+            ((TextView) v.findViewById(R.id.paymentSummaryRemaining)).setText(formatCurrencyExact(grandTotal - applied));
+            ((TextView) v.findViewById(R.id.paymentSummaryChangeLabel)).setText(
+                    PAYMENT_METHOD_SUPPORTS_CASH ? R.string.label_change : R.string.label_excess_payment);
+            ((TextView) v.findViewById(R.id.paymentSummaryChange)).setText(formatCurrencyExact(change));
+            v.findViewById(R.id.paymentSummaryChangeRow).setVisibility(change > AMOUNT_TOLERANCE ? View.VISIBLE : View.GONE);
+            card.setVisibility(View.VISIBLE);
+        };
+        paymentSummaryRefresh = refresh;
+        AuthUiUtils.afterTextChanged(amountPaidField, refresh);
+        refresh.run();
+    }
+
+    /** Sends what the guest actually paid; the server records it (capped at the total, the rest as
+     *  change) and refuses anything below the amount due. */
+    private void putAmountPaidPart(Map<String, RequestBody> target) {
+        target.put("amount_paid", textPart(String.format(Locale.US, "%.2f", enteredAmountPaid())));
     }
 
     /** "Remaining Balance: PHP x" line shown under each Payment Option card. */
@@ -3630,6 +3741,7 @@ final class HotelBookingFlowController {
         MultipartBody.Part proofPart = MultipartBody.Part.createFormData("proof_image", "payment_proof.jpg", proofBody);
         Map<String, RequestBody> quantities = new LinkedHashMap<>();
         putQuantityParts(quantities, "amenity_quantities", amenityQuantities);
+        putAmountPaidPart(quantities);
 
         ApiClient.bookingApi().payReservation(
                 "Bearer " + token,
@@ -4397,6 +4509,7 @@ final class HotelBookingFlowController {
         amountPaidField.setText(amountPaidText);
         referenceField.setText(referenceNumberText);
         AuthUiUtils.afterTextChanged(amountPaidField, () -> amountPaidText = amountPaidField.getText().toString());
+        wirePaymentSummary(v, grandTotal, () -> amountDue);
         amountPaidField.setOnFocusChangeListener((view, hasFocus) -> {
             if (hasFocus) {
                 return;
@@ -4425,8 +4538,7 @@ final class HotelBookingFlowController {
         }
 
         v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(ClickGuard.wrap(view -> {
-            if (amountPaidText.trim().isEmpty()) {
-                Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
+            if (!validateAmountPaid(amountDue)) {
                 return;
             }
             if (referenceNumberText.trim().isEmpty()) {
@@ -4441,7 +4553,7 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
                 return;
             }
-            submitReservation(v);
+            confirmOverpayment(v, amountDue, () -> submitReservation(v));
         }));
     }
 
@@ -4479,6 +4591,7 @@ final class HotelBookingFlowController {
 
         Map<String, RequestBody> quantities = new LinkedHashMap<>();
         putQuantityParts(quantities, "room_quantities", roomQuantities);
+        putAmountPaidPart(quantities);
         putQuantityParts(quantities, "amenity_quantities", amenityQuantities);
         putCouponPart(quantities);
 
@@ -5048,6 +5161,7 @@ final class HotelBookingFlowController {
         amountPaidField.setText(amountPaidText);
         referenceField.setText(referenceNumberText);
         AuthUiUtils.afterTextChanged(amountPaidField, () -> amountPaidText = amountPaidField.getText().toString());
+        wirePaymentSummary(v, grandTotal, () -> amountDue);
         amountPaidField.setOnFocusChangeListener((view, hasFocus) -> {
             if (hasFocus) {
                 return;
@@ -5075,8 +5189,7 @@ final class HotelBookingFlowController {
         }
 
         v.findViewById(R.id.hotelPaymentCompleteButton).setOnClickListener(ClickGuard.wrap(view -> {
-            if (amountPaidText.trim().isEmpty()) {
-                Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
+            if (!validateAmountPaid(amountDue)) {
                 return;
             }
             if (referenceNumberText.trim().isEmpty()) {
@@ -5091,11 +5204,13 @@ final class HotelBookingFlowController {
                 Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
                 return;
             }
-            if (activePackage != null) {
-                submitPackageBooking(v);
-            } else {
-                submitMultiBooking(v);
-            }
+            confirmOverpayment(v, amountDue, () -> {
+                if (activePackage != null) {
+                    submitPackageBooking(v);
+                } else {
+                    submitMultiBooking(v);
+                }
+            });
         }));
     }
 
@@ -5553,6 +5668,7 @@ final class HotelBookingFlowController {
             putQuantityParts(fields, "amenity_quantities", amenityQuantities);
         }
         putCouponPart(fields);
+        putAmountPaidPart(fields);
 
         MultipartBody.Part proofPart = MultipartBody.Part.createFormData("proof_image", "payment_proof.jpg", proofBody);
         ApiClient.bookingApi().reserveMulti("Bearer " + token, textPart("1"),
@@ -5832,6 +5948,7 @@ final class HotelBookingFlowController {
         fields.put("children", textPart(String.valueOf(packageChildren)));
         fields.put("special_request", textPart(specialRequest));
         putQuantityParts(fields, "amenity_quantities", amenityQuantities);
+        putAmountPaidPart(fields);
 
         MultipartBody.Part proofPart = MultipartBody.Part.createFormData("proof_image", "payment_proof.jpg", proofBody);
         ApiClient.bookingApi().reservePackagePromo("Bearer " + token, activePackage.id,
