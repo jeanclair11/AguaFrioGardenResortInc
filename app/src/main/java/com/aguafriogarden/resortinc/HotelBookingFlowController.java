@@ -323,6 +323,10 @@ final class HotelBookingFlowController {
     private List<AmenityAvailability> availableAmenities = new ArrayList<>();
     private final Map<Integer, Integer> amenityQuantities = new LinkedHashMap<>();
     private boolean isLoadingAmenities = false;
+    /** Set by the code that has just fetched the amenity list itself, so showScreen does not
+     *  fetch it a second time; every other way of opening Choose Amenity (e.g. Back from Billing)
+     *  re-fetches, because stock is never cached. */
+    private boolean amenitiesFreshForNextShow = false;
     // Promo Coupons (see bindPromoCoupons): the one coupon the guest applied on the Summary page
     // (null = none), the coupons the server says this exact booking qualifies for, and the request
     // that list was fetched for, so it is only re-fetched when the booking itself changes. A coupon
@@ -727,6 +731,17 @@ final class HotelBookingFlowController {
                 && !(multiMode && multiIndex > 0);
         setBottomNavHidden.accept(!isDatesScreen);
         updateLiveSync(screen);
+
+        if (screen == SCREEN_AMENITY) {
+            if (amenitiesFreshForNextShow) {
+                amenitiesFreshForNextShow = false;
+            } else {
+                String token = ProfileStore.getAuthToken(activity);
+                if (!token.isEmpty()) {
+                    syncAmenities("Bearer " + token, screen, v);
+                }
+            }
+        }
     }
 
     // ---- Live sync: screens that show server data keep it current while on screen -----------
@@ -811,7 +826,7 @@ final class HotelBookingFlowController {
 
     private void syncAmenities(String bearer, int screen, View screenView) {
         liveSyncInFlight = true;
-        ApiClient.bookingApi().getAmenities(bearer, amenityFacilityType()).enqueue(new Callback<AmenityListResponse>() {
+        requestAmenities(bearer).enqueue(new Callback<AmenityListResponse>() {
             @Override
             public void onResponse(Call<AmenityListResponse> call, Response<AmenityListResponse> response) {
                 liveSyncInFlight = false;
@@ -820,14 +835,7 @@ final class HotelBookingFlowController {
                         || LiveSync.sameData(availableAmenities, response.body().amenities)) {
                     return;
                 }
-                availableAmenities = response.body().amenities;
-                // Unlimited / unspecified-stock amenities have no ceiling to clamp against.
-                Map<Integer, Integer> available = new LinkedHashMap<>();
-                for (AmenityAvailability amenity : availableAmenities) {
-                    available.put(amenity.id, amenity.unlimited || amenity.available_quantity == null
-                            ? Integer.MAX_VALUE : amenity.available_quantity);
-                }
-                applyLiveUpdate(screen, screenView, clampPicks(amenityQuantities, available));
+                applyLiveUpdate(screen, screenView, applyAmenityList(response.body().amenities));
             }
 
             @Override
@@ -835,6 +843,103 @@ final class HotelBookingFlowController {
                 liveSyncInFlight = false;
             }
         });
+    }
+
+    /**
+     * GET booking/amenities for the facility being booked, with the guest's dates once they have
+     * picked them so the stock is for their stay. Always a fresh request: stock is never cached.
+     */
+    private Call<AmenityListResponse> requestAmenities(String bearer) {
+        SimpleDateFormat day = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        String checkIn = null;
+        String checkOut = null;
+        if (activePackage != null) {
+            if (packageDateMillis >= 0) {
+                // A package is booked for one date, same as the single-visit Cottage/KTV.
+                checkIn = checkOut = day.format(new Date(packageDateMillis));
+            }
+        } else if (!multiMode && activeContinuation == CONTINUATION_COTTAGE) {
+            if (cottageDateMillis >= 0) {
+                checkIn = checkOut = day.format(new Date(cottageDateMillis));
+            }
+        } else if (!multiMode && activeContinuation == CONTINUATION_KTV) {
+            if (ktvDateMillis >= 0) {
+                checkIn = checkOut = day.format(new Date(ktvDateMillis));
+            }
+        } else if (checkInMillis >= 0 && checkOutMillis >= 0) {
+            checkIn = day.format(new Date(checkInMillis));
+            checkOut = day.format(new Date(checkOutMillis));
+        }
+        return ApiClient.bookingApi().getAmenities(bearer, amenityFacilityType(), checkIn, checkOut);
+    }
+
+    /**
+     * Makes a freshly fetched amenity list the one on screen: picks for amenities no longer
+     * offered are dropped, new ones start at 0, and any pick above what the backend now allows
+     * (max_quantity, or 0 when out of stock) is lowered to it. Returns whether a pick had to be
+     * lowered, so the caller can tell the guest.
+     */
+    private boolean applyAmenityList(List<AmenityAvailability> fresh) {
+        availableAmenities = fresh != null ? fresh : new ArrayList<>();
+        Set<Integer> offeredIds = new HashSet<>();
+        for (AmenityAvailability amenity : availableAmenities) {
+            offeredIds.add(amenity.id);
+        }
+        // A stale quantity must never be billed or submitted for a hidden amenity.
+        amenityQuantities.keySet().retainAll(offeredIds);
+        boolean lowered = false;
+        for (AmenityAvailability amenity : availableAmenities) {
+            Integer picked = amenityQuantities.get(amenity.id);
+            int ceiling = amenity.pickerMax();
+            if (picked == null) {
+                amenityQuantities.put(amenity.id, 0);
+            } else if (picked > ceiling) {
+                amenityQuantities.put(amenity.id, ceiling);
+                lowered = true;
+            }
+        }
+        return lowered;
+    }
+
+    /**
+     * After the server rejected a submit with a 422 (e.g. "Not enough stock — Extra Pillow: only 2
+     * left."): re-fetch the amenity list so the stock shown is current. If a pick had to be lowered
+     * the guest is taken to Choose Amenity to see the new stock and quantities; the server's message
+     * has already been shown by the caller.
+     */
+    private void refreshAmenitiesAfterRejection() {
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            return;
+        }
+        requestAmenities("Bearer " + token).enqueue(new Callback<AmenityListResponse>() {
+            @Override
+            public void onResponse(Call<AmenityListResponse> call, Response<AmenityListResponse> response) {
+                if (!response.isSuccessful() || response.body() == null || response.body().amenities == null) {
+                    return;
+                }
+                boolean lowered = applyAmenityList(response.body().amenities);
+                if (currentScreen == SCREEN_AMENITY || lowered) {
+                    amenitiesFreshForNextShow = true;
+                    showScreen(SCREEN_AMENITY);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<AmenityListResponse> call, Throwable t) {
+                // The next time Choose Amenity opens it re-fetches anyway.
+            }
+        });
+    }
+
+    /** The message to show when a submit that carries amenities is rejected: the server's own text.
+     *  A 422 also re-fetches the amenity list (see {@link #refreshAmenitiesAfterRejection}). */
+    private String submitFailureMessage(Response<?> response) {
+        ErrorResponse error = ApiClient.parseError(response.errorBody());
+        if (response.code() == 422) {
+            refreshAmenitiesAfterRejection();
+        }
+        return error.firstMessage() != null ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
     }
 
     private int layoutFor(int screen) {
@@ -2853,9 +2958,7 @@ final class HotelBookingFlowController {
                 } else if (response.code() == 401) {
                     Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
                 } else {
-                    ErrorResponse error = ApiClient.parseError(response.errorBody());
-                    String message = error.firstMessage() != null
-                            ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                    String message = submitFailureMessage(response);
                     recheckCouponsAfterFailure();
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
                 }
@@ -2912,9 +3015,7 @@ final class HotelBookingFlowController {
                 } else if (response.code() == 401) {
                     Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
                 } else {
-                    ErrorResponse error = ApiClient.parseError(response.errorBody());
-                    String message = error.firstMessage() != null
-                            ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                    String message = submitFailureMessage(response);
                     recheckCouponsAfterFailure();
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
                 }
@@ -3557,9 +3658,7 @@ final class HotelBookingFlowController {
                 } else if (response.code() == 401) {
                     Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
                 } else {
-                    ErrorResponse error = ApiClient.parseError(response.errorBody());
-                    String message = error.firstMessage() != null
-                            ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                    String message = submitFailureMessage(response);
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
                 }
             }
@@ -3976,7 +4075,7 @@ final class HotelBookingFlowController {
         nextButton.setEnabled(false);
         nextButton.setText(R.string.button_loading);
 
-        ApiClient.bookingApi().getAmenities("Bearer " + token, amenityFacilityType()).enqueue(new Callback<AmenityListResponse>() {
+        requestAmenities("Bearer " + token).enqueue(new Callback<AmenityListResponse>() {
             @Override
             public void onResponse(Call<AmenityListResponse> call, Response<AmenityListResponse> response) {
                 isLoadingAmenities = false;
@@ -3984,19 +4083,12 @@ final class HotelBookingFlowController {
                 nextButton.setText(R.string.button_next);
 
                 if (response.isSuccessful() && response.body() != null) {
-                    availableAmenities = response.body().amenities != null
-                            ? response.body().amenities : new ArrayList<>();
-                    // Drop picks for amenities no longer offered for this facility type, so a
-                    // stale quantity can never be billed or submitted for a hidden amenity.
-                    Set<Integer> offeredIds = new HashSet<>();
-                    for (AmenityAvailability amenity : availableAmenities) {
-                        offeredIds.add(amenity.id);
-                    }
-                    amenityQuantities.keySet().retainAll(offeredIds);
-                    for (AmenityAvailability amenity : availableAmenities) {
-                        amenityQuantities.putIfAbsent(amenity.id, 0);
-                    }
+                    boolean lowered = applyAmenityList(response.body().amenities);
+                    amenitiesFreshForNextShow = true;
                     showScreen(SCREEN_AMENITY);
+                    if (lowered) {
+                        Toast.makeText(activity, R.string.toast_availability_changed, Toast.LENGTH_LONG).show();
+                    }
                 } else if (response.code() == 401) {
                     Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
                 } else {
@@ -4027,7 +4119,23 @@ final class HotelBookingFlowController {
             View card = inflater.inflate(R.layout.view_hotel_stepper_item, container, false);
             loadImage(card.findViewById(R.id.stepperItemImage), amenity.image_path, R.drawable.ic_star);
             ((TextView) card.findViewById(R.id.stepperItemName)).setText(amenity.name);
-            card.findViewById(R.id.stepperItemDescription).setVisibility(View.GONE);
+            // The backend's ready-made stock text ("5 available" / "Unlimited" / "Out of Stock")
+            // sits under the name.
+            TextView stockText = card.findViewById(R.id.stepperItemDescription);
+            String stockLabel = amenity.stock_label;
+            if (amenity.out_of_stock && (stockLabel == null || stockLabel.trim().isEmpty())) {
+                stockLabel = activity.getString(R.string.amenity_out_of_stock);
+            }
+            if (stockLabel == null || stockLabel.trim().isEmpty()) {
+                stockText.setVisibility(View.GONE);
+            } else {
+                stockText.setText(stockLabel);
+                stockText.setVisibility(View.VISIBLE);
+                if (amenity.out_of_stock) {
+                    stockText.setTextColor(ThemeManager.color(activity, R.attr.errorText));
+                    stockText.setTypeface(stockText.getTypeface(), Typeface.BOLD);
+                }
+            }
             int unitPrice = (int) Math.round(amenity.price);
             ((TextView) card.findViewById(R.id.stepperItemPrice))
                     .setText(activity.getString(R.string.format_currency, formatMoney(unitPrice)));
@@ -4135,7 +4243,7 @@ final class HotelBookingFlowController {
     }
 
     private boolean amenityCanIncrement(AmenityAvailability amenity, int currentQty) {
-        return amenity.unlimited || amenity.available_quantity == null || currentQty < amenity.available_quantity;
+        return currentQty < amenity.pickerMax();
     }
 
     private void setStepperEnabled(ImageView button, boolean enabled) {
@@ -4399,9 +4507,7 @@ final class HotelBookingFlowController {
                 } else if (response.code() == 401) {
                     Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
                 } else {
-                    ErrorResponse error = ApiClient.parseError(response.errorBody());
-                    String message = error.firstMessage() != null
-                            ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                    String message = submitFailureMessage(response);
                     recheckCouponsAfterFailure();
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
                 }
@@ -5377,9 +5483,7 @@ final class HotelBookingFlowController {
                         } else if (response.code() == 401) {
                             Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
                         } else {
-                            ErrorResponse error = ApiClient.parseError(response.errorBody());
-                            String message = error.firstMessage() != null
-                                    ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                            String message = submitFailureMessage(response);
                             recheckCouponsAfterFailure();
                             Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
                         }
@@ -5466,9 +5570,7 @@ final class HotelBookingFlowController {
                 } else if (response.code() == 401) {
                     Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
                 } else {
-                    ErrorResponse error = ApiClient.parseError(response.errorBody());
-                    String message = error.firstMessage() != null
-                            ? error.firstMessage() : activity.getString(R.string.toast_booking_failed);
+                    String message = submitFailureMessage(response);
                     recheckCouponsAfterFailure();
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
                 }
@@ -5747,9 +5849,7 @@ final class HotelBookingFlowController {
                 } else if (response.code() == 401) {
                     Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
                 } else {
-                    ErrorResponse error = ApiClient.parseError(response.errorBody());
-                    Toast.makeText(activity, error.firstMessage() != null ? error.firstMessage()
-                            : activity.getString(R.string.toast_booking_failed), Toast.LENGTH_LONG).show();
+                    Toast.makeText(activity, submitFailureMessage(response), Toast.LENGTH_LONG).show();
                 }
             }
 

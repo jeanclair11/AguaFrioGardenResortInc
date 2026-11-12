@@ -679,6 +679,7 @@
     <string name="dialog_no_amenity_message">You haven\'t selected any amenities. Please select an amenity or tap Skip to continue without one.</string>
     <string name="button_loading">Loading…</string>
     <string name="toast_availability_changed">Availability just changed, so your selection was updated.</string>
+    <string name="amenity_out_of_stock">Out of Stock</string>
     <string name="toast_amenities_load_failed">We couldn\'t load amenities right now. Please try again.</string>
 
 

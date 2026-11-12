@@ -84,10 +84,17 @@ public interface BookingApi {
             @Field("adults") Integer adults,
             @Field("children") Integer children);
 
+    /**
+     * Add-on amenities with live stock (available_quantity, max_quantity, out_of_stock,
+     * stock_label). checkIn/checkOut (yyyy-MM-dd) are sent together once the guest has picked
+     * their dates so the stock is for that stay; null leaves them out. Never cached client-side.
+     */
     @GET("booking/amenities")
     Call<AmenityListResponse> getAmenities(
             @Header("Authorization") String bearerToken,
-            @Query("facility_type") String facilityType);
+            @Query("facility_type") String facilityType,
+            @Query("check_in") String checkIn,
+            @Query("check_out") String checkOut);
 
     /** Every reservation/booking the logged-in guest has, real or still-pending — backs the My
      *  Reservations list, fetched fresh every time it's opened so it survives app restarts and
