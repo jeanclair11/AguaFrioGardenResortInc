@@ -372,9 +372,8 @@
     <string name="row_enable_notifications_subtitle">Get updates on your bookings</string>
     <string name="row_dark_mode_title">Dark Mode</string>
     <string name="row_dark_mode_subtitle">Choose your preferred theme</string>
-    <string name="status_verified">Verified</string>
-    <string name="status_pending">Pending Review</string>
     <string name="status_not_submitted">Not Submitted</string>
+    <string name="status_on_file">On File</string>
     <string name="guest_fallback_name">Guest</string>
     <string name="profile_screen_title">PROFILE</string>
     <string name="logout_subtitle">Sign out from your account</string>
@@ -428,12 +427,8 @@
     <string name="chat_new_message_body_many">You have %1$d new messages from the resort.</string>
     <string name="notif_button_view_chat">VIEW MESSAGE</string>
     <string name="reservation_updates_channel_name">Reservation updates</string>
-    <string name="reservation_updates_channel_desc">Alerts when your reservation status changes (e.g. cancelled or confirmed).</string>
-    <string name="reservation_cancelled_notification_title">Reservation Cancelled</string>
-    <string name="reservation_cancelled_notification_body_with_reason">Your reservation was cancelled by the resort. Reason: %1$s</string>
-    <string name="reservation_cancelled_notification_body_no_reason">Your reservation was cancelled by the resort.</string>
-    <string name="reservation_booked_notification_title">Reservation Confirmed</string>
-    <string name="reservation_booked_notification_body">Your reservation has been confirmed and is now booked.</string>
+    <string name="reservation_updates_channel_desc">Alerts when the status of your reservation or booking changes.</string>
+    <string name="format_reservation_update_reason">%1$s Reason: %2$s</string>
     <string name="guest_alerts_channel_name">Resort updates</string>
     <string name="guest_alerts_channel_desc">Updates from the resort staff, such as payments received and replies to your feedback</string>
     <string name="notif_button_view_reservation">VIEW RESERVATION</string>
@@ -518,34 +513,26 @@
 
     <!-- Valid ID -->
     <string name="valid_id_title">Valid ID</string>
-    <string name="verification_status_label">Verification Status</string>
-    <string name="verification_status_verified_desc">Your valid ID has been verified.</string>
-    <string name="verification_status_pending_desc">Your valid ID is awaiting admin review.</string>
+    <string name="verification_status_label">ID Status</string>
     <string name="uploaded_id_label">Uploaded ID</string>
-    <string name="uploaded_on_format">Uploaded on %1$s</string>
-    <string name="id_number_format">ID No. %1$s</string>
     <string name="id_notice_title">Keep your ID up to date</string>
     <string name="id_notice_message">Your ID helps us verify your identity and protect your account.</string>
     <string name="button_upload_new_id">Upload New ID</string>
     <string name="button_view_id_guidelines">View ID Guidelines</string>
     <string name="no_id_uploaded_message">You haven\'t uploaded a valid ID yet.</string>
+    <string name="valid_id_on_file_desc">Your valid ID is on file with the resort.</string>
+    <string name="valid_id_type_unknown">ID type not recorded</string>
 
     <!-- Upload New ID -->
     <string name="upload_new_id_title">Upload New ID</string>
     <string name="acceptable_id_types_title">Acceptable ID Types</string>
     <string name="acceptable_id_types_message">Driver\'s License, Passport, PhilID, SSS ID, or UMID</string>
     <string name="step1_select_id_type">Step 1: Select ID Type</string>
-    <string name="step2_upload_images">Step 2: Upload ID Images</string>
+    <string name="step2_upload_images">Step 2: Upload ID Photo</string>
     <string name="label_front_side">Front Side</string>
-    <string name="label_back_side">Back Side (if applicable)</string>
     <string name="upload_dropzone_hint">Tap to upload or drag and drop\nJPG, PNG • Max 5MB</string>
-    <string name="step3_additional_info">Step 3: Additional Information</string>
-    <string name="hint_id_number">Enter ID number</string>
-    <string name="label_expiry_date">Expiration Date (if applicable)</string>
-    <string name="hint_select_expiry_date">Select expiry date</string>
-    <string name="button_submit_verification">Submit for Verification</string>
-    <string name="id_submitted_message">Your ID was submitted for verification.</string>
-    <string name="error_id_number_required">Please enter the ID number.</string>
+    <string name="button_submit_verification">Upload ID</string>
+    <string name="id_submitted_message">Your ID was uploaded.</string>
 
     <!-- Room Overview's "Book Now" entry only (see HotelBookingFlowController#bindRoomDates) —
          the Book/Reserve tabs' shared focused, Room-only gate screen. -->
@@ -563,12 +550,9 @@
     <string name="history_empty_bookings_current">You have no current bookings.</string>
     <string name="history_empty_bookings_upcoming">You have no upcoming bookings.</string>
     <string name="history_empty_bookings_past">You have no past bookings.</string>
-    <string name="history_status_checked_in">Checked In</string>
-    <string name="history_status_checked_out">Checked Out</string>
-    <string name="history_status_confirmed">Confirmed</string>
     <string name="my_bookings_title">My Bookings</string>
-    <string name="reservation_cancelled_by_guest">You cancelled this Reservation.</string>
-    <string name="reservation_cancelled_by_staff">The Reservation has been cancelled by our staff.</string>
+    <string name="reservation_cancelled_by_guest">Cancelled by you.</string>
+    <string name="reservation_cancelled_by_staff">Cancelled by our staff.</string>
     <string name="format_reservation_cancelled_reason_suffix"> Reason: %1$s</string>
 
     <!-- Cottage Overview's "Book Now" entry only (see HotelBookingFlowController#bindCottageDatesEntry) —
@@ -616,11 +600,21 @@
     <string name="placeholder_em_dash">—</string>
     <string name="dialog_no_room_message">Please select at least one room before continuing.</string>
     <string name="format_capacity">Up to %1$d Guests</string>
+    <!-- Hotel Room capacity rule: total capacity = capacity per room x rooms picked (validation message). -->
+    <plurals name="error_room_capacity_exceeded">
+        <item quantity="one">The selected rooms can accommodate a maximum of %1$d participant. Please reduce the number of participants or add more rooms.</item>
+        <item quantity="other">The selected rooms can accommodate a maximum of %1$d participants. Please reduce the number of participants or add more rooms.</item>
+    </plurals>
     <string name="button_checking_availability">Searching…</string>
     <string name="toast_session_expired">Your session has expired. Please log in again.</string>
     <string name="toast_guests_required">Please select at least 1 guest.</string>
     <string name="toast_availability_check_failed">We couldn\'t check room availability right now. Please try again.</string>
     <string name="toast_network_error">Couldn\'t reach the server. Check your internet connection and try again.</string>
+    <string name="toast_photo_unreadable">Couldn\'t read that photo. Please pick a different one.</string>
+    <string name="toast_profile_photo_failed">Couldn\'t save your profile picture. Please try again.</string>
+    <string name="toast_profile_save_failed">Couldn\'t save your information. Please try again.</string>
+    <string name="toast_password_change_failed">Couldn\'t change your password. Please try again.</string>
+    <string name="toast_id_upload_failed">Couldn\'t upload your ID. Please try again.</string>
 
     <!-- Room/Cottage/KTV Overview's "Your Selected ..." screen (see HotelBookingFlowController's
          bindRoomSelection/bindCottageSelection/bindKtvSelection) — shows the originally-chosen
@@ -747,7 +741,7 @@
 
     <string name="hotel_success_label">BOOKING SUBMITTED</string>
     <string name="hotel_success_title">Thank You for Choosing Agua Frio Garden Resort!</string>
-    <string name="hotel_success_message">Your reservation has been submitted successfully. Your payment is currently pending verification.</string>
+    <string name="hotel_success_message">Your booking has been submitted successfully. We will notify you as it progresses.</string>
     <string name="label_booking_reference">Booking Reference</string>
     <string name="button_view_booking">View Booking</string>
     <string name="button_back_to_home">Back to Home</string>
@@ -762,26 +756,15 @@
     <string name="button_view_reservation">View Reservation</string>
     <string name="button_return_home">Return Home</string>
 
-    <!-- Reservation Details (see HotelBookingFlowController#bindReservationDetails) — reached
-         from Reservation Confirmed's "View Reservation" button. Four statuses apply uniformly
-         across Hotel/Cottage/KTV (see resolveReservationStatus): Pending (orange, default) is
-         where every reservation starts; the guest can move it to Cancelled themselves via the
-         Cancel button (see showCancelConfirmDialog/showCancelReasonDialog), Booked is still
-         receptionist-only and unreachable until that system exists, same limitation
-         ReservationStore documents for the Reserve tab's own module; Expired is derived
-         automatically from reservationSubmittedAtMillis, no receptionist action needed. -->
+    <!-- Reservation Details (see HotelBookingFlowController#bindReservationDetails). The status
+         label, colour and description shown on it are never written here: they come from the
+         record's status object (GET /booking/statuses). -->
     <string name="label_nights_short">Night/s</string>
-    <string name="reservation_status_pending">Pending Reservation</string>
-    <string name="reservation_status_booked">Booked</string>
-    <string name="reservation_status_cancelled">Reservation Cancelled</string>
-    <string name="reservation_status_expired">Reservation Expired</string>
-    <string name="reservation_desc_awaiting_payment">Waiting for payment.</string>
-    <string name="reservation_desc_payment_submitted">Your payment has been submitted and is being verified by our staff.</string>
-    <string name="reservation_desc_booked">Your reservation has been confirmed by our staff.</string>
-    <string name="reservation_desc_cancelled_default">This reservation has been cancelled by our staff.</string>
-    <string name="reservation_desc_expired">This reservation expired because the required down payment wasn\'t settled within seven (7) calendar days.</string>
     <string name="button_pay_now">Pay Now</string>
-    <string name="reservation_payment_subtitle">Complete your 30% down payment to secure your reservation.</string>
+    <string name="reservation_payment_subtitle">Choose Full Payment or a 30% Downpayment to secure your reservation.</string>
+    <string name="reservation_pay_option_down_title">30% DOWNPAYMENT</string>
+    <string name="reservation_pay_option_down_desc">Pay 30% today and settle the rest later.</string>
+    <string name="reservation_pay_amount_due_placeholder">Select a payment option above</string>
     <string name="button_complete_reservation_payment">Complete Payment</string>
 
     <!-- Reservation Details' Cancel button — a two-step confirm-then-reason flow (see
@@ -797,16 +780,8 @@
          HotelBookingFlowController#bindReservationPaymentConfirmed). -->
     <string name="reservation_payment_confirmed_title">Payment Successful</string>
     <string name="reservation_payment_confirmed_subtitle">Your Reservation Payment Has Been Submitted!</string>
-    <string name="reservation_payment_confirmed_message">Thank you for your payment. Your reservation has been successfully submitted and is now pending verification by our receptionist.\n\nYou will receive a notification and email once your reservation has been booked.</string>
+    <string name="reservation_payment_confirmed_message">Thank you for your payment. Your payment has been submitted successfully.\n\nYou will receive a notification and email as your booking progresses.</string>
     <string name="button_view_receipt">View Receipt</string>
-
-    <!-- Reservation timeline stages (see HotelBookingFlowController#buildReservationTimeline) —
-         Pending Reservation -> Payment Submitted -> Booked, or Cancelled/Expired as terminal
-         branches off Pending. Reuses reservation_status_pending/booked/cancelled/expired above
-         for the Pending/Booked/Cancelled/Expired row labels; this is just the middle stage. -->
-    <string name="timeline_reservation_payment_submitted">Payment Submitted</string>
-    <string name="timeline_reservation_desc_submitted">Reservation submitted</string>
-    <string name="timeline_reservation_desc_awaiting_verification">Awaiting receptionist verification</string>
 
     <string name="format_price_per_unit">PHP %1$s / %2$s</string>
 
@@ -815,7 +790,7 @@
     <string name="label_date">Date</string>
 
     <string name="reservation_details_title">Reservation Details</string>
-    <string name="section_reservation_timeline">RESERVATION TIMELINE</string>
+    <string name="section_booking_progress">BOOKING PROGRESS</string>
     <string name="section_reason">REASON</string>
 
     <string name="notification_screen_title">Notifications</string>

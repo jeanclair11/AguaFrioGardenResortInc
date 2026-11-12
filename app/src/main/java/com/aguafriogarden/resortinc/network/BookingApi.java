@@ -106,6 +106,16 @@ public interface BookingApi {
     @GET("booking/my-bookings")
     Call<MyBookingsResponse> getMyBookings(@Header("Authorization") String bearerToken);
 
+    /** Public — the catalog of every reservation and booking status (key, label, colour,
+     *  definition). The app builds every filter, tab and badge from it. */
+    @GET("booking/statuses")
+    Call<StatusCatalogResponse> getStatusCatalog();
+
+    /** The light feed polled while a reservations/bookings screen is visible: only each record's
+     *  kind, id, reference and status. */
+    @GET("booking/my-statuses")
+    Call<MyStatusesResponse> getMyStatuses(@Header("Authorization") String bearerToken);
+
     /** Public — Package Promos on sale right now (the admin's Promo Management packages), for the
      *  banners above the Hotel Rooms/Cottages/KTV Rooms lists. */
     @GET("booking/package-promos")

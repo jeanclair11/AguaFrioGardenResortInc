@@ -4,10 +4,17 @@ import java.util.List;
 
 /** One of the logged-in guest's reservations, from GET /api/booking/my-bookings. */
 public class ReservationSummary {
-    /** "reservation" (real, already promoted/booked) or "advance_reservation" (still Pending or
-     *  cancelled before ever being paid) — see Api\BookingController::summarizeReservation vs
-     *  summarizeAdvanceReservation on the backend. Determines which id space {@link #id} is in. */
+    /** {@link #kind} of a booking (a paid reservation; reference AFR-xxxxxx). */
+    public static final String KIND_BOOKING = "reservation";
+    /** {@link #kind} of a reservation request that has not been paid (reference REQ-xxxxxx). */
+    public static final String KIND_REQUEST = "advance_reservation";
+
+    /** {@link #KIND_BOOKING} or {@link #KIND_REQUEST} — see Api\BookingController::summarizeReservation
+     *  vs summarizeAdvanceReservation on the backend. Determines which id space {@link #id} is in. */
     public String kind;
+    /** The record's status exactly as the backend reports it (label, colour, definition). Every
+     *  status shown or branched on in the app comes from here — never from dates, flags or steps. */
+    public StatusDetail status;
     /** For kind "advance_reservation" this is the AdvanceReservation id (what Pay Now/Cancel/
      *  status-refresh expect); for kind "reservation" this is an online_bookingID instead — a
      *  different id space those endpoints don't accept. */
@@ -23,13 +30,10 @@ public class ReservationSummary {
     public String check_out;
     public int adults;
     public int children;
-    public int current_step;
-    public boolean cancelled;
-    public int cancelled_from_step;
     public String cancel_reason;
     public String cancelled_at;
-    /** "guest" or "receptionist" — null unless cancelled, and only ever set for kind
-     *  "advance_reservation" (the cancelled_by column doesn't exist for a promoted Reservation). */
+    /** "guest" or "receptionist" — null unless cancelled, and only ever set for a
+     *  {@link #KIND_REQUEST} (the cancelled_by column doesn't exist for a promoted Reservation). */
     public String cancelled_by;
     public String guest_name;
     public String guest_email;
@@ -54,6 +58,19 @@ public class ReservationSummary {
         public String status;
     }
     public String created_at;
-    /** Only meaningful for kind "advance_reservation" — null once promoted or if never set. */
+    /** Only meaningful for a {@link #KIND_REQUEST} — null once promoted or if never set. */
     public String payment_deadline;
+
+    public boolean isBooking() {
+        return KIND_BOOKING.equals(kind);
+    }
+
+    public boolean isRequest() {
+        return KIND_REQUEST.equals(kind);
+    }
+
+    /** Pay and Cancel exist only for an unpaid request that is still pending. */
+    public boolean canPayOrCancel() {
+        return isRequest() && status != null && status.hasKey(StatusDetail.KEY_PENDING);
+    }
 }

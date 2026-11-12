@@ -6,13 +6,14 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.provider.MediaStore;
 
+import com.aguafriogarden.resortinc.network.ProfileResponse;
+
 /**
- * Local placeholder for the guest profile that will eventually live behind
- * the Laravel REST API. Every getter defaults to "unset" (empty string, 0 for
- * an unselected spinner, false for a status flag) rather than any fabricated
- * name/email/ID — nothing here should be mistaken for real seed data. Once
- * sign-up/login/profile calls are wired to the backend, these same accessors
- * can be backed by the API response instead of SharedPreferences.
+ * This device's copy of the signed-in guest's profile. The server is the source of truth: login
+ * fills it from GET /profile (see saveServerProfile), and every edit is sent to the backend first
+ * (ProfileController) and only then written here. Every getter defaults to "unset" (empty string,
+ * 0 for an unselected spinner, false for a status flag) rather than any fabricated name/email/ID.
+ * No password is kept on the device.
  */
 final class ProfileStore {
 
@@ -31,12 +32,9 @@ final class ProfileStore {
     private static final String KEY_CONTACT_NUMBER = "contact_number";
     private static final String KEY_USERNAME = "username";
     private static final String KEY_EMAIL = "email";
-    private static final String KEY_PASSWORD = "password";
     private static final String KEY_NOTIFICATIONS_ENABLED = "notifications_enabled";
-    private static final String KEY_ID_VERIFIED = "id_verified";
-    private static final String KEY_ID_TYPE_POS = "id_type_pos";
-    private static final String KEY_ID_NUMBER = "id_number";
-    private static final String KEY_ID_UPLOAD_DATE = "id_upload_date";
+    private static final String KEY_HAS_VALID_ID = "has_valid_id";
+    private static final String KEY_VALID_ID_TYPE = "valid_id_type";
     private static final String KEY_AUTH_TOKEN = "auth_token";
     private static final String KEY_ACTIVE_RESERVATION_ID = "active_reservation_id";
     private static final String KEY_ACTIVE_RESERVATION_STATUS = "active_reservation_status";
@@ -51,10 +49,59 @@ final class ProfileStore {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
+    /** Set when the picture changes from outside the UI (the login sync), so the header re-reads it. */
+    private static volatile boolean avatarDirty = false;
+
     static void saveAvatarUri(Context context, Uri uri) {
         prefs(context).edit()
                 .putString(KEY_AVATAR_URI, uri != null ? uri.toString() : null)
                 .apply();
+    }
+
+    /** The saved profile picture's uri, or null when none is set. */
+    static Uri getAvatarUri(Context context) {
+        String uri = prefs(context).getString(KEY_AVATAR_URI, null);
+        return uri != null ? Uri.parse(uri) : null;
+    }
+
+    /**
+     * Keeps a copy of the profile picture inside the app and points the avatar at it, so it
+     * survives the gallery revoking access to the picked image. A fresh file name each time lets
+     * the previous copy be restored if the upload that follows fails.
+     */
+    static Uri saveAvatarFile(Context context, byte[] jpeg) {
+        java.io.File file = new java.io.File(context.getFilesDir(), "avatar_" + System.currentTimeMillis() + ".jpg");
+        try (java.io.FileOutputStream out = new java.io.FileOutputStream(file)) {
+            out.write(jpeg);
+        } catch (java.io.IOException e) {
+            return null;
+        }
+        Uri uri = Uri.fromFile(file);
+        saveAvatarUri(context, uri);
+        return uri;
+    }
+
+    /** Deletes an avatar copy this class wrote (and nothing else, e.g. never a gallery picture). */
+    static void deleteAvatarFile(Context context, Uri uri) {
+        if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) {
+            return;
+        }
+        java.io.File file = new java.io.File(uri.getPath());
+        if (file.getName().startsWith("avatar_") && context.getFilesDir().equals(file.getParentFile())) {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+        }
+    }
+
+    static void markAvatarDirty() {
+        avatarDirty = true;
+    }
+
+    /** True once after the picture was replaced behind the UI's back; resets itself. */
+    static boolean consumeAvatarDirty() {
+        boolean dirty = avatarDirty;
+        avatarDirty = false;
+        return dirty;
     }
 
     /** The saved profile picture, or null when none is set or it can't be read. */
@@ -151,14 +198,6 @@ final class ProfileStore {
         return prefs(context).getString(KEY_EMAIL, "");
     }
 
-    static String getPassword(Context context) {
-        return prefs(context).getString(KEY_PASSWORD, "");
-    }
-
-    static void setPassword(Context context, String password) {
-        prefs(context).edit().putString(KEY_PASSWORD, password).apply();
-    }
-
     static boolean isNotificationsEnabled(Context context) {
         return prefs(context).getBoolean(KEY_NOTIFICATIONS_ENABLED, true);
     }
@@ -177,32 +216,44 @@ final class ProfileStore {
         prefs(context).edit().putBoolean(KEY_NOTIFICATIONS_SYNC_PENDING, pending).apply();
     }
 
-    /** Whether a valid ID has ever been submitted (upload date is the source of truth). */
-    static boolean hasIdSubmission(Context context) {
-        return !getIdUploadDate(context).isEmpty();
+    /** Whether an ID photo is on file with the resort (sign-up or the Valid ID screen). */
+    static boolean hasValidId(Context context) {
+        return prefs(context).getBoolean(KEY_HAS_VALID_ID, false);
     }
 
-    static boolean isIdVerified(Context context) {
-        return prefs(context).getBoolean(KEY_ID_VERIFIED, false);
+    /** The type of the ID on file (e.g. "Passport"), or "" when the server doesn't know it. */
+    static String getValidIdType(Context context) {
+        return prefs(context).getString(KEY_VALID_ID_TYPE, "");
     }
 
-    static int getIdTypePos(Context context) {
-        return prefs(context).getInt(KEY_ID_TYPE_POS, 0);
+    /** Called once the server has accepted a new ID photo. */
+    static void saveValidId(Context context, String idType) {
+        prefs(context).edit()
+                .putBoolean(KEY_HAS_VALID_ID, true)
+                .putString(KEY_VALID_ID_TYPE, idType != null ? idType : "")
+                .apply();
     }
 
-    static String getIdNumber(Context context) {
-        return prefs(context).getString(KEY_ID_NUMBER, "");
+    /** "Barangay, City, Province" — the single free-text address the server stores. */
+    static String buildAddress(String province, String city, String barangay) {
+        StringBuilder address = new StringBuilder();
+        for (String part : new String[]{barangay, city, province}) {
+            if (part != null && !part.isEmpty()) {
+                if (address.length() > 0) {
+                    address.append(", ");
+                }
+                address.append(part);
+            }
+        }
+        return address.toString();
     }
 
-    static String getIdUploadDate(Context context) {
-        return prefs(context).getString(KEY_ID_UPLOAD_DATE, "");
-    }
-
-    /** Called after Personal Information is edited and confirmed. */
+    /** Called after Personal Information has been saved on the server. */
     static void savePersonalInfo(Context context, String firstName, String middleName,
             String lastName, int genderPos, String birthDate, String phoneNumber, String province,
             String city, String barangay, String username, String email) {
         prefs(context).edit()
+                .putString(KEY_ADDRESS, buildAddress(province, city, barangay))
                 .putString(KEY_FIRST_NAME, firstName)
                 .putString(KEY_MIDDLE_NAME, middleName)
                 .putString(KEY_LAST_NAME, lastName)
@@ -214,22 +265,6 @@ final class ProfileStore {
                 .putString(KEY_BARANGAY, barangay)
                 .putString(KEY_USERNAME, username)
                 .putString(KEY_EMAIL, email)
-                .apply();
-    }
-
-    /** Called once a new account finishes the sign-up wizard. */
-    static void saveSignUpProfile(Context context, String firstName, String middleName,
-            String lastName, int genderPos, String birthDate, String phoneNumber, String province,
-            String city, String barangay, String username, String email, String password,
-            int idTypePos) {
-        savePersonalInfo(context, firstName, middleName, lastName, genderPos, birthDate,
-                phoneNumber, province, city, barangay, username, email);
-        prefs(context).edit()
-                .putString(KEY_PASSWORD, password)
-                .putInt(KEY_ID_TYPE_POS, idTypePos)
-                .putString(KEY_ID_NUMBER, "")
-                .putString(KEY_ID_UPLOAD_DATE, "")
-                .putBoolean(KEY_ID_VERIFIED, false)
                 .apply();
     }
 
@@ -304,35 +339,67 @@ final class ProfileStore {
     }
 
     /**
-     * Called after a successful login against the live backend, to sync real
-     * profile fields for display. Gender is stored here as a spinner position, which the
-     * server's plain gender string can't be losslessly mapped back into, so it stays whatever
-     * the device already had. Address is synced as-is into its own getAddress() field (see
-     * there) rather than split back into province/city/barangay.
+     * Called with GET /profile right after login. The server is the source of truth, so every
+     * field it knows replaces this device's copy:
+     * - gender maps back to the spinner position (1 Male, 2 Female, 3 Prefer not to say, 0 unset);
+     * - an address shaped "Barangay, City, Province" (what the app and sign-up write) is split back
+     *   into the three dropdown values; any other free text leaves them empty for the guest to pick;
+     * - the ID fields only say whether a photo is on file and what type it is.
      */
-    static void saveServerProfile(Context context, String firstName, String middleName,
-            String lastName, String birthDate, String username, String email, String address,
-            String contactNumber) {
+    static void saveServerProfile(Context context, ProfileResponse p) {
+        String address = orEmpty(p.address).trim();
+        String[] parts = address.split("\\s*,\\s*");
+        boolean splits = parts.length == 3 && !parts[0].isEmpty() && !parts[1].isEmpty() && !parts[2].isEmpty();
+
         prefs(context).edit()
-                .putString(KEY_FIRST_NAME, firstName)
-                .putString(KEY_MIDDLE_NAME, middleName)
-                .putString(KEY_LAST_NAME, lastName)
-                .putString(KEY_BIRTH_DATE, birthDate)
-                .putString(KEY_USERNAME, username)
-                .putString(KEY_EMAIL, email)
+                .putString(KEY_FIRST_NAME, orEmpty(p.Firstname))
+                .putString(KEY_MIDDLE_NAME, orEmpty(p.Middlename))
+                .putString(KEY_LAST_NAME, orEmpty(p.Lastname))
+                .putInt(KEY_GENDER_POS, genderPosition(p.gender))
+                .putString(KEY_BIRTH_DATE, dateOnly(p.birthday))
+                .putString(KEY_USERNAME, orEmpty(p.username))
+                .putString(KEY_EMAIL, orEmpty(p.email))
                 .putString(KEY_ADDRESS, address)
-                .putString(KEY_CONTACT_NUMBER, contactNumber)
+                .putString(KEY_BARANGAY, splits ? parts[0] : "")
+                .putString(KEY_CITY, splits ? parts[1] : "")
+                .putString(KEY_PROVINCE, splits ? parts[2] : "")
+                .putString(KEY_CONTACT_NUMBER, localPhone(p.contact_number))
+                .putBoolean(KEY_HAS_VALID_ID, p.has_valid_id)
+                .putString(KEY_VALID_ID_TYPE, orEmpty(p.valid_id_type))
                 .apply();
     }
 
-    /** Called after a new ID photo is submitted; awaits admin review. */
-    static void saveIdSubmission(Context context, int idTypePos, String idNumber,
-            String uploadDate) {
-        prefs(context).edit()
-                .putInt(KEY_ID_TYPE_POS, idTypePos)
-                .putString(KEY_ID_NUMBER, idNumber)
-                .putString(KEY_ID_UPLOAD_DATE, uploadDate)
-                .putBoolean(KEY_ID_VERIFIED, false)
-                .apply();
+    /** The server's gender text as the "prompted spinner" position the profile form uses. */
+    private static int genderPosition(String gender) {
+        if (gender == null) {
+            return 0;
+        }
+        switch (gender) {
+            case "Male":
+                return 1;
+            case "Female":
+                return 2;
+            default:
+                return 3; // "Prefer not to say" (the website's only other value)
+        }
+    }
+
+    /** The website also accepts +639XXXXXXXXX; the form's phone field only holds the 09XXXXXXXXX form. */
+    private static String localPhone(String number) {
+        String phone = orEmpty(number).trim();
+        return phone.startsWith("+63") ? "0" + phone.substring(3) : phone;
+    }
+
+    /** yyyy-MM-dd from a server date that may carry a time part. */
+    private static String dateOnly(String date) {
+        if (date == null) {
+            return "";
+        }
+        return date.length() >= 10 && date.substring(0, 10).matches("\\d{4}-\\d{2}-\\d{2}")
+                ? date.substring(0, 10) : date;
+    }
+
+    private static String orEmpty(String value) {
+        return value != null ? value : "";
     }
 }

@@ -6,4 +6,5 @@ import java.util.List;
  *  guest has, real or still-pending, newest first. */
 public class MyBookingsResponse {
     public List<ReservationSummary> reservations;
+    public String live_version;
 }
