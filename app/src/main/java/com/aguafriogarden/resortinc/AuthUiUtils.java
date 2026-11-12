@@ -137,7 +137,7 @@ final class AuthUiUtils {
      * value is committed (clamped to [min, max], reformatted, and passed to onChanged) only once
      * the field loses focus — same "commit on blur" pattern as the Payment screen's Amount Paid
      * field — rather than on every keystroke: several callers rebuild their whole card/list from
-     * onChanged (see bindRoomSelection et al.), which would tear down and refocus this very
+     * onChanged (see renderRoomList et al.), which would tear down and refocus this very
      * EditText mid-keystroke if triggered live. Tapping +/- still updates and commits instantly,
      * since a tap isn't a typing session that can be interrupted mid-way.
      */

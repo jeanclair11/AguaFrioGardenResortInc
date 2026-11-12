@@ -537,7 +537,16 @@
     <!-- Room Overview's "Book Now" entry only (see HotelBookingFlowController#bindRoomDates) —
          the Book/Reserve tabs' shared focused, Room-only gate screen. -->
     <string name="room_dates_title">Choose Your Stay Dates</string>
-    <string name="room_dates_subtitle">To help us find the best available accommodation for your preferred schedule, please select your check-in and check-out dates before exploring our rooms.</string>
+    <string name="room_dates_subtitle">Select your check-in and check-out dates to see the rooms available for your stay, then choose how many of each you\'d like. You\'ll tell us how many guests are coming on the next step.</string>
+    <string name="room_dates_pick_dates_hint">Select your check-in and check-out dates to see the rooms available for your stay.</string>
+    <string name="room_dates_loading">Checking available rooms…</string>
+    <string name="button_try_again">TRY AGAIN</string>
+    <!-- "Number of Guests" step (after the rooms are chosen). The party never blocks a booking:
+         when it is larger than the rooms' combined standard capacity only this notice appears. -->
+    <string name="room_guests_title">Number of Guests</string>
+    <string name="room_guests_subtitle">Tell us how many guests will be staying. Any number is fine — you\'ll only see a note if your party is larger than the standard capacity of your rooms.</string>
+    <string name="notice_guests_exceed_capacity">Your total number of guests exceeds the standard capacity of your selected rooms. Additional charges for extra guests may apply upon check-in, subject to the resort\'s policies.</string>
+    <string name="label_total_booking_amount">Total Booking Amount</string>
     <string name="my_reservations_title">My Reservations</string>
     <string name="history_facility_hall">Function Hall</string>
     <string name="history_view_all">View all  &gt;</string>
@@ -600,10 +609,10 @@
     <string name="placeholder_em_dash">—</string>
     <string name="dialog_no_room_message">Please select at least one room before continuing.</string>
     <string name="format_capacity">Up to %1$d Guests</string>
-    <!-- Hotel Room capacity rule: total capacity = capacity per room x rooms picked (validation message). -->
-    <plurals name="error_room_capacity_exceeded">
-        <item quantity="one">The selected rooms can accommodate a maximum of %1$d participant. Please reduce the number of participants or add more rooms.</item>
-        <item quantity="other">The selected rooms can accommodate a maximum of %1$d participants. Please reduce the number of participants or add more rooms.</item>
+    <!-- "N Room(s) Available" pill on a room card of the Choose Your Stay Dates screen. -->
+    <plurals name="format_rooms_available">
+        <item quantity="one">%1$d Room Available</item>
+        <item quantity="other">%1$d Rooms Available</item>
     </plurals>
     <string name="button_checking_availability">Searching…</string>
     <string name="toast_session_expired">Your session has expired. Please log in again.</string>
@@ -617,7 +626,7 @@
     <string name="toast_id_upload_failed">Couldn\'t upload your ID. Please try again.</string>
 
     <!-- Room/Cottage/KTV Overview's "Your Selected ..." screen (see HotelBookingFlowController's
-         bindRoomSelection/bindCottageSelection/bindKtvSelection) — shows the originally-chosen
+         bindCottageSelection/bindKtvSelection) — shows the originally-chosen
          item as pre-selected (with a quantity control) if it's available for the guest's
          entered dates/time/guests, or grayed-out with an unavailable message if not, plus other
          available alternatives below. -->
@@ -625,24 +634,21 @@
     <string name="cottage_selection_title">Available Cottages</string>
     <string name="ktv_selection_title">Available KTV Rooms</string>
     <string name="label_selected_badge">✓ SELECTED</string>
-    <string name="button_add_another_room">ADD ANOTHER ROOM</string>
     <string name="button_add_another_cottage">ADD ANOTHER COTTAGE</string>
     <string name="button_add_another_ktv">ADD ANOTHER KTV ROOM</string>
     <string name="unavailable_room_message">This room is unavailable for your selected dates.</string>
     <string name="unavailable_cottage_message">This cottage is unavailable for your selected schedule.</string>
     <string name="unavailable_ktv_message">This KTV room is unavailable for your selected schedule.</string>
-    <string name="empty_room_selection">No rooms are available for your selected dates and guests. Please go back and try different ones.</string>
+    <string name="empty_room_selection">No rooms are available for your selected dates. Please try different dates.</string>
     <string name="empty_cottage_selection">No cottages are available for your selected date and schedule. Please go back and try a different one.</string>
     <string name="empty_ktv_selection">No KTV rooms are available for your selected schedule. Please go back and try a different one.</string>
     <string name="toast_feature_coming_soon">This feature is coming soon.</string>
 
-    <!-- "Add Another ..." browse screens (see HotelBookingFlowController's bindRoomBrowse/
+    <!-- "Add Another ..." browse screens (see HotelBookingFlowController's 
          bindCottageBrowse/bindKtvBrowse) — a separate screen listing every other available item,
          reached from the "Your Selected ..." screen's Add Another button. -->
-    <string name="room_browse_title">Hotel Rooms</string>
     <string name="cottage_browse_title">Cottages</string>
     <string name="ktv_browse_title">KTV Rooms</string>
-    <string name="label_browse_available_rooms">Available rooms</string>
     <string name="label_browse_available_cottages">Available cottages</string>
     <string name="label_browse_available_ktv">Available KTV rooms</string>
 

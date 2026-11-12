@@ -4,7 +4,7 @@
      item pre-selected with a quantity control if it's available, or grayed with an unavailable
      message if not; other available alternatives are listed below (immediately, if the original
      pick failed, or only after "Add Another Room" otherwise). See
-     HotelBookingFlowController#bindRoomSelection / #bindCottageSelection / #bindKtvSelection,
+     HotelBookingFlowController#bindCottageSelection / #bindKtvSelection,
      which all share this one layout, only the text/data differs per category. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"

@@ -104,12 +104,12 @@ final class HotelBookingFlowController {
     private static final int SCREEN_COTTAGE_DATES = 11;
     // KTV Overview's "Book Now" entry only — see #bindKtvDatesEntry and #showKtvDatesEntry.
     private static final int SCREEN_KTV_DATES = 12;
-    // "Your Selected ..." screens, reached from the dates screens above only.
-    private static final int SCREEN_ROOM_SELECTION = 13;
+    // Hotel Rooms has no selection/browse screens of its own: Choose Your Stay Dates lists the rooms
+    // free for the chosen dates itself (see bindRoomDates), and SCREEN_ROOM_GUESTS follows it.
+    // "Your Selected ..." screens (Cottage/KTV), reached from their dates screens above only.
     private static final int SCREEN_COTTAGE_SELECTION = 14;
     private static final int SCREEN_KTV_SELECTION = 15;
-    // "Add Another ..." browse screens, reached from the selection screens above only.
-    private static final int SCREEN_ROOM_BROWSE = 16;
+    // "Add Another ..." browse screens (Cottage/KTV), reached from the selection screens above only.
     private static final int SCREEN_COTTAGE_BROWSE = 17;
     private static final int SCREEN_KTV_BROWSE = 18;
     // Cottage/KTV flows' own Review Your Selection, reached from Your Selected Cottage/KTV Room/s
@@ -155,6 +155,9 @@ final class HotelBookingFlowController {
     private static final int SCREEN_PACKAGE_DATES = 36;
     private static final int SCREEN_PACKAGE_BILLING = 37;
     private static final int SCREEN_PACKAGE_PAYMENT = 38;
+    // Hotel Rooms: Number of Guests, between Choose Your Stay Dates (dates + rooms) and Review Your
+    // Selection. The party never limits the booking — see RoomSelectionRules.
+    private static final int SCREEN_ROOM_GUESTS = 39;
 
     private static final int FAC_ROOM = PendingRoomSelection.TYPE_ROOM;
     private static final int FAC_COTTAGE = PendingRoomSelection.TYPE_COTTAGE;
@@ -316,7 +319,15 @@ final class HotelBookingFlowController {
     private boolean isLoadingCottageAvailability = false;
     private List<RoomTypeAvailability> availableRoomTypes = new ArrayList<>();
     private final Map<Integer, Integer> roomQuantities = new LinkedHashMap<>();
-    private boolean isLoadingAvailability = false;
+    // Choose Your Stay Dates (see bindRoomDates): availableRoomTypes is what the server said was free
+    // for exactly these dates ("checkIn|checkOut", null = nothing fetched yet or the dates changed).
+    private String roomAvailabilityKey = null;
+    private boolean roomAvailabilityLoading = false;
+    private boolean roomAvailabilityFailed = false;
+    private Call<AvailabilityResponse> roomAvailabilityCall = null;
+    // The room the guest came in on is set to quantity 1 once (when it is free for the dates and they
+    // haven't picked anything themselves); after that the guest's own picks are never overridden.
+    private boolean originAutoSelected = false;
     private String specialRequest = "";
     private List<AmenityAvailability> availableAmenities = new ArrayList<>();
     private final Map<Integer, Integer> amenityQuantities = new LinkedHashMap<>();
@@ -427,9 +438,25 @@ final class HotelBookingFlowController {
         }
         selectionOriginVariantId = variantId;
         selectionShowOthers = false;
+        resetRoomSelection();
         this.onBackToOverview = onBackToOverview;
         this.reserveMode = reserveOnly;
         showScreen(SCREEN_ROOM_DATES);
+    }
+
+    /** A fresh Hotel Rooms step: no rooms picked and no availability fetched yet. The dates and party
+     *  the guest already entered are kept. */
+    private void resetRoomSelection() {
+        if (roomAvailabilityCall != null) {
+            roomAvailabilityCall.cancel();
+            roomAvailabilityCall = null;
+        }
+        availableRoomTypes = new ArrayList<>();
+        roomQuantities.clear();
+        roomAvailabilityKey = null;
+        roomAvailabilityLoading = false;
+        roomAvailabilityFailed = false;
+        originAutoSelected = false;
     }
 
     /**
@@ -487,6 +514,7 @@ final class HotelBookingFlowController {
         multiQuantities.clear();
         selectionOriginVariantId = -1;
         selectionShowOthers = false;
+        resetRoomSelection();
         activeContinuation = CONTINUATION_NONE;
         this.onBackToOverview = onBackToOverview;
         this.reserveMode = reserveOnly;
@@ -518,9 +546,11 @@ final class HotelBookingFlowController {
                 : facility == FAC_KTV ? SCREEN_KTV_DATES : SCREEN_ROOM_DATES;
     }
 
+    /** The last screen of a facility's own step — where Next moves on to the next facility (for Hotel
+     *  Rooms that is Number of Guests, which follows the dates-and-rooms screen). */
     private int selectionScreenForFacility(int facility) {
         return facility == FAC_COTTAGE ? SCREEN_COTTAGE_SELECTION
-                : facility == FAC_KTV ? SCREEN_KTV_SELECTION : SCREEN_ROOM_SELECTION;
+                : facility == FAC_KTV ? SCREEN_KTV_SELECTION : SCREEN_ROOM_GUESTS;
     }
 
     /** Steps back one screen at a time. The Room/Cottage/KTV Dates entry screens are the flow's
@@ -538,7 +568,7 @@ final class HotelBookingFlowController {
                 }
                 onBackToOverview.run();
                 return true;
-            case SCREEN_ROOM_SELECTION:
+            case SCREEN_ROOM_GUESTS:
                 showScreen(SCREEN_ROOM_DATES);
                 return true;
             case SCREEN_COTTAGE_SELECTION:
@@ -560,9 +590,6 @@ final class HotelBookingFlowController {
             case SCREEN_PACKAGE_PAYMENT:
                 showScreen(SCREEN_PACKAGE_BILLING);
                 return true;
-            case SCREEN_ROOM_BROWSE:
-                showScreen(SCREEN_ROOM_SELECTION);
-                return true;
             case SCREEN_COTTAGE_BROWSE:
                 showScreen(SCREEN_COTTAGE_SELECTION);
                 return true;
@@ -576,8 +603,8 @@ final class HotelBookingFlowController {
                 showScreen(SCREEN_KTV_SELECTION);
                 return true;
             case SCREEN_REVIEW:
-                // SCREEN_REVIEW is only ever reached from Your Selected Room/s' Next button now.
-                showScreen(SCREEN_ROOM_SELECTION);
+                // SCREEN_REVIEW is only ever reached from Number of Guests' Next button.
+                showScreen(SCREEN_ROOM_GUESTS);
                 return true;
             case SCREEN_AMENITY:
                 showScreen(reviewScreenForContinuation());
@@ -718,8 +745,7 @@ final class HotelBookingFlowController {
 
     private static boolean isLiveSyncScreen(int screen) {
         switch (screen) {
-            case SCREEN_ROOM_SELECTION:
-            case SCREEN_ROOM_BROWSE:
+            case SCREEN_ROOM_DATES:
             case SCREEN_COTTAGE_SELECTION:
             case SCREEN_COTTAGE_BROWSE:
             case SCREEN_KTV_SELECTION:
@@ -761,9 +787,8 @@ final class HotelBookingFlowController {
         int screen = currentScreen;
         View screenView = currentScreenView;
         switch (screen) {
-            case SCREEN_ROOM_SELECTION:
-            case SCREEN_ROOM_BROWSE:
-                syncRoomAvailability(bearer, screen, screenView);
+            case SCREEN_ROOM_DATES:
+                loadRoomAvailability(screenView, false);
                 break;
             case SCREEN_COTTAGE_SELECTION:
             case SCREEN_COTTAGE_BROWSE:
@@ -790,63 +815,19 @@ final class HotelBookingFlowController {
     /** Lowers any pick above what the server now offers (or for an item that disappeared) and
      *  seeds newly appeared items at 0. Returns whether a pick had to be changed. */
     private static boolean clampPicks(Map<Integer, Integer> picks, Map<Integer, Integer> availableById) {
-        boolean adjusted = false;
-        for (Map.Entry<Integer, Integer> pick : picks.entrySet()) {
-            Integer available = availableById.get(pick.getKey());
-            if (available == null) {
-                available = 0;
-            }
-            if (pick.getValue() > available) {
-                pick.setValue(available);
-                adjusted = true;
-            }
-        }
-        for (Integer id : availableById.keySet()) {
-            if (!picks.containsKey(id)) {
-                picks.put(id, 0);
-            }
-        }
-        return adjusted;
+        return RoomSelectionRules.clampPicks(picks, availableById);
     }
 
     private void applyLiveUpdate(int screen, View screenView, boolean selectionAdjusted) {
-        bindScreen(screen, screenView);
+        if (screen == SCREEN_ROOM_DATES) {
+            // Only the room list is redrawn: re-binding the whole screen would restart the fetch.
+            renderRoomList(screenView);
+        } else {
+            bindScreen(screen, screenView);
+        }
         if (selectionAdjusted) {
             Toast.makeText(activity, R.string.toast_availability_changed, Toast.LENGTH_LONG).show();
         }
-    }
-
-    private void syncRoomAvailability(String bearer, int screen, View screenView) {
-        if (checkInMillis < 0 || checkOutMillis < 0) {
-            return;
-        }
-        SimpleDateFormat day = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
-        liveSyncInFlight = true;
-        ApiClient.bookingApi().checkAvailability(bearer, day.format(new Date(checkInMillis)),
-                day.format(new Date(checkOutMillis)), adults, children)
-                .enqueue(new Callback<AvailabilityResponse>() {
-                    @Override
-                    public void onResponse(Call<AvailabilityResponse> call, Response<AvailabilityResponse> response) {
-                        liveSyncInFlight = false;
-                        if (!response.isSuccessful() || response.body() == null
-                                || response.body().room_types == null
-                                || !liveScreenStillCurrent(screen, screenView)
-                                || LiveSync.sameData(availableRoomTypes, response.body().room_types)) {
-                            return;
-                        }
-                        availableRoomTypes = response.body().room_types;
-                        Map<Integer, Integer> available = new LinkedHashMap<>();
-                        for (RoomTypeAvailability type : availableRoomTypes) {
-                            available.put(type.group_id, type.available_quantity);
-                        }
-                        applyLiveUpdate(screen, screenView, clampPicks(roomQuantities, available));
-                    }
-
-                    @Override
-                    public void onFailure(Call<AvailabilityResponse> call, Throwable t) {
-                        liveSyncInFlight = false;
-                    }
-                });
     }
 
     private void syncCottageAvailability(String bearer, int screen, View screenView) {
@@ -960,7 +941,8 @@ final class HotelBookingFlowController {
                 return R.layout.view_cottage_booking_dates;
             case SCREEN_KTV_DATES:
                 return R.layout.view_ktv_booking_dates;
-            case SCREEN_ROOM_SELECTION:
+            case SCREEN_ROOM_GUESTS:
+                return R.layout.view_room_guests;
             case SCREEN_COTTAGE_SELECTION:
             case SCREEN_KTV_SELECTION:
                 return R.layout.view_item_selection;
@@ -998,7 +980,6 @@ final class HotelBookingFlowController {
                 return R.layout.view_hotel_billing;
             case SCREEN_PACKAGE_PAYMENT:
                 return R.layout.view_hotel_payment;
-            case SCREEN_ROOM_BROWSE:
             case SCREEN_COTTAGE_BROWSE:
             case SCREEN_KTV_BROWSE:
                 return R.layout.view_item_browse;
@@ -1033,17 +1014,14 @@ final class HotelBookingFlowController {
             case SCREEN_KTV_DATES:
                 bindKtvDatesEntry(v);
                 break;
-            case SCREEN_ROOM_SELECTION:
-                bindRoomSelection(v);
+            case SCREEN_ROOM_GUESTS:
+                bindRoomGuests(v);
                 break;
             case SCREEN_COTTAGE_SELECTION:
                 bindCottageSelection(v);
                 break;
             case SCREEN_KTV_SELECTION:
                 bindKtvSelection(v);
-                break;
-            case SCREEN_ROOM_BROWSE:
-                bindRoomBrowse(v);
                 break;
             case SCREEN_COTTAGE_BROWSE:
                 bindCottageBrowse(v);
@@ -1110,14 +1088,18 @@ final class HotelBookingFlowController {
         }
     }
 
-    // ---- Screen 0b: Choose Your Stay Dates (Room Overview entry only) -----
+    // ---- Screen 0b: Choose Your Stay Dates + the rooms free for them (Hotel Rooms) ------
 
     /**
-     * Focused check-in/check-out/adults/children/Next form for Room Overview's "Book Now" (see
-     * #showRoomDatesEntry). Feeds the same shared checkInMillis/checkOutMillis/adults/children
-     * fields the tabbed Book-tab screen uses, so tapping Next just switches to that screen (with
-     * the Hotel Rooms tab forced active) and immediately runs its availability search — reusing
-     * its room-selection/results logic rather than duplicating it here.
+     * "Choose Your Stay Dates": check-in and check-out at the top and, below them, every room type
+     * that has a room free for those dates, each with its own quantity stepper (see
+     * #renderRoomList). A type with nothing free is not listed at all. Availability depends on the
+     * dates and the real inventory only — how many guests are coming is asked on the next screen
+     * (see #bindRoomGuests) and never filters or limits the rooms here.
+     *
+     * <p>The list follows the dates: picking new ones fetches it again, drops picks that are no
+     * longer free and lowers any that now exceed what is left (see #applyRoomAvailability). The
+     * room the guest came in on starts at quantity 1 when it is free. Next needs at least one room.
      */
     private void bindRoomDates(View v) {
         bindHeader(v, R.id.roomDatesHeaderBar, R.string.room_dates_title, onBackToOverview);
@@ -1128,27 +1110,30 @@ final class HotelBookingFlowController {
         TextView checkOutDayText = v.findViewById(R.id.roomDatesCheckOutDayText);
         TextView checkInError = v.findViewById(R.id.roomDatesCheckInError);
         TextView checkOutError = v.findViewById(R.id.roomDatesCheckOutError);
-        EditText adultsValue = v.findViewById(R.id.roomDatesAdultsValue);
-        EditText childrenValue = v.findViewById(R.id.roomDatesChildrenValue);
 
         updateDateField(checkInDateText, checkInDayText, checkInMillis);
         updateDateField(checkOutDateText, checkOutDayText, checkOutMillis);
 
         View.OnClickListener openDatePicker = view -> GlassDatePicker.showRangePicker(activity, checkInMillis, checkOutMillis, System.currentTimeMillis() - 1000L, (start, end) -> {
+            boolean changed = start != checkInMillis || end != checkOutMillis;
             checkInMillis = start;
             checkOutMillis = end;
             updateDateField(checkInDateText, checkInDayText, checkInMillis);
             updateDateField(checkOutDateText, checkOutDayText, checkOutMillis);
             checkInError.setVisibility(View.GONE);
             checkOutError.setVisibility(View.GONE);
+            if (changed) {
+                if (multiMode) {
+                    // The later facilities were set up from these dates (see multiAdvance), so
+                    // they start over.
+                    multiResetProgress();
+                }
+                loadRoomAvailability(v, true);
+            }
         });
         v.findViewById(R.id.roomDatesCheckInField).setOnClickListener(ClickGuard.wrap(openDatePicker));
         v.findViewById(R.id.roomDatesCheckOutField).setOnClickListener(ClickGuard.wrap(openDatePicker));
-
-        AuthUiUtils.bindQuantityStepper(adultsValue, v.findViewById(R.id.roomDatesAdultsMinus),
-                v.findViewById(R.id.roomDatesAdultsPlus), adults, 0, Integer.MAX_VALUE, value -> adults = value);
-        AuthUiUtils.bindQuantityStepper(childrenValue, v.findViewById(R.id.roomDatesChildrenMinus),
-                v.findViewById(R.id.roomDatesChildrenPlus), children, 0, Integer.MAX_VALUE, value -> children = value);
+        v.findViewById(R.id.roomDatesRetryButton).setOnClickListener(ClickGuard.wrap(view -> loadRoomAvailability(v, true)));
 
         v.findViewById(R.id.roomDatesNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             boolean valid = true;
@@ -1167,14 +1152,297 @@ final class HotelBookingFlowController {
             } else {
                 checkOutError.setVisibility(View.GONE);
             }
+            if (!valid || roomAvailabilityLoading) {
+                return;
+            }
+            if (!Objects.equals(roomDatesKey(), roomAvailabilityKey)) {
+                // The rooms for these dates never loaded (the last check failed): try again.
+                loadRoomAvailability(v, true);
+                return;
+            }
+            // The only requirement: at least one room. The party is asked for next.
+            if (RoomSelectionRules.roomCount(availableRoomTypes, roomQuantities) <= 0) {
+                Toast.makeText(activity, R.string.dialog_no_room_message, Toast.LENGTH_LONG).show();
+                return;
+            }
+            showScreen(SCREEN_ROOM_GUESTS);
+        }));
+
+        renderRoomList(v);
+        // Always re-checked on opening, so coming back from a later screen never shows stale rooms;
+        // the cached list stays on screen while that happens when the dates are unchanged.
+        loadRoomAvailability(v, true);
+    }
+
+    /** "yyyy-MM-dd|yyyy-MM-dd" for the chosen stay, or null until both dates are chosen and
+     *  check-out is after check-in. */
+    private String roomDatesKey() {
+        if (checkInMillis < 0 || checkOutMillis <= checkInMillis) {
+            return null;
+        }
+        SimpleDateFormat day = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        return day.format(new Date(checkInMillis)) + "|" + day.format(new Date(checkOutMillis));
+    }
+
+    /** Draws the room list for the current state: a hint until there are dates, "checking" while
+     *  the rooms for them load, a retry after a failure, a note when nothing is free, otherwise one
+     *  card per room type that has a room free (the guest's original pick first). */
+    private void renderRoomList(View v) {
+        LinearLayout container = v.findViewById(R.id.roomDatesRoomsContainer);
+        TextView message = v.findViewById(R.id.roomDatesRoomsMessage);
+        View retryButton = v.findViewById(R.id.roomDatesRetryButton);
+        Button nextButton = v.findViewById(R.id.roomDatesNextButton);
+        container.removeAllViews();
+        message.setVisibility(View.GONE);
+        retryButton.setVisibility(View.GONE);
+        nextButton.setEnabled(!roomAvailabilityLoading);
+        nextButton.setText(roomAvailabilityLoading ? R.string.button_checking_availability : R.string.button_next);
+
+        String key = roomDatesKey();
+        if (key == null) {
+            showRoomListMessage(message, R.string.room_dates_pick_dates_hint);
+            return;
+        }
+        if (!key.equals(roomAvailabilityKey)) {
+            if (roomAvailabilityFailed) {
+                showRoomListMessage(message, R.string.toast_availability_check_failed);
+                retryButton.setVisibility(View.VISIBLE);
+            } else {
+                showRoomListMessage(message, R.string.room_dates_loading);
+            }
+            return;
+        }
+
+        List<RoomTypeAvailability> bookable = RoomSelectionRules.bookable(availableRoomTypes, selectionOriginVariantId);
+        if (bookable.isEmpty()) {
+            showRoomListMessage(message, R.string.empty_room_selection);
+            return;
+        }
+        LayoutInflater inflater = LayoutInflater.from(activity);
+        for (RoomTypeAvailability room : bookable) {
+            int qty = RoomSelectionRules.quantityOf(roomQuantities, room.group_id);
+            // The stepper tops out at the rooms free for these dates, never above.
+            container.addView(buildSelectableCard(inflater, container, room.image_path,
+                    formatShowcaseName(room.variant_name, room.category_name), room.capacity, false, room.description,
+                    activity.getString(R.string.format_price_per_night, formatMoney(RoomSelectionRules.pricePerNight(room))),
+                    room.group_id, room.available_quantity, R.string.unit_label_room, qty > 0, false,
+                    R.string.unavailable_room_message, () -> renderRoomList(v)));
+        }
+    }
+
+    private void showRoomListMessage(TextView message, int messageRes) {
+        message.setText(messageRes);
+        message.setVisibility(View.VISIBLE);
+    }
+
+    /**
+     * Fetches the rooms free for the chosen dates (the same backend call and inventory rules the
+     * website uses, by dates only — see RoomSelectionRules.AVAILABILITY_PROBE_ADULTS). A newer
+     * request replaces an older one, and an answer for dates the guest has since changed, or for a
+     * screen they have left, is ignored.
+     *
+     * @param foreground true when the guest caused it (screen opened, dates changed, retry): the
+     *                   list shows "checking" until the answer arrives unless it is already
+     *                   current, and a failure is reported. False for the live-sync tick, which is
+     *                   silent and never interrupts a fetch already running.
+     */
+    private void loadRoomAvailability(View v, boolean foreground) {
+        String key = roomDatesKey();
+        if (key == null) {
+            // No usable dates: nothing to look up, and nothing fetched for earlier dates stays on offer.
+            cancelRoomAvailabilityCall();
+            roomAvailabilityKey = null;
+            roomAvailabilityLoading = false;
+            roomAvailabilityFailed = false;
+            if (foreground) {
+                renderRoomList(v);
+            }
+            return;
+        }
+        if (!foreground && roomAvailabilityCall != null) {
+            return;
+        }
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            if (foreground) {
+                Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+        cancelRoomAvailabilityCall();
+        if (foreground) {
+            roomAvailabilityFailed = false;
+            roomAvailabilityLoading = !key.equals(roomAvailabilityKey);
+            renderRoomList(v);
+        }
+
+        String[] dates = key.split("\\|");
+        Call<AvailabilityResponse> call = ApiClient.bookingApi().checkAvailability("Bearer " + token, dates[0], dates[1],
+                RoomSelectionRules.AVAILABILITY_PROBE_ADULTS, RoomSelectionRules.AVAILABILITY_PROBE_CHILDREN);
+        roomAvailabilityCall = call;
+        call.enqueue(new Callback<AvailabilityResponse>() {
+            @Override
+            public void onResponse(Call<AvailabilityResponse> call, Response<AvailabilityResponse> response) {
+                if (roomAvailabilityCall == call) {
+                    roomAvailabilityCall = null;
+                }
+                if (!roomDatesScreenStillShows(v, key)) {
+                    return;
+                }
+                if (response.isSuccessful() && response.body() != null) {
+                    applyRoomAvailability(v, key, response.body().room_types != null
+                            ? response.body().room_types : new ArrayList<>());
+                } else {
+                    roomAvailabilityLookupFailed(v, key, foreground, response.code() == 401
+                            ? R.string.toast_session_expired : R.string.toast_availability_check_failed);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<AvailabilityResponse> call, Throwable t) {
+                if (call.isCanceled()) {
+                    return;
+                }
+                if (roomAvailabilityCall == call) {
+                    roomAvailabilityCall = null;
+                }
+                if (roomDatesScreenStillShows(v, key)) {
+                    roomAvailabilityLookupFailed(v, key, foreground, R.string.toast_network_error);
+                }
+            }
+        });
+    }
+
+    private void cancelRoomAvailabilityCall() {
+        if (roomAvailabilityCall != null) {
+            roomAvailabilityCall.cancel();
+            roomAvailabilityCall = null;
+        }
+    }
+
+    private boolean roomDatesScreenStillShows(View v, String key) {
+        return currentScreen == SCREEN_ROOM_DATES && currentScreenView == v && key.equals(roomDatesKey());
+    }
+
+    /** What the server says is free for {@code key}: replaces the list, drops the picks that are no
+     *  longer free and lowers the ones above what is left (telling the guest), and starts the room
+     *  the guest came in on at quantity 1 when they haven't picked anything yet. */
+    private void applyRoomAvailability(View v, String key, List<RoomTypeAvailability> latest) {
+        boolean unchanged = key.equals(roomAvailabilityKey) && LiveSync.sameData(availableRoomTypes, latest);
+        roomAvailabilityLoading = false;
+        roomAvailabilityFailed = false;
+        if (unchanged) {
+            return;
+        }
+        availableRoomTypes = latest;
+        roomAvailabilityKey = key;
+        boolean adjusted = RoomSelectionRules.clampPicks(roomQuantities, RoomSelectionRules.availableByGroup(latest));
+        selectOriginRoomIfNothingPicked();
+        renderRoomList(v);
+        if (adjusted) {
+            Toast.makeText(activity, R.string.toast_availability_changed, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void roomAvailabilityLookupFailed(View v, String key, boolean foreground, int messageRes) {
+        roomAvailabilityLoading = false;
+        if (!key.equals(roomAvailabilityKey)) {
+            // Nothing current to show for these dates: the list offers a retry.
+            roomAvailabilityFailed = true;
+            renderRoomList(v);
+        }
+        if (foreground) {
+            Toast.makeText(activity, messageRes, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** The room the guest chose before the dates is set to quantity 1 — once, and only while they
+     *  haven't picked anything — provided it is free for these dates. If it isn't, it is simply not
+     *  listed and they choose among the rest. */
+    private void selectOriginRoomIfNothingPicked() {
+        if (originAutoSelected || selectionOriginVariantId < 0
+                || RoomSelectionRules.roomCount(availableRoomTypes, roomQuantities) > 0) {
+            return;
+        }
+        for (RoomTypeAvailability room : availableRoomTypes) {
+            if (room.variant_id == selectionOriginVariantId && room.available_quantity > 0) {
+                roomQuantities.put(room.group_id, 1);
+                originAutoSelected = true;
+                return;
+            }
+        }
+    }
+
+    // ---- Screen 0b-2: Number of Guests (Hotel Rooms) ------------------------------------
+
+    /**
+     * "Number of Guests", asked once the dates and rooms are chosen. The party never limits the
+     * booking: when it is larger than the combined standard capacity of the rooms picked (capacity x
+     * quantity, summed) an informational notice appears and disappears as the numbers change, and
+     * Next stays available either way. A Reserve/Book of several facilities carries on to the next
+     * facility from here instead of Review.
+     */
+    private void bindRoomGuests(View v) {
+        bindHeader(v, R.id.roomGuestsHeaderBar, R.string.room_guests_title, () -> showScreen(SCREEN_ROOM_DATES));
+
+        EditText adultsValue = v.findViewById(R.id.roomGuestsAdultsValue);
+        EditText childrenValue = v.findViewById(R.id.roomGuestsChildrenValue);
+        View notice = v.findViewById(R.id.roomGuestsCapacityNotice);
+        Runnable updateNotice = () -> notice.setVisibility(partyExceedsRoomCapacity() ? View.VISIBLE : View.GONE);
+
+        adults = Math.min(adults, RoomSelectionRules.MAX_ADULTS);
+        children = Math.min(children, RoomSelectionRules.MAX_CHILDREN);
+        AuthUiUtils.bindQuantityStepper(adultsValue, v.findViewById(R.id.roomGuestsAdultsMinus),
+                v.findViewById(R.id.roomGuestsAdultsPlus), adults, 0, RoomSelectionRules.MAX_ADULTS, value -> {
+                    adults = value;
+                    updateNotice.run();
+                });
+        AuthUiUtils.bindQuantityStepper(childrenValue, v.findViewById(R.id.roomGuestsChildrenMinus),
+                v.findViewById(R.id.roomGuestsChildrenPlus), children, 0, RoomSelectionRules.MAX_CHILDREN, value -> {
+                    children = value;
+                    updateNotice.run();
+                });
+        // Typing a number updates the notice as it is typed, not only once the field loses focus.
+        AuthUiUtils.afterTextChanged(adultsValue, () -> {
+            adults = readGuestCount(adultsValue, RoomSelectionRules.MAX_ADULTS);
+            updateNotice.run();
+        });
+        AuthUiUtils.afterTextChanged(childrenValue, () -> {
+            children = readGuestCount(childrenValue, RoomSelectionRules.MAX_CHILDREN);
+            updateNotice.run();
+        });
+        updateNotice.run();
+
+        Button nextButton = v.findViewById(R.id.roomGuestsNextButton);
+        nextButton.setOnClickListener(ClickGuard.wrap(view -> {
+            // Read what is in the fields: a number typed just before tapping Next hasn't lost focus yet.
+            adults = readGuestCount(adultsValue, RoomSelectionRules.MAX_ADULTS);
+            children = readGuestCount(childrenValue, RoomSelectionRules.MAX_CHILDREN);
             if (adults + children < 1) {
                 Toast.makeText(activity, R.string.toast_guests_required, Toast.LENGTH_LONG).show();
-                valid = false;
+                return;
             }
-            if (valid) {
-                fetchAvailabilityForRoomSelection(v);
+            // Never blocked by the party being larger than the rooms: the notice is all there is.
+            if (multiMode) {
+                multiAdvance(nextButton);
+                return;
             }
+            showScreen(SCREEN_REVIEW);
         }));
+    }
+
+    private static int readGuestCount(EditText field, int max) {
+        try {
+            return Math.max(0, Math.min(max, Integer.parseInt(field.getText().toString().trim())));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /** Whether the party is larger than the standard capacity of the rooms picked — drives the
+     *  informational notice only. */
+    private boolean partyExceedsRoomCapacity() {
+        return RoomSelectionRules.exceedsCapacity(availableRoomTypes, roomQuantities, adults, children);
     }
 
     /**
@@ -1251,82 +1519,6 @@ final class HotelBookingFlowController {
         } catch (java.text.ParseException e) {
             return -1;
         }
-    }
-
-    /**
-     * Checks real room availability (same backend call as {@link #fetchAvailability}, but
-     * targets this screen's own Next button for loading feedback and always lands on the
-     * dedicated Your Selected Room/s screen on success, rather than the tabbed Book-tab screen).
-     */
-    private void fetchAvailabilityForRoomSelection(View datesView) {
-        if (isLoadingAvailability) {
-            return;
-        }
-        String token = ProfileStore.getAuthToken(activity);
-        if (token.isEmpty()) {
-            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
-            return;
-        }
-
-        Button nextButton = datesView.findViewById(R.id.roomDatesNextButton);
-        isLoadingAvailability = true;
-        nextButton.setEnabled(false);
-        nextButton.setText(R.string.button_checking_availability);
-
-        String checkInStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(checkInMillis));
-        String checkOutStr = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(checkOutMillis));
-
-        ApiClient.bookingApi().checkAvailability("Bearer " + token, checkInStr, checkOutStr, adults, children)
-                .enqueue(new Callback<AvailabilityResponse>() {
-                    @Override
-                    public void onResponse(Call<AvailabilityResponse> call, Response<AvailabilityResponse> response) {
-                        isLoadingAvailability = false;
-                        if (response.isSuccessful() && response.body() != null) {
-                            availableRoomTypes = response.body().room_types != null
-                                    ? response.body().room_types : new ArrayList<>();
-                            // Fresh search: wipe every previously-added room and quantity (and
-                            // the unavailable-origin "show everything inline" mode, in case the
-                            // origin is available this time) — only the origin itself survives,
-                            // re-checked below against these new results.
-                            roomQuantities.clear();
-                            selectionShowOthers = false;
-                            for (RoomTypeAvailability type : availableRoomTypes) {
-                                roomQuantities.put(type.group_id, 0);
-                            }
-                            // Pre-select quantity 1 for the room the guest originally chose
-                            // (Room Overview), if it turned out to be available.
-                            for (RoomTypeAvailability type : availableRoomTypes) {
-                                // Capacity no longer hides a room here: a party may take several rooms,
-                                // so Next on the Room Selection screen checks the party against the
-                                // total capacity of the rooms picked instead (blockIfRoomsExceedCapacity).
-                                if (type.variant_id == selectionOriginVariantId && type.available_quantity > 0) {
-                                    roomQuantities.put(type.group_id, 1);
-                                    break;
-                                }
-                            }
-                            if (multiMode) {
-                                multiResetProgress();
-                            }
-                            showScreen(SCREEN_ROOM_SELECTION);
-                        } else {
-                            nextButton.setEnabled(true);
-                            nextButton.setText(R.string.button_next);
-                            if (response.code() == 401) {
-                                Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
-                            } else {
-                                Toast.makeText(activity, R.string.toast_availability_check_failed, Toast.LENGTH_LONG).show();
-                            }
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(Call<AvailabilityResponse> call, Throwable t) {
-                        isLoadingAvailability = false;
-                        nextButton.setEnabled(true);
-                        nextButton.setText(R.string.button_next);
-                        Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
-                    }
-                });
     }
 
     // ---- Screen 0c: Choose Your Visit Date (Cottage Overview entry only) --
@@ -1444,7 +1636,7 @@ final class HotelBookingFlowController {
 
     /**
      * Real, live availability check for the guest's chosen Date and Cottage Use — the Cottage
-     * equivalent of fetchAvailabilityForRoomSelection() for Hotel Rooms: checked against actual
+     * equivalent of loadRoomAvailability() for Hotel Rooms: checked against actual
      * Bookings and other guests'/staff's Pending holds for that exact date and period (see the
      * backend's Concerns\HandlesCottageAvailability, shared with the Receptionist's own Create
      * Reservation > Cottage wizard so both sides can never disagree), unlike getCottagesKtv()'s
@@ -1710,153 +1902,12 @@ final class HotelBookingFlowController {
         endTimeText.setAlpha(1f);
     }
 
-    // ---- Screen 0e/f/g: "Your Selected ..." (Room/Cottage/KTV Overview entry only) ---------
-
-    /**
-     * Shows the room the guest originally chose (see selectionOriginVariantId) pre-selected with
-     * a quantity control if it's available for their entered dates/guests, or grayed out with an
-     * unavailable message otherwise — plus other available room types below (immediately, if the
-     * original pick failed, or only once "Add Another Room" is tapped). Next reuses
-     * roomQuantities/availableRoomTypes exactly as bindReview already expects, so it hands off to
-     * the existing Review screen with no changes needed there.
-     */
-    private void bindRoomSelection(View v) {
-        bindHeader(v, R.id.itemSelectionHeaderBar, R.string.room_selection_title,
-                () -> showScreen(SCREEN_ROOM_DATES));
-
-        RoomTypeAvailability origin = null;
-        for (RoomTypeAvailability room : availableRoomTypes) {
-            if (room.variant_id == selectionOriginVariantId) {
-                origin = room;
-                break;
-            }
-        }
-        boolean originAvailable = origin != null && origin.available_quantity > 0;
-        if (!originAvailable) {
-            selectionShowOthers = true;
-        }
-
-        LayoutInflater inflater = LayoutInflater.from(activity);
-        FrameLayout originSlot = v.findViewById(R.id.itemSelectionOriginSlot);
-        originSlot.removeAllViews();
-        // An unavailable choice is not shown at all (no greyed-out card) — only what can be booked.
-        if (origin != null && originAvailable) {
-            int pricePerNight = (int) Math.round(origin.price_per_night);
-            View card = buildSelectableCard(inflater, originSlot, origin.image_path,
-                    formatShowcaseName(origin.variant_name, origin.category_name), origin.capacity, false, origin.description,
-                    activity.getString(R.string.format_price_per_night, formatMoney(pricePerNight)),
-                    origin.group_id, origin.available_quantity, R.string.unit_label_room, originAvailable, !originAvailable,
-                    R.string.unavailable_room_message, () -> onRoomQuantityChanged(() -> bindRoomSelection(v)));
-            originSlot.addView(card);
-        }
-
-        LinearLayout otherContainer = v.findViewById(R.id.itemSelectionOtherContainer);
-        otherContainer.removeAllViews();
-        Button addAnotherButton = v.findViewById(R.id.itemSelectionAddAnotherButton);
-        addAnotherButton.setText(R.string.button_add_another_room);
-
-        if (selectionShowOthers) {
-            // The origin was unavailable: show every alternative right here, inline, so the
-            // guest — who has nothing selected yet — can immediately pick a replacement.
-            addAnotherButton.setVisibility(View.GONE);
-            for (RoomTypeAvailability room : availableRoomTypes) {
-                if (room.variant_id == selectionOriginVariantId || room.available_quantity <= 0) {
-                    continue;
-                }
-                int pricePerNight = (int) Math.round(room.price_per_night);
-                View card = buildSelectableCard(inflater, otherContainer, room.image_path,
-                        formatShowcaseName(room.variant_name, room.category_name), room.capacity, false, room.description,
-                        activity.getString(R.string.format_price_per_night, formatMoney(pricePerNight)),
-                        room.group_id, room.available_quantity, R.string.unit_label_room, false, false,
-                        R.string.unavailable_room_message, () -> onRoomQuantityChanged(() -> bindRoomSelection(v)));
-                otherContainer.addView(card);
-            }
-            if (otherContainer.getChildCount() == 0) {
-                addNothingAvailableNotice(otherContainer, R.string.empty_room_selection);
-            }
-        } else {
-            // The origin is available: only list room types the guest has already added via the
-            // dedicated Hotel Rooms browse screen (see itemSelectionAddAnotherButton below) —
-            // browsing everything else happens on that separate screen, not inline here.
-            for (RoomTypeAvailability room : availableRoomTypes) {
-                if (room.variant_id == selectionOriginVariantId) {
-                    continue;
-                }
-                int qty = roomQuantities.containsKey(room.group_id) ? roomQuantities.get(room.group_id) : 0;
-                if (qty <= 0) {
-                    continue;
-                }
-                int pricePerNight = (int) Math.round(room.price_per_night);
-                View card = buildSelectableCard(inflater, otherContainer, room.image_path,
-                        formatShowcaseName(room.variant_name, room.category_name), room.capacity, false, room.description,
-                        activity.getString(R.string.format_price_per_night, formatMoney(pricePerNight)),
-                        room.group_id, room.available_quantity, R.string.unit_label_room, false, false,
-                        R.string.unavailable_room_message, () -> onRoomQuantityChanged(() -> bindRoomSelection(v)));
-                otherContainer.addView(card);
-            }
-            addAnotherButton.setVisibility(View.VISIBLE);
-            addAnotherButton.setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_ROOM_BROWSE)));
-        }
-
-        v.findViewById(R.id.itemSelectionNextButton).setOnClickListener(ClickGuard.wrap(view -> {
-            int total = 0;
-            for (RoomTypeAvailability room : availableRoomTypes) {
-                if (roomQuantities.containsKey(room.group_id)) {
-                    total += roomQuantities.get(room.group_id);
-                }
-            }
-            if (total <= 0) {
-                Toast.makeText(activity, R.string.dialog_no_room_message, Toast.LENGTH_LONG).show();
-                return;
-            }
-            // The party can't be larger than the rooms picked can hold: no moving on to the
-            // review, confirmation or payment until the guest adds rooms or reduces participants.
-            if (blockIfRoomsExceedCapacity(roomQuantities)) {
-                return;
-            }
-            if (multiMode) {
-                multiAdvance(v.findViewById(R.id.itemSelectionNextButton));
-                return;
-            }
-            showScreen(SCREEN_REVIEW);
-        }));
-    }
-
-    /**
-     * The dedicated "Hotel Rooms" browse screen reached from "Add Another Room" on Your Selected
-     * Room/s (see bindRoomSelection) — lists every available room type except the guest's
-     * original pick (already shown on that screen), each with its own quantity control. Next
-     * returns to Your Selected Room/s, which then shows any of these given a quantity above the
-     * origin card.
-     */
-    private void bindRoomBrowse(View v) {
-        bindHeader(v, R.id.itemBrowseHeaderBar, R.string.room_browse_title,
-                () -> showScreen(SCREEN_ROOM_SELECTION));
-        ((TextView) v.findViewById(R.id.itemBrowseSubtitle)).setText(R.string.label_browse_available_rooms);
-
-        LinearLayout container = v.findViewById(R.id.itemBrowseContainer);
-        container.removeAllViews();
-        LayoutInflater inflater = LayoutInflater.from(activity);
-        for (RoomTypeAvailability room : availableRoomTypes) {
-            if (room.variant_id == selectionOriginVariantId || room.available_quantity <= 0) {
-                continue;
-            }
-            int pricePerNight = (int) Math.round(room.price_per_night);
-            View card = buildSelectableCard(inflater, container, room.image_path,
-                    formatShowcaseName(room.variant_name, room.category_name), room.capacity, false, room.description,
-                    activity.getString(R.string.format_price_per_night, formatMoney(pricePerNight)),
-                    room.group_id, room.available_quantity, R.string.unit_label_room, false, false,
-                    R.string.unavailable_room_message, () -> onRoomQuantityChanged(() -> bindRoomBrowse(v)));
-            container.addView(card);
-        }
-
-        v.findViewById(R.id.itemBrowseNextButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_ROOM_SELECTION)));
-    }
+    // ---- Screen 0e/f: "Your Selected ..." (Cottage/KTV Overview entry only) ---------
 
     /**
      * Shows the cottage the guest originally chose pre-selected with a quantity control if it's
      * in stock, or grayed out with an unavailable message otherwise — plus other available
-     * cottage types below, same pattern as {@link #bindRoomSelection}. Cottages have no per-
+     * cottage types below. Cottages have no per-
      * date/time availability check on the backend (only overall stock, see
      * fetchCottagesKtvData) so "available" here means in-stock, not conflict-checked against the
      * guest's chosen date/schedule. The party size does count: the backend reports a type as in
@@ -2298,7 +2349,7 @@ final class HotelBookingFlowController {
     /**
      * Shows the KTV room the guest originally chose pre-selected with a quantity control if it's
      * in stock and fits their guest count, or grayed out with an unavailable message otherwise —
-     * plus other available KTV rooms below, same pattern as {@link #bindRoomSelection}. Same
+     * plus other available KTV rooms below, same pattern as {@link #bindCottageSelection}. Same
      * stock-only availability caveat as {@link #bindCottageSelection} applies. Next is a
      * placeholder for now — KTV bookings don't have a Review/Billing/Payment continuation yet.
      */
@@ -2869,10 +2920,6 @@ final class HotelBookingFlowController {
      * for Cottage's own equivalent (KTV is still local-mock, see that method's own class doc).
      */
     private void submitReservationRequest(View summaryView) {
-        // Last line of defence — the Room step already blocks this, and the server re-checks it.
-        if (blockIfRoomsExceedCapacity(roomQuantities)) {
-            return;
-        }
         String token = ProfileStore.getAuthToken(activity);
         if (token.isEmpty()) {
             Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
@@ -3855,8 +3902,9 @@ final class HotelBookingFlowController {
         banner.setVisibility(View.GONE);
         badge.setVisibility(isSelectedBadge ? View.VISIBLE : View.GONE);
         availableBadge.setVisibility(View.VISIBLE);
-        ((TextView) card.findViewById(R.id.itemAvailableBadge)).setText(activity.getString(
-                R.string.format_available_units, availableQty, activity.getString(unitLabelRes)));
+        ((TextView) card.findViewById(R.id.itemAvailableBadge)).setText(unitLabelRes == R.string.unit_label_room
+                ? activity.getResources().getQuantityString(R.plurals.format_rooms_available, availableQty, availableQty)
+                : activity.getString(R.string.format_available_units, availableQty, activity.getString(unitLabelRes)));
         quantityRow.setVisibility(View.VISIBLE);
         card.setAlpha(1f);
 
@@ -3893,7 +3941,7 @@ final class HotelBookingFlowController {
      * selection screens. Runs onLoaded once data has arrived (or immediately, if another caller
      * already loaded it first). cottageKtvLoaded is only ever set true on a genuine successful
      * response — a failed/errored attempt resets nextButton and shows a Toast instead (matching
-     * fetchAvailabilityForRoomSelection's Hotel Rooms equivalent) so the guest can just tap Next
+     * loadRoomAvailability's Hotel Rooms equivalent) so the guest can just tap Next
      * again, rather than silently caching an empty catalog for the rest of the session with no
      * way to retry (the bug that made "Available Cottages" render permanently blank after any
      * one transient failure).
@@ -3992,75 +4040,9 @@ final class HotelBookingFlowController {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
     }
 
-    // ---- Hotel Room capacity: total capacity = capacity per room x rooms picked -------------------
-    //
-    // Each Room Type's capacity comes from Admin Room Management (RoomTypeAvailability.capacity).
-    // The party (adults + children) must fit the rooms picked together; picking more rooms raises
-    // the limit, picking fewer lowers it, and the participant count is never changed for the
-    // guest. The server recalculates the same rule on every submit (it never trusts this check).
-
-    /** Rooms picked in {@code quantities} (group_id → quantity), counting only room types on offer. */
-    private int roomCountOf(Map<Integer, Integer> quantities) {
-        int total = 0;
-        for (RoomTypeAvailability room : availableRoomTypes) {
-            Integer qty = quantities.get(room.group_id);
-            if (qty != null && qty > 0) {
-                total += qty;
-            }
-        }
-        return total;
-    }
-
-    /** Total seats of the rooms picked: each type's capacity × its quantity, summed. -1 when a
-     *  picked type has no capacity configured — that can't be judged, so it never blocks (same as
-     *  the server). */
-    private int roomCapacityOf(Map<Integer, Integer> quantities) {
-        int seats = 0;
-        for (RoomTypeAvailability room : availableRoomTypes) {
-            Integer qty = quantities.get(room.group_id);
-            if (qty == null || qty <= 0) {
-                continue;
-            }
-            if (room.capacity <= 0) {
-                return -1;
-            }
-            seats += room.capacity * qty;
-        }
-        return seats;
-    }
-
-    private boolean roomsExceedCapacity(Map<Integer, Integer> quantities) {
-        if (roomCountOf(quantities) <= 0) {
-            return false;
-        }
-        int seats = roomCapacityOf(quantities);
-        return seats >= 0 && adults + children > seats;
-    }
-
-    /** "The selected rooms can accommodate a maximum of X participants. Please reduce the number
-     *  of participants or add more rooms." */
-    private String roomCapacityError(Map<Integer, Integer> quantities) {
-        int seats = roomCapacityOf(quantities);
-        return activity.getResources().getQuantityString(R.plurals.error_room_capacity_exceeded, seats, seats);
-    }
-
-    /** A room quantity stepper moved: refreshes the screen, and tells the guest straight away if the
-     *  party no longer fits the rooms picked (the limit follows the quantity; the participant count
-     *  is never changed for them). */
-    private void onRoomQuantityChanged(Runnable rebind) {
-        rebind.run();
-        blockIfRoomsExceedCapacity(roomQuantities);
-    }
-
-    /** Shows the capacity message and returns true when the party doesn't fit the rooms in
-     *  {@code quantities} (null — no hotel rooms in this submission — never blocks). */
-    private boolean blockIfRoomsExceedCapacity(Map<Integer, Integer> quantities) {
-        if (quantities == null || !roomsExceedCapacity(quantities)) {
-            return false;
-        }
-        Toast.makeText(activity, roomCapacityError(quantities), Toast.LENGTH_LONG).show();
-        return true;
-    }
+    // Hotel Room capacity (total = capacity per room x rooms picked, see RoomSelectionRules) never
+    // blocks a booking: the party is compared with it only to show an informational notice (Number
+    // of Guests and Review Your Selection). KTV, below, still filters by its own capacity.
 
     /** A room passes the guest-count filter if its listed capacity covers the party, OR if its
      *  capacity is missing/zero — treating that as unknown data rather than "sleeps nobody" so a
@@ -4138,7 +4120,7 @@ final class HotelBookingFlowController {
 
     private void bindReview(View v) {
         bindHeader(v, R.id.hotelReviewHeaderBar, R.string.hotel_review_title,
-                () -> showScreen(SCREEN_ROOM_SELECTION));
+                () -> showScreen(SCREEN_ROOM_GUESTS));
 
         bindRow(v.findViewById(R.id.reviewRowCheckIn), R.string.label_stay_check_in, formatDate(checkInMillis));
         bindRow(v.findViewById(R.id.reviewRowCheckOut), R.string.label_stay_check_out, formatDate(checkOutMillis));
@@ -4150,11 +4132,11 @@ final class HotelBookingFlowController {
         LayoutInflater inflater = LayoutInflater.from(activity);
         int nights = nights();
         for (RoomTypeAvailability room : availableRoomTypes) {
-            int qty = roomQuantities.get(room.group_id);
+            int qty = RoomSelectionRules.quantityOf(roomQuantities, room.group_id);
             if (qty <= 0) {
                 continue;
             }
-            int pricePerNight = (int) Math.round(room.price_per_night);
+            int pricePerNight = RoomSelectionRules.pricePerNight(room);
             View row = inflater.inflate(R.layout.view_hotel_review_room_row, container, false);
             loadImage(row.findViewById(R.id.reviewRoomImage), room.image_path, R.drawable.ic_bed);
             ((TextView) row.findViewById(R.id.reviewRoomName)).setText(room.category_name + " · " + room.variant_name);
@@ -4164,11 +4146,18 @@ final class HotelBookingFlowController {
                     .setText(activity.getString(R.string.format_price_per_night, formatMoney(pricePerNight)));
             ((TextView) row.findViewById(R.id.reviewRoomQtyNights)).setText(
                     activity.getString(R.string.format_quantity, qty) + " · " + formatNights(nights));
-            int subtotal = pricePerNight * qty * nights;
+            int subtotal = RoomSelectionRules.roomSubtotal(room, qty, nights);
             ((TextView) row.findViewById(R.id.reviewRoomSubtotal))
                     .setText(activity.getString(R.string.format_subtotal, formatMoney(subtotal)));
             container.addView(row);
         }
+
+        // Total booking amount = the sum of the room subtotals above (amenities come on later screens).
+        ((TextView) v.findViewById(R.id.reviewTotalAmount)).setText(
+                formatCurrency(RoomSelectionRules.roomsTotal(availableRoomTypes, roomQuantities, nights)));
+        // Informational only: the booking carries on either way.
+        v.findViewById(R.id.reviewCapacityNotice)
+                .setVisibility(partyExceedsRoomCapacity() ? View.VISIBLE : View.GONE);
 
         EditText specialRequestField = v.findViewById(R.id.reviewSpecialRequestField);
         specialRequestField.setText(specialRequest);
@@ -4568,10 +4557,6 @@ final class HotelBookingFlowController {
      * Booking List immediately — no separate sync step, just one database.
      */
     private void submitReservation(View paymentView) {
-        // Last line of defence — the Room step already blocks this, and the server re-checks it.
-        if (blockIfRoomsExceedCapacity(roomQuantities)) {
-            return;
-        }
         String token = ProfileStore.getAuthToken(activity);
         if (token.isEmpty()) {
             Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
@@ -4769,8 +4754,7 @@ final class HotelBookingFlowController {
         ktvItems = new ArrayList<>();
         isLoadingCottageKtv = false;
         cottageKtvLoaded = false;
-        availableRoomTypes = new ArrayList<>();
-        roomQuantities.clear();
+        resetRoomSelection();
         specialRequest = "";
         availableAmenities = new ArrayList<>();
         amenityQuantities.clear();
@@ -5625,9 +5609,6 @@ final class HotelBookingFlowController {
     }
 
     private void submitFacilityReservation(View summaryView, Map<String, String> fields, boolean multi) {
-        if (multi && blockIfRoomsExceedCapacity(multiQuantities.get(FAC_ROOM))) {
-            return;
-        }
         String token = ProfileStore.getAuthToken(activity);
         if (token.isEmpty()) {
             Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
@@ -5691,9 +5672,6 @@ final class HotelBookingFlowController {
     }
 
     private void submitFacilityBooking(View paymentView, Map<String, String> fieldSource, boolean includeAmenities) {
-        if (multiMode && blockIfRoomsExceedCapacity(multiQuantities.get(FAC_ROOM))) {
-            return;
-        }
         String token = ProfileStore.getAuthToken(activity);
         if (token.isEmpty()) {
             Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();

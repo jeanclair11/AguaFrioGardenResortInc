@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- "Hotel Rooms" / "Cottages" / "KTV Rooms" browse screen, reached only from "Add Another
      Room/Cottage/KTV Room" on the "Your Selected ..." screen (see
-     HotelBookingFlowController#bindRoomBrowse / #bindCottageBrowse / #bindKtvBrowse). Lists every
+     HotelBookingFlowController#bindCottageBrowse / #bindKtvBrowse). Lists every
      available item (except the guest's original pick, already shown on that screen) with its own
      quantity control; Next returns to that screen. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -58,7 +58,7 @@
         android:paddingBottom="16dp">
 
         <!-- This adds whatever quantities were picked here back into "Your Selected .../s"
-             (see HotelBookingFlowController#bindRoomBrowse/bindCottageBrowse/bindKtvBrowse) — an
+             (see HotelBookingFlowController#bindCottageBrowse/bindKtvBrowse) — an
              "Add" action, not a forward-navigation "Next". -->
         <Button
             android:id="@+id/itemBrowseNextButton"
