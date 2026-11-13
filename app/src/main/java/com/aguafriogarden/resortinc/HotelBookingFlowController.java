@@ -387,6 +387,12 @@ final class HotelBookingFlowController {
     private boolean reservationSnapshotShowNights = false;
     private int reservationSnapshotNights = 0;
     private String reservationSnapshotGuestSummary = "";
+    /** When the record was created ("MMM d, yyyy h:mm a", resort time); empty if unknown. */
+    private String reservationSnapshotCreated = "";
+    /** What the guest has sent on this booking and any change over what was due (from the
+     *  backend's booking summary); both 0 for an unpaid reservation. */
+    private double reservationAmountPaid = 0;
+    private double reservationAmountChange = 0;
     private int reservationSnapshotGrandTotal = 0;
     // Reservation Details' back target, set by whichever entry point navigates in ("View
     // Reservation" right after reserving — see bindReservationConfirmed; the Profile history
@@ -1126,7 +1132,7 @@ final class HotelBookingFlowController {
         updateDateField(checkInDateText, checkInDayText, checkInMillis);
         updateDateField(checkOutDateText, checkOutDayText, checkOutMillis);
 
-        View.OnClickListener openDatePicker = view -> GlassDatePicker.showRangePicker(activity, checkInMillis, checkOutMillis, System.currentTimeMillis() - 1000L, (start, end) -> {
+        View.OnClickListener openDatePicker = view -> GlassDatePicker.showRangePicker(activity, checkInMillis, checkOutMillis, GlassDatePicker.earliestBookableMillis(), (start, end) -> {
             boolean changed = start != checkInMillis || end != checkOutMillis;
             checkInMillis = start;
             checkOutMillis = end;
@@ -1151,6 +1157,10 @@ final class HotelBookingFlowController {
             boolean valid = true;
             if (checkInMillis < 0) {
                 showError(checkInError, R.string.error_check_in_required);
+                valid = false;
+            } else if (checkInMillis < GlassDatePicker.earliestBookableMillis()) {
+                // A date picked earlier (e.g. yesterday's flow left open) can't be today or past.
+                showError(checkInError, R.string.error_date_past);
                 valid = false;
             } else {
                 checkInError.setVisibility(View.GONE);
@@ -1445,6 +1455,9 @@ final class HotelBookingFlowController {
         reservationSnapshotNights = checkInMillisLocal > 0 && checkOutMillisLocal > checkInMillisLocal
                 ? (int) ((checkOutMillisLocal - checkInMillisLocal) / ONE_DAY_MS) : 0;
         reservationSnapshotGuestSummary = formatGuestsCount(summary.adults, summary.children);
+        reservationSnapshotCreated = ReservationHistory.formatCreated(summary.created_at);
+        reservationAmountPaid = summary.amount_paid;
+        reservationAmountChange = summary.amount_change;
         reservationSnapshotGrandTotal = (int) Math.round(summary.subtotal);
     }
 
@@ -1523,7 +1536,7 @@ final class HotelBookingFlowController {
             dateField.setAlpha(0.6f);
         } else {
             dateField.setOnClickListener(ClickGuard.wrap(view -> GlassDatePicker.showDatePickerDialog(
-                    activity, cottageDateMillis, System.currentTimeMillis() - 1000L, millis -> {
+                    activity, cottageDateMillis, GlassDatePicker.earliestBookableMillis(), millis -> {
                         boolean changed = millis != cottageDateMillis;
                         cottageDateMillis = millis;
                         updateCottageDateField(dateText);
@@ -1566,7 +1579,7 @@ final class HotelBookingFlowController {
     }
 
     private boolean cottageDateIsCurrent() {
-        return cottageDateMillis >= System.currentTimeMillis() - ONE_DAY_MS;
+        return cottageDateMillis >= GlassDatePicker.earliestBookableMillis();
     }
 
     /** "yyyy-MM-dd|use" for the chosen visit, or null until there is a usable date. */
@@ -1606,7 +1619,7 @@ final class HotelBookingFlowController {
             dateField.setAlpha(0.6f);
         } else {
             dateField.setOnClickListener(ClickGuard.wrap(view -> GlassDatePicker.showDatePickerDialog(
-                    activity, ktvDateMillis, System.currentTimeMillis() - 1000L, millis -> {
+                    activity, ktvDateMillis, GlassDatePicker.earliestBookableMillis(), millis -> {
                         boolean changed = millis != ktvDateMillis;
                         ktvDateMillis = millis;
                         updateKtvDateField(dateText);
@@ -1669,7 +1682,7 @@ final class HotelBookingFlowController {
     }
 
     private boolean ktvDateIsCurrent() {
-        return ktvDateMillis >= System.currentTimeMillis() - ONE_DAY_MS;
+        return ktvDateMillis >= GlassDatePicker.earliestBookableMillis();
     }
 
     /** "yyyy-MM-dd|HH:mm" for the chosen session, or null until there is a usable date and start time. */
@@ -3141,6 +3154,9 @@ final class HotelBookingFlowController {
         ((TextView) v.findViewById(R.id.reservationDetailsCancelledReason)).setText(cancelledText);
 
         bindRow(v.findViewById(R.id.reservationDetailsRowReference), R.string.label_reference_no, reservationReferenceNo);
+        View createdRow = v.findViewById(R.id.reservationDetailsRowCreated);
+        createdRow.setVisibility(reservationSnapshotCreated.isEmpty() ? View.GONE : View.VISIBLE);
+        bindRow(createdRow, R.string.label_date_time_created, reservationSnapshotCreated);
         bindRow(v.findViewById(R.id.reservationDetailsRowAccommodation), R.string.label_accommodation, reservationSnapshotAccommodation);
         bindRow(v.findViewById(R.id.reservationDetailsRowDate), R.string.label_date, reservationSnapshotDateRange);
         View nightsRow = v.findViewById(R.id.reservationDetailsRowNights);
@@ -3156,6 +3172,14 @@ final class HotelBookingFlowController {
                 formatCurrency(reservationGrandTotal));
         bindRow(v.findViewById(R.id.reservationDetailsRowDownPayment), R.string.label_down_payment_30,
                 formatCurrency(computePartialAmount(reservationGrandTotal)));
+
+        // What the guest sent, and the change over what was due — only once something is paid.
+        View paidRow = v.findViewById(R.id.reservationDetailsRowAmountPaid);
+        paidRow.setVisibility(reservationAmountPaid > 0 ? View.VISIBLE : View.GONE);
+        bindRow(paidRow, R.string.label_amount_paid, formatMoneyAmount(reservationAmountPaid));
+        View changeRow = v.findViewById(R.id.reservationDetailsRowChange);
+        changeRow.setVisibility(reservationAmountChange > 0 ? View.VISIBLE : View.GONE);
+        bindRow(changeRow, R.string.label_change, formatMoneyAmount(reservationAmountChange));
 
         bindRow(v.findViewById(R.id.reservationDetailsRowFullName), R.string.label_full_name, ProfileStore.getFullName(activity));
         bindRow(v.findViewById(R.id.reservationDetailsRowEmail), R.string.label_email_address, ProfileStore.getEmail(activity));
@@ -3239,7 +3263,17 @@ final class HotelBookingFlowController {
         }
         rememberActiveReservationStatus();
 
+        // A request that was just paid is a booking now: pick up what was sent and any change.
+        double previousPaid = reservationAmountPaid;
+        double previousChange = reservationAmountChange;
+        if (row.isBooking()) {
+            reservationAmountPaid = row.amount_paid;
+            reservationAmountChange = row.amount_change;
+        }
+
         boolean changed = !Objects.equals(previousStatus, reservationStatus)
+                || previousPaid != reservationAmountPaid
+                || previousChange != reservationAmountChange
                 || !Objects.equals(previousReason, reservationCancelReason)
                 || !Objects.equals(previousBy, reservationCancelledBy);
         if (changed) {
@@ -3820,6 +3854,12 @@ final class HotelBookingFlowController {
         reservationSnapshotShowNights = !multiMode && activeContinuation == CONTINUATION_NONE;
         reservationSnapshotNights = nights();
         reservationSnapshotGuestSummary = reservationGuestSummary();
+        // Submitted just now, so "now" is the creation time (the backend's own created_at is
+        // within seconds of it).
+        reservationSnapshotCreated = ReservationHistory.formatCreated(System.currentTimeMillis());
+        // Nothing paid yet on a freshly submitted reservation request.
+        reservationAmountPaid = 0;
+        reservationAmountChange = 0;
         reservationSnapshotGrandTotal = reservationGrandTotal();
     }
 
@@ -6055,6 +6095,15 @@ final class HotelBookingFlowController {
 
     private String formatMoney(int amount) {
         return NumberFormat.getInstance(Locale.US).format(amount);
+    }
+
+    /** Peso amount from the backend, keeping centavos only when there are any ("₱1,500" / "₱1,500.50"). */
+    private String formatMoneyAmount(double amount) {
+        NumberFormat format = NumberFormat.getInstance(Locale.US);
+        boolean whole = Math.abs(amount - Math.rint(amount)) < 0.005;
+        format.setMinimumFractionDigits(whole ? 0 : 2);
+        format.setMaximumFractionDigits(whole ? 0 : 2);
+        return activity.getString(R.string.format_currency, format.format(amount));
     }
 
     private String formatCurrency(int amount) {

@@ -98,12 +98,15 @@
                     android:textSize="12sp" />
 
                 <include android:id="@+id/reservationDetailsRowReference" layout="@layout/view_hotel_label_value_row" />
+                <include android:id="@+id/reservationDetailsRowCreated" layout="@layout/view_hotel_label_value_row" />
                 <include android:id="@+id/reservationDetailsRowAccommodation" layout="@layout/view_hotel_label_value_row" />
                 <include android:id="@+id/reservationDetailsRowDate" layout="@layout/view_hotel_label_value_row" />
                 <include android:id="@+id/reservationDetailsRowNights" layout="@layout/view_hotel_label_value_row" />
                 <include android:id="@+id/reservationDetailsRowGuests" layout="@layout/view_hotel_label_value_row" />
                 <include android:id="@+id/reservationDetailsRowFullPayment" layout="@layout/view_hotel_label_value_row" />
                 <include android:id="@+id/reservationDetailsRowDownPayment" layout="@layout/view_hotel_label_value_row" />
+                <include android:id="@+id/reservationDetailsRowAmountPaid" layout="@layout/view_hotel_label_value_row" />
+                <include android:id="@+id/reservationDetailsRowChange" layout="@layout/view_hotel_label_value_row" />
             </LinearLayout>
 
             <!-- Who cancelled and why (shown only when the record's status key is cancelled) -->

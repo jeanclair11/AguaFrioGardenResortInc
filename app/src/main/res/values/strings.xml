@@ -278,6 +278,9 @@
     <string name="hint_select_time">Select time</string>
     <string name="error_booking_type_required">Please select a booking type.</string>
     <string name="error_date_required">Please select a date.</string>
+    <string name="history_created_on">Created %1$s</string>
+    <string name="history_paid_amount">Paid %1$s</string>
+    <string name="history_change_amount">Change %1$s</string>
     <string name="error_date_past">Date cannot be in the past.</string>
     <string name="error_time_required">Please select a time.</string>
     <string name="label_adults">Number of Adults</string>
@@ -804,6 +807,7 @@
     <string name="label_reference_no">Reference No.</string>
     <string name="label_accommodation">Accommodation</string>
     <string name="label_date">Date</string>
+    <string name="label_date_time_created">Date &amp; Time Created</string>
 
     <string name="reservation_details_title">Reservation Details</string>
     <string name="section_booking_progress">BOOKING PROGRESS</string>

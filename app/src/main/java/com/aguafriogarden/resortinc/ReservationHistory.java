@@ -113,6 +113,21 @@ final class ReservationHistory {
         }
     }
 
+    /** "Nov 13, 2026 3:45 PM" for a backend created_at (ISO-8601 with offset), shown in the
+     *  resort's timezone; empty when absent or unparseable. */
+    static String formatCreated(String iso) {
+        return formatCreated(parseIso(iso));
+    }
+
+    static String formatCreated(long millis) {
+        if (millis < 0) {
+            return "";
+        }
+        SimpleDateFormat format = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.US);
+        format.setTimeZone(RESORT_ZONE);
+        return format.format(new java.util.Date(millis));
+    }
+
     static long parseDate(String yyyyMmDd) {
         if (yyyyMmDd == null || yyyyMmDd.isEmpty()) {
             return -1;

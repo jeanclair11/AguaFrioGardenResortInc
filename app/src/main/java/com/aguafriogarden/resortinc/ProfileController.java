@@ -552,7 +552,8 @@ final class ProfileController {
         for (ReservationSummary summary : bucket) {
             signature.append(summary.kind).append(':').append(summary.id).append(':')
                     .append(summary.booking_reference).append(':').append(summary.check_in).append(':')
-                    .append(summary.check_out).append(':').append(summary.subtotal).append(';');
+                    .append(summary.check_out).append(':').append(summary.subtotal).append(':')
+                    .append(summary.amount_paid).append(':').append(summary.amount_change).append(';');
         }
         if (signature.toString().equals(container.getTag())) {
             for (int i = 0; i < bucket.size(); i++) {
@@ -609,10 +610,15 @@ final class ProfileController {
         // the money breakdown and its payment lines underneath.
         View card = buildHistoryCard(inflater, parent, summary);
         card.findViewById(R.id.reservationCardTotal).setVisibility(View.GONE);
+        // The money breakdown below already lists Paid and Change.
+        card.findViewById(R.id.reservationCardPaid).setVisibility(View.GONE);
         LinearLayout lines = (LinearLayout) card;
 
         addStatementRow(lines, R.string.statement_line_total, money(summary.subtotal), R.attr.textPrimary, true);
         addStatementRow(lines, R.string.statement_line_paid, money(summary.amount_paid), R.attr.successText, false);
+        if (summary.amount_change > 0) {
+            addStatementRow(lines, R.string.label_change, money(summary.amount_change), R.attr.textPrimary, false);
+        }
         addStatementRow(lines, R.string.statement_line_balance, money(summary.remaining_balance), R.attr.textPrimary, false);
 
         if (summary.payments == null || summary.payments.isEmpty()) {
@@ -708,6 +714,15 @@ final class ProfileController {
                 NumberFormat.getInstance(Locale.US).format(Math.round(amount)));
     }
 
+    /** Peso amount keeping centavos only when there are any ("₱1,500" / "₱1,500.50"). */
+    private String moneyExact(double amount) {
+        NumberFormat format = NumberFormat.getInstance(Locale.US);
+        boolean whole = Math.abs(amount - Math.rint(amount)) < 0.005;
+        format.setMinimumFractionDigits(whole ? 0 : 2);
+        format.setMaximumFractionDigits(whole ? 0 : 2);
+        return activity.getString(R.string.format_currency, format.format(amount));
+    }
+
     private int dp(int value) {
         return Math.round(value * activity.getResources().getDisplayMetrics().density);
     }
@@ -724,6 +739,23 @@ final class ProfileController {
         ((TextView) card.findViewById(R.id.reservationCardDates)).setText(
                 (in > 0 ? shown.format(new java.util.Date(in)) : "") + " – "
                         + (out > 0 ? shown.format(new java.util.Date(out)) : ""));
+        TextView created = card.findViewById(R.id.reservationCardCreated);
+        String createdText = ReservationHistory.formatCreated(summary.created_at);
+        created.setVisibility(createdText.isEmpty() ? View.GONE : View.VISIBLE);
+        created.setText(activity.getString(R.string.history_created_on, createdText));
+        // A booking that has been paid: what the guest sent, plus the change when there is any.
+        TextView paid = card.findViewById(R.id.reservationCardPaid);
+        if (summary.isBooking() && summary.amount_paid > 0) {
+            String paidText = activity.getString(R.string.history_paid_amount, moneyExact(summary.amount_paid));
+            if (summary.amount_change > 0) {
+                paidText += "  ·  " + activity.getString(R.string.history_change_amount,
+                        moneyExact(summary.amount_change));
+            }
+            paid.setText(paidText);
+            paid.setVisibility(View.VISIBLE);
+        } else {
+            paid.setVisibility(View.GONE);
+        }
         ((TextView) card.findViewById(R.id.reservationCardReference)).setText(summary.booking_reference);
         ((TextView) card.findViewById(R.id.reservationCardTotal)).setText(activity.getString(
                 R.string.format_currency, NumberFormat.getInstance(Locale.US).format(Math.round(summary.subtotal))));

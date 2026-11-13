@@ -41,6 +41,9 @@ public class ReservationSummary {
     public List<String> service_lines;
     public double subtotal;
     public double amount_paid;
+    /** Excess the guest sent over what was due (summed over the payments); 0 when none or from
+     *  servers that predate it. */
+    public double amount_change;
     public double remaining_balance;
     public String payment_status;
     /** Payments recorded against this booking's bill (Statement of Account). Null from servers
@@ -54,6 +57,8 @@ public class ReservationSummary {
         public String method;
         public String reference_number;
         public double amount;
+        /** Excess over what was due on this payment; 0 when none. */
+        public double change;
         /** "pending" (awaiting staff verification), "verified" or "cancelled". */
         public String status;
     }
