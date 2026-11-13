@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Hotel booking flow's own focused "Choose Your Stay Dates" gate screen (check-in, check-out,
-     adults, children, Next) — the Book/Reserve tabs' shared entry point for Hotel Room, reached
+     the rooms free for those dates, Next) — the Book/Reserve tabs' shared entry point for Hotel Room, reached
      either from their "What do you want to book/reserve?" picker or from a Room Overview's "Book
      Now"/"Reserve Now". See HotelBookingFlowController#bindRoomDates. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -162,109 +162,42 @@
             </com.aguafriogarden.resortinc.AuthInputField>
             <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/roomDatesCheckOutError" style="@style/AuthFieldError" />
 
-            <!-- Number of Adults -->
+            <!-- Available rooms for the chosen dates. Filled by HotelBookingFlowController#renderRoomList:
+                 one card per room type that has a room free, each with its own quantity stepper. A
+                 type with nothing free is never listed. The message line stands in for the list
+                 while there are no dates yet, while loading, when nothing is free, and on a failure
+                 (with the retry button). -->
             <TextView
+                android:id="@+id/roomDatesRoomsTitle"
                 style="@style/FieldLabel"
-                android:layout_marginTop="18dp"
-                android:text="@string/label_adults" />
+                android:layout_marginTop="26dp"
+                android:text="@string/room_selection_title" />
 
-            <com.aguafriogarden.resortinc.AuthInputField
+            <TextView
+                android:id="@+id/roomDatesRoomsMessage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_auth_input"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:padding="14dp">
+                android:layout_marginTop="12dp"
+                android:gravity="center"
+                android:lineSpacingExtra="3dp"
+                android:paddingTop="24dp"
+                android:paddingBottom="24dp"
+                android:textColor="?attr/textOnScreenMuted"
+                android:textSize="14sp"
+                android:visibility="gone" />
 
-                <ImageView
-                    android:id="@+id/roomDatesAdultsMinus"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:padding="4dp"
-                    android:src="@drawable/ic_minus"
-                    android:background="@drawable/bg_stepper_button" />
+            <Button
+                android:id="@+id/roomDatesRetryButton"
+                style="@style/SecondaryButton"
+                android:text="@string/button_try_again"
+                android:visibility="gone" />
 
-                <EditText
-                    android:id="@+id/roomDatesAdultsValue"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:text="1"
-                    android:textColor="?attr/textPrimary"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:background="@null"
-                    android:padding="0dp"
-                    android:minHeight="0dp"
-                    android:inputType="number"
-                    android:maxLength="2"
-                    android:selectAllOnFocus="true"
-                    android:imeOptions="actionDone"
-                    android:singleLine="true" />
-
-                <ImageView
-                    android:id="@+id/roomDatesAdultsPlus"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:padding="4dp"
-                    android:src="@drawable/ic_plus"
-                    android:background="@drawable/bg_stepper_button" />
-
-            </com.aguafriogarden.resortinc.AuthInputField>
-
-            <!-- Number of Children -->
-            <TextView
-                style="@style/FieldLabel"
-                android:layout_marginTop="18dp"
-                android:text="@string/label_children" />
-
-            <com.aguafriogarden.resortinc.AuthInputField
+            <LinearLayout
+                android:id="@+id/roomDatesRoomsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_auth_input"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:padding="14dp">
-
-                <ImageView
-                    android:id="@+id/roomDatesChildrenMinus"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:padding="4dp"
-                    android:src="@drawable/ic_minus"
-                    android:background="@drawable/bg_stepper_button" />
-
-                <EditText
-                    android:id="@+id/roomDatesChildrenValue"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:text="0"
-                    android:textColor="?attr/textPrimary"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:background="@null"
-                    android:padding="0dp"
-                    android:minHeight="0dp"
-                    android:inputType="number"
-                    android:maxLength="2"
-                    android:selectAllOnFocus="true"
-                    android:imeOptions="actionDone"
-                    android:singleLine="true" />
-
-                <ImageView
-                    android:id="@+id/roomDatesChildrenPlus"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:padding="4dp"
-                    android:src="@drawable/ic_plus"
-                    android:background="@drawable/bg_stepper_button" />
-
-            </com.aguafriogarden.resortinc.AuthInputField>
+                android:layout_marginTop="12dp"
+                android:orientation="vertical" />
 
         </LinearLayout>
     </ScrollView>

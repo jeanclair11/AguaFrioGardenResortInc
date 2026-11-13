@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ClaudeCodeEditorTabs">
-    <option name="activeSessionId" value="ecdb1712-409b-4fbf-b60e-9f84ab41cf28" />
+    <option name="activeSessionId" value="33d45fc0-73d3-46c6-ba86-ca1090faf20b" />
     <option name="openSessionIds">
       <list>
         <option value="7e5d4578-a487-4a13-b032-e0688eaa0495" />
@@ -37,16 +37,38 @@
         <option value="40675458-3736-4bd6-a474-e2de4a8facc9" />
         <option value="3cd5174f-1b4b-4598-b871-b434996bd28f" />
         <option value="ecdb1712-409b-4fbf-b60e-9f84ab41cf28" />
+        <option value="11f5a2ea-4dac-4117-939c-26a209b500f8" />
+        <option value="1c2ed331-3cc2-4ac2-8f5a-9973f8b24960" />
+        <option value="9482a96a-e337-44f2-a2a0-43aa0b7f1ec1" />
+        <option value="65383ae0-0619-4021-9231-376bc195d76c" />
+        <option value="0d3088f2-b028-4a91-a9d0-12df189503ec" />
+        <option value="a83039a1-0199-4856-b86f-06d9d6142088" />
+        <option value="e0832656-476c-4a0e-a4da-e9bbb394d171" />
+        <option value="59ac5c75-2b87-4c1e-8f9f-0982befe242a" />
+        <option value="7ccf7ad6-adba-4767-93b1-6795c18b76c4" />
+        <option value="6f2c1901-a284-4979-885d-f17247e58823" />
+        <option value="6fae1530-94c9-411e-9ad9-2d4058798970" />
+        <option value="eda8fb69-6587-4675-9377-fc03aee3a77a" />
+        <option value="7a8b25b6-6039-4a62-9eee-c4f2c3993ee4" />
+        <option value="24b81938-f9ca-439a-b37b-3c0c82a2499e" />
+        <option value="12fb82d2-171f-4239-a470-1ed63f56f4a0" />
+        <option value="33d45fc0-73d3-46c6-ba86-ca1090faf20b" />
       </list>
     </option>
     <option name="sessionPaths">
       <map>
         <entry key="04ce8c1b-7480-40d9-a8cb-adffcc16602d" value="/sessions/248a7bfb-2bd9-4974-8f55-cc86f82360fb" />
         <entry key="0b11b24d-0353-46c8-9ea6-a93fe7a12b3c" value="/sessions/24c2d477-bdd6-4325-8913-f986523ffbb8" />
+        <entry key="0d3088f2-b028-4a91-a9d0-12df189503ec" value="/sessions/0c51d16f-3f83-4919-9834-8bb25decd340" />
         <entry key="0d893edb-8441-4c74-9287-7315028df6b3" value="/sessions/de29105b-c6e3-420a-83a1-62cc3e844617" />
+        <entry key="11f5a2ea-4dac-4117-939c-26a209b500f8" value="/sessions/191f3a61-a538-4a70-9d90-1c82bdf8a657" />
+        <entry key="12fb82d2-171f-4239-a470-1ed63f56f4a0" value="/sessions/7e6d5790-20f9-47aa-9b7e-b292f4310a29" />
         <entry key="18f1b55a-6b7c-4f99-8b2a-d97a7b902e54" value="/sessions/new" />
         <entry key="1b29574e-8c12-4fdc-a512-1fad86a4651f" value="/sessions/new" />
+        <entry key="1c2ed331-3cc2-4ac2-8f5a-9973f8b24960" value="/sessions/new" />
+        <entry key="24b81938-f9ca-439a-b37b-3c0c82a2499e" value="/sessions/f14d1f25-d76d-4f0d-b817-b9afdea9bd9b" />
         <entry key="294aa309-e661-40b6-8e0b-8479c087cb32" value="/sessions/3794024d-1f4a-4f55-a52a-22c2f60ffbea" />
+        <entry key="33d45fc0-73d3-46c6-ba86-ca1090faf20b" value="/sessions/7d9ba21f-e2a9-41b9-b1db-724bed0d2c82" />
         <entry key="359b80ac-de39-414f-862b-40874f45b640" value="/sessions/4e03c5c6-e8c8-4f0b-8c69-2abf1bcc9502" />
         <entry key="37c694d5-a4e3-4aa8-a7bc-70ea064c74ba" value="/sessions/226b076e-3f08-4012-bb79-fa71c7a2312f" />
         <entry key="3ba53bbd-54da-44f2-829d-f1d18d6dd359" value="/sessions/new" />
@@ -56,34 +78,50 @@
         <entry key="41daa9f3-f117-4f86-af36-3b5672c8670a" value="/sessions/2a334f9b-2fba-4008-af25-6547e9ea7b11" />
         <entry key="4c359e46-40be-4845-a7b6-75f16f7d138b" value="/sessions/new" />
         <entry key="55dcb3da-1075-4d65-8c43-1d2e042b74bc" value="/sessions/449883a1-403f-4ec2-9837-6476c17fc458" />
+        <entry key="59ac5c75-2b87-4c1e-8f9f-0982befe242a" value="/sessions/fac7e804-8aac-4003-a794-6368faffb641" />
         <entry key="629932d6-7442-41ba-9426-6d5030c16124" value="/sessions/641f855d-ba88-4d8d-b7bf-f772326fe755" />
+        <entry key="65383ae0-0619-4021-9231-376bc195d76c" value="/sessions/5873b729-4375-43b9-a663-7b9d478daebb" />
         <entry key="65a64e92-0b73-430b-82d1-ac60c120101f" value="/sessions/new" />
         <entry key="6ca2255c-5795-4ed0-8d20-84c656a42292" value="/sessions/73f349c6-3e92-4ebf-b2a0-e0d89b9ea0f3" />
         <entry key="6d592add-7af8-4921-9210-e097be8abbe6" value="/sessions/new" />
+        <entry key="6f2c1901-a284-4979-885d-f17247e58823" value="/sessions/bb669d18-5407-4d08-94bc-b6ac3cbacc2e" />
+        <entry key="6fae1530-94c9-411e-9ad9-2d4058798970" value="/sessions/ca421bd4-b8ec-4fb2-bf52-2860bd2bea95" />
+        <entry key="7a8b25b6-6039-4a62-9eee-c4f2c3993ee4" value="/sessions/91c20c85-64c9-4f1f-96f6-7754f84327ff" />
         <entry key="7c1097af-3a5c-4de4-976f-64323994e64a" value="/sessions/a4db06ec-dd7a-4a1a-a0fc-739779a30909" />
+        <entry key="7ccf7ad6-adba-4767-93b1-6795c18b76c4" value="/sessions/c556e51a-ef2b-4a40-b14a-5b9b2f216d57" />
         <entry key="7cd941c7-ead0-4e7e-b47e-a548f097d26c" value="/sessions/new" />
         <entry key="7e5d4578-a487-4a13-b032-e0688eaa0495" value="/sessions/93ced271-20bd-43fc-a8e9-5c118b13ac3a" />
         <entry key="812331c8-fae5-416b-9eaf-4d17e9aebedd" value="/sessions/de5fb960-d869-4dee-bc01-db858fa41f26" />
         <entry key="86d4ddfe-a886-4dbf-ae24-46102ade5263" value="/sessions/b168b537-ea42-442d-ab76-3dcfec7569c4" />
+        <entry key="9482a96a-e337-44f2-a2a0-43aa0b7f1ec1" value="/sessions/new" />
         <entry key="9f8f8018-de9e-4acc-ae04-cea23775c85e" value="/sessions/new" />
         <entry key="a19c7f0b-c6dd-4b3b-85d2-ce80333fe314" value="/sessions/new" />
         <entry key="a47e3e58-fd80-407b-8d0c-3e25344ed4d2" value="/sessions/9c7887a6-a3a6-4e74-94d8-9daeef479561" />
+        <entry key="a83039a1-0199-4856-b86f-06d9d6142088" value="/sessions/0c51d16f-3f83-4919-9834-8bb25decd340" />
         <entry key="a955a0a8-405c-49ba-b2d7-3e7a74fda7ac" value="/sessions/7b94cb5a-3fad-4e60-9e1d-e3c7bb4fe7ab" />
         <entry key="ab1550fb-dfbc-499f-b401-01ca62e7ed66" value="/sessions/4fca51c6-cc69-44bb-aaaa-b1f17e0fa05a" />
         <entry key="bd916526-c354-4f9d-a3f2-dec591bd4f02" value="/sessions/74338647-e389-4d6c-b02e-03692f068992" />
         <entry key="c1773fd0-b386-4cae-b875-2307a3dbcb43" value="/sessions/0bf80598-e05f-428a-b44a-0c7bad740b5b" />
+        <entry key="e0832656-476c-4a0e-a4da-e9bbb394d171" value="/sessions/6297015f-525b-4443-aff1-d958832ae3c0" />
         <entry key="e1a888ed-eeb7-4d2f-8095-01c782770003" value="/sessions/b8337342-cc87-40fe-8c51-a9005e8993bb" />
         <entry key="ecdb1712-409b-4fbf-b60e-9f84ab41cf28" value="/sessions/76168e20-49da-4c94-8305-448e2fcaf97e" />
+        <entry key="eda8fb69-6587-4675-9377-fc03aee3a77a" value="/sessions/66e241bc-8fac-4c6a-a533-88f367baaa57" />
       </map>
     </option>
     <option name="sessionTitles">
       <map>
         <entry key="04ce8c1b-7480-40d9-a8cb-adffcc16602d" value="i have a question only, do not do something but an" />
         <entry key="0b11b24d-0353-46c8-9ea6-a93fe7a12b3c" value="The background image that was previously added beh" />
+        <entry key="0d3088f2-b028-4a91-a9d0-12df189503ec" value="Notifications behaviour overview" />
         <entry key="0d893edb-8441-4c74-9287-7315028df6b3" value="the overall design when dark mode is the accent te" />
+        <entry key="11f5a2ea-4dac-4117-939c-26a209b500f8" value="Real-time mobile data synchronization" />
+        <entry key="12fb82d2-171f-4239-a470-1ed63f56f4a0" value="Live booking status from backend API" />
         <entry key="18f1b55a-6b7c-4f99-8b2a-d97a7b902e54" value="Claude Code" />
         <entry key="1b29574e-8c12-4fdc-a512-1fad86a4651f" value="Claude Code" />
+        <entry key="1c2ed331-3cc2-4ac2-8f5a-9973f8b24960" value="Claude Code" />
+        <entry key="24b81938-f9ca-439a-b37b-3c0c82a2499e" value="Payment options dialog for reservations" />
         <entry key="294aa309-e661-40b6-8e0b-8479c087cb32" value="IMPORTANT: FOCUS ONLY ON THE HOMEPAGE OF THE OFFIC" />
+        <entry key="33d45fc0-73d3-46c6-ba86-ca1090faf20b" value="Hotel room booking flow modification" />
         <entry key="359b80ac-de39-414f-862b-40874f45b640" value="why does clicking the Reserve button and then clic" />
         <entry key="37c694d5-a4e3-4aa8-a7bc-70ea064c74ba" value="I want you to redesign the existing Booking/Book M" />
         <entry key="3ba53bbd-54da-44f2-829d-f1d18d6dd359" value="Claude Code" />
@@ -93,24 +131,34 @@
         <entry key="41daa9f3-f117-4f86-af36-3b5672c8670a" value="what language is used in the mobile app? and is th" />
         <entry key="4c359e46-40be-4845-a7b6-75f16f7d138b" value="Claude Code" />
         <entry key="55dcb3da-1075-4d65-8c43-1d2e042b74bc" value="I want you to fix an issue in the Guest Mobile App" />
+        <entry key="59ac5c75-2b87-4c1e-8f9f-0982befe242a" value="Package Promo booking feature" />
         <entry key="629932d6-7442-41ba-9426-6d5030c16124" value="i want you to check if this modules objectives of" />
+        <entry key="65383ae0-0619-4021-9231-376bc195d76c" value="KTV, hotel, and cottage reservation connections" />
         <entry key="65a64e92-0b73-430b-82d1-ac60c120101f" value="Claude Code" />
         <entry key="6ca2255c-5795-4ed0-8d20-84c656a42292" value="i have a question only, do not do something but an" />
         <entry key="6d592add-7af8-4921-9210-e097be8abbe6" value="Claude Code" />
+        <entry key="6f2c1901-a284-4979-885d-f17247e58823" value="Website database connections for reservations and" />
+        <entry key="6fae1530-94c9-411e-9ad9-2d4058798970" value="Landing page mobile light mode" />
+        <entry key="7a8b25b6-6039-4a62-9eee-c4f2c3993ee4" value="Dynamic room capacity validation" />
         <entry key="7c1097af-3a5c-4de4-976f-64323994e64a" value="in the about the resort and about the owners and i" />
+        <entry key="7ccf7ad6-adba-4767-93b1-6795c18b76c4" value="Amenity selection by amenity type" />
         <entry key="7cd941c7-ead0-4e7e-b47e-a548f097d26c" value="Claude Code" />
         <entry key="7e5d4578-a487-4a13-b032-e0688eaa0495" value="Design the Hotel Rooms section of the Home Module" />
         <entry key="812331c8-fae5-416b-9eaf-4d17e9aebedd" value="I want you to design and implement the RESERVATION" />
         <entry key="86d4ddfe-a886-4dbf-ae24-46102ade5263" value="light mode should not have that coffee color anymo" />
+        <entry key="9482a96a-e337-44f2-a2a0-43aa0b7f1ec1" value="Claude Code" />
         <entry key="9f8f8018-de9e-4acc-ae04-cea23775c85e" value="Claude Code" />
         <entry key="a19c7f0b-c6dd-4b3b-85d2-ce80333fe314" value="Claude Code" />
         <entry key="a47e3e58-fd80-407b-8d0c-3e25344ed4d2" value="in the landing, can you please remove the content" />
+        <entry key="a83039a1-0199-4856-b86f-06d9d6142088" value="Notifications behaviour overview" />
         <entry key="a955a0a8-405c-49ba-b2d7-3e7a74fda7ac" value="I want to connect the Chat Module of the Guest Mob" />
         <entry key="ab1550fb-dfbc-499f-b401-01ca62e7ed66" value="Create a **landing page for Agua Frio Garden Resor" />
         <entry key="bd916526-c354-4f9d-a3f2-dec591bd4f02" value="for the hotel rooms, &quot;Billing Summary&quot; The guest i" />
         <entry key="c1773fd0-b386-4cae-b875-2307a3dbcb43" value="Update the current booking UI mockup for “Cottages" />
+        <entry key="e0832656-476c-4a0e-a4da-e9bbb394d171" value="Dynamic availability display for cottages, rooms," />
         <entry key="e1a888ed-eeb7-4d2f-8095-01c782770003" value="can you check up on our website in the receptionis" />
         <entry key="ecdb1712-409b-4fbf-b60e-9f84ab41cf28" value="&quot;Connection To Server&quot; account error" />
+        <entry key="eda8fb69-6587-4675-9377-fc03aee3a77a" value="Feature not visible in mobile app" />
       </map>
     </option>
   </component>

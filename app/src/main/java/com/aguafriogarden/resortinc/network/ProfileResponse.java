@@ -12,4 +12,7 @@ public class ProfileResponse {
     public String contact_number;
     public String address;
     public String profile_image;
+    /** True once an ID photo is on file (from sign-up or the Valid ID screen). */
+    public boolean has_valid_id;
+    public String valid_id_type;
 }

@@ -32,6 +32,7 @@ public interface AuthApi {
             @Part("birthday") RequestBody birthday,
             @Part("contact_number") RequestBody contactNumber,
             @Part("address") RequestBody address,
+            @Part("validID_type") RequestBody validIdType,
             @Part MultipartBody.Part profileImage,
             @Part MultipartBody.Part validId);
 
@@ -74,4 +75,46 @@ public interface AuthApi {
 
     @GET("profile")
     Call<ProfileResponse> getProfile(@Header("Authorization") String bearerToken);
+
+    /**
+     * Saves Personal Information to the same user/guest rows the website's My Profile page edits.
+     * Answers with the saved profile; a 422 carries the field errors (taken username, bad phone...).
+     */
+    @FormUrlEncoded
+    @POST("profile")
+    Call<ProfileResponse> updateProfile(
+            @Header("Authorization") String bearerToken,
+            @Field("Firstname") String firstName,
+            @Field("Middlename") String middleName,
+            @Field("Lastname") String lastName,
+            @Field("username") String username,
+            @Field("email") String email,
+            @Field("gender") String gender,
+            @Field("birthday") String birthday,
+            @Field("contact_number") String contactNumber,
+            @Field("address") String address);
+
+    /** Replaces the profile picture the website shows for this guest. */
+    @Multipart
+    @POST("profile/photo")
+    Call<ProfileResponse> uploadProfilePhoto(
+            @Header("Authorization") String bearerToken,
+            @Part MultipartBody.Part photo);
+
+    /** The server checks the current password; other devices are signed out on success. */
+    @FormUrlEncoded
+    @POST("profile/password")
+    Call<MessageResponse> changePassword(
+            @Header("Authorization") String bearerToken,
+            @Field("current_password") String currentPassword,
+            @Field("new_password") String newPassword,
+            @Field("new_password_confirmation") String newPasswordConfirmation);
+
+    /** Replaces the ID photo and type on file, which staff open from the booking's "View ID Document" link. */
+    @Multipart
+    @POST("profile/valid-id")
+    Call<ProfileResponse> uploadValidId(
+            @Header("Authorization") String bearerToken,
+            @Part("validID_type") RequestBody idType,
+            @Part MultipartBody.Part validId);
 }

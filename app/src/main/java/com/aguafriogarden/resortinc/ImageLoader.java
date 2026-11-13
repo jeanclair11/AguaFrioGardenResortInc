@@ -41,6 +41,21 @@ final class ImageLoader {
     }
 
     /**
+     * Loads a picture the guest picked from their gallery into {@code view}, decoded off the main
+     * thread and downsampled to the view's size (a full-size screenshot would otherwise be decoded
+     * synchronously).
+     */
+    static void loadUri(ImageView view, android.net.Uri uri, int fallbackIconRes) {
+        Context context = view.getContext();
+        Glide.with(view)
+                .load(uri)
+                .placeholder(new SkeletonDrawable(context))
+                .error(new ImageFallbackDrawable(context, fallbackIconRes))
+                .centerCrop()
+                .into(view);
+    }
+
+    /**
      * Loads a bundled photo into {@code view} off the main thread, downsampled to the view's
      * size, instead of letting the layout inflater decode the full-size file synchronously.
      */

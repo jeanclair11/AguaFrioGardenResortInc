@@ -1,6 +1,7 @@
 package com.aguafriogarden.resortinc;
 
 import com.aguafriogarden.resortinc.network.ReservationSummary;
+import com.aguafriogarden.resortinc.network.StatusDetail;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -10,11 +11,23 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 /**
- * Sorts the guest's live GET /api/booking/my-bookings records into the Profile page's two
- * sections (My Reservations / My Bookings) and three tabs (Current / Upcoming / Past). Pure
- * client-side classification of what the server already returns — nothing here is stored or
- * mocked. "Today" is always the resort's own date (Asia/Manila), not the phone's timezone, so
- * the tabs agree with the receptionist side around midnight.
+ * Sorts the guest's live GET /api/booking/my-bookings records (see {@link ReservationFeed}) into
+ * the Profile page's two sections (My Reservations / My Bookings) and three tabs (Current /
+ * Upcoming / Past). The status of a record is whatever the backend says it is ({@link
+ * ReservationSummary#status}); the tabs are decided from that status's key plus the stay's dates.
+ * "Today" is always the resort's own date (Asia/Manila), not the phone's timezone, so the tabs
+ * agree with the receptionist side around midnight.
+ *
+ * <p>Rules (the date rules are the same as before the statuses came from the backend):
+ * <ul>
+ *   <li><b>Past</b> — cancelled, expired or checked-out; also a record that never got to
+ *       check-in and whose check-out date has gone by;</li>
+ *   <li><b>Current</b> — a guest who is in the house: checked in (or waiting to be checked out)
+ *       stays Current until the backend says checked-out, cancelled or expired, whatever the
+ *       dates say (the system auto-checks-out and an extension moves the check-out date, so the
+ *       status is the truth); otherwise a stay whose check-in date is today or earlier;</li>
+ *   <li><b>Upcoming</b> — check-in is tomorrow or any later date.</li>
+ * </ul>
  */
 final class ReservationHistory {
 
@@ -26,38 +39,37 @@ final class ReservationHistory {
     static final int TAB_PAST = 2;
 
     private static final TimeZone RESORT_ZONE = TimeZone.getTimeZone("Asia/Manila");
-    private static final long PAYMENT_WINDOW_MS = 7L * 24 * 60 * 60 * 1000;
 
     private ReservationHistory() {
     }
 
-    /** Reservations = requests still unpaid (or cancelled/expired before payment); Bookings =
-     *  paid ones the receptionist side has promoted — the two kinds the server returns. */
+    /** Reservations = requests that haven't been paid; Bookings = paid ones — the two kinds the
+     *  server returns. */
     static boolean belongsTo(ReservationSummary summary, int section) {
-        boolean isBooking = "reservation".equals(summary.kind);
-        return section == SECTION_BOOKINGS ? isBooking : !isBooking;
+        return section == SECTION_BOOKINGS ? summary.isBooking() : !summary.isBooking();
     }
 
     static int tabOf(ReservationSummary summary) {
-        if (summary.cancelled || isExpired(summary)) {
+        return tabOf(summary, today());
+    }
+
+    /** {@code today} is "yyyy-MM-dd" in the resort's timezone (a parameter so the rules can be
+     *  tested against fixed dates). */
+    static int tabOf(ReservationSummary summary, String today) {
+        StatusDetail status = summary.status;
+        if (status != null && (status.hasKey(StatusDetail.KEY_CANCELLED)
+                || status.hasKey(StatusDetail.KEY_EXPIRED)
+                || status.hasKey(StatusDetail.KEY_CHECKED_OUT))) {
             return TAB_PAST;
         }
-        String today = today();
+        // Still in the house: stays Current until the backend checks the guest out, whatever the
+        // check-out date says (an extension moves that date; auto check-out changes the status).
+        if (status != null && (status.hasKey(StatusDetail.KEY_CHECKED_IN)
+                || status.hasKey(StatusDetail.KEY_FOR_CHECK_OUT))) {
+            return TAB_CURRENT;
+        }
         String checkIn = summary.check_in != null ? summary.check_in : "";
         String checkOut = summary.check_out != null ? summary.check_out : "";
-
-        if ("reservation".equals(summary.kind)) {
-            if (summary.current_step >= 3) {
-                return TAB_PAST;
-            }
-            if (!checkOut.isEmpty() && checkOut.compareTo(today) < 0) {
-                return TAB_PAST;
-            }
-            if (summary.current_step == 2) {
-                return TAB_CURRENT;
-            }
-            return !checkIn.isEmpty() && checkIn.compareTo(today) > 0 ? TAB_UPCOMING : TAB_CURRENT;
-        }
 
         if (!checkOut.isEmpty() && checkOut.compareTo(today) < 0) {
             return TAB_PAST;
@@ -65,27 +77,14 @@ final class ReservationHistory {
         return !checkIn.isEmpty() && checkIn.compareTo(today) > 0 ? TAB_UPCOMING : TAB_CURRENT;
     }
 
-    /** A still-pending advance reservation whose payment window has run out. */
-    static boolean isExpired(ReservationSummary summary) {
-        if (!"advance_reservation".equals(summary.kind) || summary.cancelled) {
-            return false;
-        }
-        long now = System.currentTimeMillis();
-        if (summary.payment_deadline != null && !summary.payment_deadline.isEmpty()) {
-            long deadline = parseIso(summary.payment_deadline);
-            return deadline > 0 && now > deadline;
-        }
-        long created = parseIso(summary.created_at);
-        return created > 0 && now - created > PAYMENT_WINDOW_MS;
-    }
-
     static List<ReservationSummary> select(List<ReservationSummary> all, int section, int tab) {
         List<ReservationSummary> result = new ArrayList<>();
         if (all == null) {
             return result;
         }
+        String today = today();
         for (ReservationSummary summary : all) {
-            if (belongsTo(summary, section) && tabOf(summary) == tab) {
+            if (belongsTo(summary, section) && tabOf(summary, today) == tab) {
                 result.add(summary);
             }
         }
@@ -112,6 +111,21 @@ final class ReservationHistory {
         } catch (ParseException e) {
             return -1;
         }
+    }
+
+    /** "Nov 13, 2026 3:45 PM" for a backend created_at (ISO-8601 with offset), shown in the
+     *  resort's timezone; empty when absent or unparseable. */
+    static String formatCreated(String iso) {
+        return formatCreated(parseIso(iso));
+    }
+
+    static String formatCreated(long millis) {
+        if (millis < 0) {
+            return "";
+        }
+        SimpleDateFormat format = new SimpleDateFormat("MMM d, yyyy h:mm a", Locale.US);
+        format.setTimeZone(RESORT_ZONE);
+        return format.format(new java.util.Date(millis));
     }
 
     static long parseDate(String yyyyMmDd) {

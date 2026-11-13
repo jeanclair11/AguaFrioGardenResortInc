@@ -155,6 +155,14 @@ final class BookingCatalogController {
         root.addView(hotelBookingFlow.getRootView());
     }
 
+    /** Profile history -> the correction form for a booking whose payment the receptionist rejected. */
+    void showPaymentCorrection(com.aguafriogarden.resortinc.network.ReservationSummary summary, Runnable onBack) {
+        currentScreen = SCREEN_HOTEL_FLOW;
+        ensureHotelBookingFlow().openPaymentCorrectionFromHistory(summary, onBack);
+        root.removeAllViews();
+        root.addView(hotelBookingFlow.getRootView());
+    }
+
     /** Called when the Book tab is activated — ensures the picker is shown. */
     void onTabShown() {
         showPicker();

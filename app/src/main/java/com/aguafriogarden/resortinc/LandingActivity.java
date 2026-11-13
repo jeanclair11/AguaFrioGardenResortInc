@@ -299,6 +299,11 @@ public class LandingActivity extends Activity {
         }
         homePackagesHandler.removeCallbacks(homePackagesTick);
         homePackagesHandler.post(homePackagesTick);
+        // Back in the foreground: re-check the status catalog, and catch up on any reservation or
+        // booking status that changed meanwhile (an immediate refresh if a screen showing them is
+        // open, then every few seconds again).
+        StatusCatalog.refreshIfStale();
+        ReservationFeed.setForeground(true);
         if (currentCategoryFetch != null) {
             // Catch up on whatever changed while the app was in the background right away,
             // rather than showing stale cards until the first poll tick.
@@ -316,6 +321,14 @@ public class LandingActivity extends Activity {
         }
         stopCategoryRefresh();
         homePackagesHandler.removeCallbacks(homePackagesTick);
+        ReservationFeed.setForeground(false);
+    }
+
+    @Override
+    protected void onDestroy() {
+        // The feed is process-wide; drop this activity's screens so it can't keep them alive.
+        ReservationFeed.unwatchAll();
+        super.onDestroy();
     }
 
     @Override
@@ -399,7 +412,7 @@ public class LandingActivity extends Activity {
                 this::setBottomNavHidden);
         dashboardHome = new DashboardHomeController(this);
         profileController = new ProfileController(this, this::showHome, this::logout, this::bindHeaderAvatar,
-                this::openHistoryReservation);
+                this::openHistoryReservation, this::openPaymentCorrection);
         feedbackController = new FeedbackController(this);
         chatController = new ChatController(this);
         notificationController = new NotificationController(this, n -> {
@@ -610,6 +623,7 @@ public class LandingActivity extends Activity {
         ProfileStore.clearChatCursor(this);
         ProfileStore.clearAlertCursor(this);
         ProfileStore.setNotificationsSyncPending(this, false);
+        ReservationFeed.clear();
         badgeHandler.removeCallbacks(badgeTick);
         leaveCategoryBrowse();
         loggedIn = false;
@@ -816,13 +830,22 @@ public class LandingActivity extends Activity {
      *  flow's own hide-bottom-nav isn't undone by showModule.) */
     private void openHistoryReservation(com.aguafriogarden.resortinc.network.ReservationSummary summary) {
         Runnable backToProfile = () -> showModule(Section.PROFILE);
-        if ("reservation".equals(summary.kind)) {
+        if (summary.isBooking()) {
             showModule(Section.BOOK);
             bookingCatalog.showReservationDetails(summary, backToProfile);
         } else {
             showModule(Section.RESERVE);
             reserveCatalog.showReservationDetails(summary, backToProfile);
         }
+    }
+
+    /** "Correct &amp; Resubmit" on a My Bookings card: opens the payment correction form for that
+     *  booking in the Book flow (a payment is only ever rejected on a booking); Back returns to
+     *  Profile. */
+    private void openPaymentCorrection(com.aguafriogarden.resortinc.network.ReservationSummary summary) {
+        Runnable backToProfile = () -> showModule(Section.PROFILE);
+        showModule(Section.BOOK);
+        bookingCatalog.showPaymentCorrection(summary, backToProfile);
     }
 
     /** Book flow success screen's View Booking: opens that booking in Profile's history. */
@@ -847,6 +870,11 @@ public class LandingActivity extends Activity {
     }
 
     private void tickBadges() {
+        // The login sync downloads the guest's profile picture a moment after the header was first
+        // bound, so pick it up here instead of waiting for the next time the picture is changed.
+        if (ProfileStore.consumeAvatarDirty()) {
+            bindHeaderAvatar();
+        }
         refreshBadges();
         badgeHandler.postDelayed(badgeTick, BADGE_REFRESH_MS);
     }

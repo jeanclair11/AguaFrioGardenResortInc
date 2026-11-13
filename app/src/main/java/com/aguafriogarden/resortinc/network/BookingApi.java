@@ -72,7 +72,8 @@ public interface BookingApi {
      * checkAvailability() above, checked against actual Bookings/pending holds for that exact
      * date and period (see the backend's HandlesCottageAvailability::cottageAvailableAt()),
      * unlike getCottagesKtv()'s static in-stock count. Always called fresh, never cached client-
-     * side, same as checkAvailability().
+     * side, same as checkAvailability(). The party is optional and the app leaves it out: which
+     * cottages are offered depends on the date and use only, never on how many guests are coming.
      */
     @FormUrlEncoded
     @POST("booking/cottage-availability")
@@ -80,13 +81,20 @@ public interface BookingApi {
             @Header("Authorization") String bearerToken,
             @Field("date") String date,
             @Field("use") String use,
-            @Field("adults") int adults,
-            @Field("children") int children);
+            @Field("adults") Integer adults,
+            @Field("children") Integer children);
 
+    /**
+     * Add-on amenities with live stock (available_quantity, max_quantity, out_of_stock,
+     * stock_label). checkIn/checkOut (yyyy-MM-dd) are sent together once the guest has picked
+     * their dates so the stock is for that stay; null leaves them out. Never cached client-side.
+     */
     @GET("booking/amenities")
     Call<AmenityListResponse> getAmenities(
             @Header("Authorization") String bearerToken,
-            @Query("facility_type") String facilityType);
+            @Query("facility_type") String facilityType,
+            @Query("check_in") String checkIn,
+            @Query("check_out") String checkOut);
 
     /** Every reservation/booking the logged-in guest has, real or still-pending — backs the My
      *  Reservations list, fetched fresh every time it's opened so it survives app restarts and
@@ -105,6 +113,16 @@ public interface BookingApi {
 
     @GET("booking/my-bookings")
     Call<MyBookingsResponse> getMyBookings(@Header("Authorization") String bearerToken);
+
+    /** Public — the catalog of every reservation and booking status (key, label, colour,
+     *  definition). The app builds every filter, tab and badge from it. */
+    @GET("booking/statuses")
+    Call<StatusCatalogResponse> getStatusCatalog();
+
+    /** The light feed polled while a reservations/bookings screen is visible: only each record's
+     *  kind, id, reference and status. */
+    @GET("booking/my-statuses")
+    Call<MyStatusesResponse> getMyStatuses(@Header("Authorization") String bearerToken);
 
     /** Public — Package Promos on sale right now (the admin's Promo Management packages), for the
      *  banners above the Hotel Rooms/Cottages/KTV Rooms lists. */
@@ -239,6 +257,23 @@ public interface BookingApi {
             @Part("reference_number") RequestBody referenceNumber,
             @Part MultipartBody.Part proofImage,
             @PartMap Map<String, RequestBody> quantities);
+
+    /**
+     * The guest's correction of a payment the receptionist rejected ("Reject &amp; Request
+     * Correction"), for the booking the payment belongs to ({@code bookingId} is the booking's own
+     * id, as in my-bookings). Nothing new is created: the same payment goes to Pending
+     * Reverification with these details. {@code proofImage} is null to keep the screenshot already
+     * on file (a null part is simply not sent); a new one replaces it. The old values stay in the
+     * payment's history on the server.
+     */
+    @Multipart
+    @POST("booking/bookings/{id}/payment/resubmit")
+    Call<ResubmitPaymentResponse> resubmitPayment(
+            @Header("Authorization") String bearerToken,
+            @Path("id") int bookingId,
+            @Part("amount_paid") RequestBody amountPaid,
+            @Part("reference_number") RequestBody referenceNumber,
+            @Part MultipartBody.Part proofImage);
 
     /**
      * Cancels a still-Pending reservation the guest submitted themselves (matches the backend's

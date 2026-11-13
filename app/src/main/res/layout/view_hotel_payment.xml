@@ -35,6 +35,126 @@
                 android:textColor="?attr/textOnScreenMuted"
                 android:textSize="13sp" />
 
+            <!-- Payment Option: Full Payment vs 30% Downpayment. Reservation Payment only (see
+                 HotelBookingFlowController#bindReservationPayment) — the Book flow picks its
+                 option earlier, on the Billing screen, so this stays GONE there. -->
+            <LinearLayout
+                android:id="@+id/reservationPaymentOptionSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    style="@style/FieldLabelOnScreen"
+                    android:layout_marginBottom="10dp"
+                    android:letterSpacing="0.04"
+                    android:textAllCaps="true"
+                    android:textColor="?attr/textOnScreen"
+                    android:text="@string/section_payment_option" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:id="@+id/reservationPayOptionFullCard"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_selectable_card"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="vertical"
+                        android:padding="14dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:letterSpacing="0.03"
+                            android:text="@string/payment_option_full_title"
+                            android:textColor="?attr/accentPrimary"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="@string/payment_option_full_desc"
+                            android:textColor="?attr/textMuted"
+                            android:textSize="11sp" />
+
+                        <TextView
+                            android:id="@+id/reservationPayOptionFullPrice"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:textColor="?attr/textPrimary"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/reservationPayOptionFullRemaining"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textColor="?attr/textMuted"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/reservationPayOptionDownCard"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_selectable_card"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="vertical"
+                        android:padding="14dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:letterSpacing="0.03"
+                            android:text="@string/reservation_pay_option_down_title"
+                            android:textColor="?attr/accentPrimary"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="@string/reservation_pay_option_down_desc"
+                            android:textColor="?attr/textMuted"
+                            android:textSize="11sp" />
+
+                        <TextView
+                            android:id="@+id/reservationPayOptionDownPrice"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:textColor="?attr/textPrimary"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/reservationPayOptionDownRemaining"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textColor="?attr/textMuted"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
             <!-- Amount Due -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -59,19 +179,6 @@
                     android:textColor="?attr/textPrimary"
                     android:textSize="26sp"
                     android:textStyle="bold" />
-
-                <!-- Reservation Payment only (see HotelBookingFlowController#bindReservationPayment)
-                     â€” shows both the full amount and the 30% down payment instead of the single
-                     paymentAmountDue figure above, which stays GONE in that context. -->
-                <include
-                    android:id="@+id/paymentAmountDueFullRow"
-                    layout="@layout/view_hotel_label_value_row"
-                    android:visibility="gone" />
-
-                <include
-                    android:id="@+id/paymentAmountDueDownRow"
-                    layout="@layout/view_hotel_label_value_row"
-                    android:visibility="gone" />
             </LinearLayout>
 
             <!-- Scan to Pay via GCash -->
@@ -158,6 +265,92 @@
                     android:hint="@string/hint_amount_paid"
                     android:inputType="numberDecimal" />
             </com.aguafriogarden.resortinc.AuthInputField>
+
+            <!-- Live payment summary under the Amount Paid field (see
+                 HotelBookingFlowController#wirePaymentSummary): what is applied to the booking,
+                 what is left to pay, and any excess (green). GONE until a valid amount is typed. -->
+            <LinearLayout
+                android:id="@+id/paymentSummaryCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_browse_card"
+                android:orientation="vertical"
+                android:padding="14dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/label_payment_applied"
+                        android:textColor="?attr/textMuted"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/paymentSummaryApplied"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="?attr/textPrimary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/label_remaining_balance"
+                        android:textColor="?attr/textMuted"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/paymentSummaryRemaining"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="?attr/textPrimary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/paymentSummaryChangeRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/paymentSummaryChangeLabel"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/label_change"
+                        android:textColor="?attr/successText"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/paymentSummaryChange"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="?attr/successText"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
 
             <TextView
                 style="@style/FieldLabelOnScreen"

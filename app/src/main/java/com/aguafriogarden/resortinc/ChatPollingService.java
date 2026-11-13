@@ -16,6 +16,7 @@ import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.ChatHistoryResponse;
 import com.aguafriogarden.resortinc.network.ChatMessageDto;
 import com.aguafriogarden.resortinc.network.ReservationStatusResponse;
+import com.aguafriogarden.resortinc.network.StatusDetail;
 
 import java.util.List;
 
@@ -162,38 +163,37 @@ public class ChatPollingService extends Service {
 
     /** Only acts on an actual transition (compares against the status last persisted — by either
      *  this same check or HotelBookingFlowController's own foreground refresh on Reservation
-     *  Details, whichever saw it first) so the guest is never notified twice for one change. */
+     *  Details, whichever saw it first) so the guest is never notified twice for one change. The
+     *  notification's wording is the status the backend reports: its label and definition. */
     private void handleReservationStatus(ReservationStatusResponse body) {
-        String lastKnown = ProfileStore.getActiveReservationStatus(this);
-        if (body.status == null || body.status.equals(lastKnown)) {
+        StatusDetail status = body.status_detail;
+        if (status == null) {
             return;
         }
-        ProfileStore.setActiveReservationStatus(this, body.status);
-        if ("cancelled".equals(body.status)) {
-            notifyReservationCancelled(body.cancel_reason);
-        } else if ("booked".equals(body.status)) {
-            notifyReservationBooked();
+        String lastKnown = ProfileStore.getActiveReservationStatus(this);
+        String current = status.token();
+        if (current.equals(lastKnown)) {
+            return;
         }
+        ProfileStore.setActiveReservationStatus(this, current);
+        // Nothing seen before (or a value stored by an older build): that is the starting point,
+        // not a change worth announcing.
+        if (lastKnown.isEmpty() || !lastKnown.contains(":")) {
+            return;
+        }
+        notifyReservationStatus(status, body.cancel_reason);
     }
 
-    private void notifyReservationCancelled(String reason) {
+    /** Not stored in the Alerts feed: the front desk's action already creates a guest
+     *  notification on the server, which the next refresh brings in — storing this one too would
+     *  show the same event twice. Only the system notification is raised here (the server's row
+     *  replaces it, same slot, if it arrives first). */
+    private void notifyReservationStatus(StatusDetail status, String reason) {
+        String definition = status.definition != null ? status.definition : "";
         String body = reason != null && !reason.trim().isEmpty()
-                ? getString(R.string.reservation_cancelled_notification_body_with_reason, reason)
-                : getString(R.string.reservation_cancelled_notification_body_no_reason);
-        // Not stored in the Alerts feed: the front desk cancelling a reservation already creates a
-        // "Reservation Cancelled" guest notification on the server, which the next refresh brings in
-        // — storing this one too would show the same event twice. Only the system notification is
-        // raised here (the server's row replaces it, same slot, if it arrives first).
-        postSystemIfEnabled(getString(R.string.reservation_cancelled_notification_title), body);
-        NotificationStore.refresh(this);
-    }
-
-    /** Not stored in the Alerts feed: the front desk confirming a reservation already creates a
-     *  "Reservation Confirmed" guest notification on the server, which the next refresh brings in —
-     *  storing this one too would show the same event twice. Only the system notification is raised. */
-    private void notifyReservationBooked() {
-        postSystemIfEnabled(getString(R.string.reservation_booked_notification_title),
-                getString(R.string.reservation_booked_notification_body));
+                ? getString(R.string.format_reservation_update_reason, definition, reason.trim()).trim()
+                : definition;
+        postSystemIfEnabled(status.label != null ? status.label : "", body);
         NotificationStore.refresh(this);
     }
 

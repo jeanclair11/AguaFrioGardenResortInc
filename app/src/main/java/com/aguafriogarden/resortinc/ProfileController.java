@@ -5,8 +5,6 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Handler;
-import android.os.Looper;
 import android.provider.MediaStore;
 import android.text.InputFilter;
 import android.util.Patterns;
@@ -25,8 +23,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.aguafriogarden.resortinc.network.ApiClient;
-import com.aguafriogarden.resortinc.network.MyBookingsResponse;
+import com.aguafriogarden.resortinc.network.ErrorResponse;
+import com.aguafriogarden.resortinc.network.MessageResponse;
+import com.aguafriogarden.resortinc.network.PaymentVerificationSummary;
+import com.aguafriogarden.resortinc.network.ProfileResponse;
 import com.aguafriogarden.resortinc.network.ReservationSummary;
+import com.aguafriogarden.resortinc.network.StatusDetail;
 
 import java.text.NumberFormat;
 import java.util.function.Consumer;
@@ -44,6 +46,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.IntConsumer;
+
+import okhttp3.MultipartBody;
 
 /**
  * Drives the "Me" tab's Profile screen and its sub-screens (Personal
@@ -68,12 +72,7 @@ final class ProfileController {
     private static final int SCREEN_HISTORY = 7;
     private static final int SCREEN_STATEMENT = 8;
 
-    /** How often the open Profile/history screen re-reads the guest's records, so receptionist-side
-     *  changes show up without reopening it. */
-    private static final long HISTORY_POLL_MS = 10000;
-
     private static final int REQUEST_ID_FRONT = 3001;
-    private static final int REQUEST_ID_BACK = 3002;
     private static final int REQUEST_AVATAR = 3003;
 
     private static final String PASSWORD_COMPLEXITY_REGEX =
@@ -105,11 +104,9 @@ final class ProfileController {
     private final Runnable onLogout;
     private final Runnable onAvatarChanged;
     private final Consumer<ReservationSummary> onOpenReservation;
+    /** "Correct &amp; Resubmit" on a booking whose payment was rejected: opens the correction form. */
+    private final Consumer<ReservationSummary> onCorrectPayment;
     private final FrameLayout root;
-    private final Handler historyHandler = new Handler(Looper.getMainLooper());
-    private boolean historyPolling = false;
-    private boolean historyLoading = false;
-    private List<ReservationSummary> historyData = new ArrayList<>();
     private int historySection = ReservationHistory.SECTION_RESERVATIONS;
     private int historyTab = ReservationHistory.TAB_CURRENT;
     /** Set by showBookingByReference until a fetch returns that record. */
@@ -118,14 +115,15 @@ final class ProfileController {
     private View currentScreenView;
     private int currentScreen = -1;
 
-    // Upload New ID's in-progress, unsaved picks.
+    // Upload New ID's in-progress, unsaved pick.
     private Bitmap idFrontBitmap;
-    private Bitmap idBackBitmap;
 
     ProfileController(Activity activity, Runnable onBackToHome, Runnable onLogout,
-            Runnable onAvatarChanged, Consumer<ReservationSummary> onOpenReservation) {
+            Runnable onAvatarChanged, Consumer<ReservationSummary> onOpenReservation,
+            Consumer<ReservationSummary> onCorrectPayment) {
         this.activity = activity;
         this.onOpenReservation = onOpenReservation;
+        this.onCorrectPayment = onCorrectPayment;
         this.onBackToHome = onBackToHome;
         this.onLogout = onLogout;
         this.onAvatarChanged = onAvatarChanged;
@@ -168,26 +166,86 @@ final class ProfileController {
         }
         Uri uri = data.getData();
         if (requestCode == REQUEST_AVATAR) {
-            ProfileStore.saveAvatarUri(activity, uri);
-            showAvatarPreview();
-            onAvatarChanged.run();
+            changeAvatar(uri);
             return;
         }
-        if (requestCode != REQUEST_ID_FRONT && requestCode != REQUEST_ID_BACK) {
+        if (requestCode != REQUEST_ID_FRONT) {
             return;
         }
         try {
-            Bitmap bitmap = MediaStore.Images.Media.getBitmap(activity.getContentResolver(), uri);
-            if (requestCode == REQUEST_ID_FRONT) {
+            // Scaled and upright, the same form that will be uploaded, so a huge camera photo
+            // never has to be held in memory at full size.
+            Bitmap bitmap = RequestParts.decodeScaled(activity.getContentResolver(), uri);
+            if (bitmap != null) {
                 idFrontBitmap = bitmap;
-                showIdPreview(true, bitmap);
-            } else {
-                idBackBitmap = bitmap;
-                showIdPreview(false, bitmap);
+                showIdPreview(bitmap);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            Toast.makeText(activity, R.string.toast_photo_unreadable, Toast.LENGTH_LONG).show();
         }
+    }
+
+    /**
+     * Saves a newly picked profile picture on the server. It shows at once from a private copy on
+     * the device; if the upload fails the previous picture is put back, so the app never shows a
+     * picture the website doesn't have.
+     */
+    private void changeAvatar(Uri picked) {
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            return;
+        }
+        byte[] jpeg = RequestParts.jpegBytes(activity.getContentResolver(), picked, null);
+        if (jpeg == null) {
+            Toast.makeText(activity, R.string.toast_photo_unreadable, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        Uri previous = ProfileStore.getAvatarUri(activity);
+        Uri updated = ProfileStore.saveAvatarFile(activity, jpeg);
+        if (updated == null) {
+            Toast.makeText(activity, R.string.toast_photo_unreadable, Toast.LENGTH_LONG).show();
+            return;
+        }
+        showAvatarPreview();
+        onAvatarChanged.run();
+
+        ApiClient.authApi().uploadProfilePhoto("Bearer " + token,
+                RequestParts.file("photo", "profile.jpg", RequestParts.jpegBody(jpeg)))
+                .enqueue(new Callback<ProfileResponse>() {
+                    @Override
+                    public void onResponse(Call<ProfileResponse> call, Response<ProfileResponse> response) {
+                        if (response.isSuccessful()) {
+                            ProfileStore.deleteAvatarFile(activity, previous);
+                            return;
+                        }
+                        revertAvatar(previous, updated, failureMessage(response.code(), response.errorBody(),
+                                R.string.toast_profile_photo_failed));
+                    }
+
+                    @Override
+                    public void onFailure(Call<ProfileResponse> call, Throwable t) {
+                        revertAvatar(previous, updated, activity.getString(R.string.toast_network_error));
+                    }
+                });
+    }
+
+    private void revertAvatar(Uri previous, Uri failed, String message) {
+        ProfileStore.saveAvatarUri(activity, previous);
+        ProfileStore.deleteAvatarFile(activity, failed);
+        showAvatarPreview();
+        onAvatarChanged.run();
+        Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
+    }
+
+    /** The server's own explanation when it gave one, an expired-session notice on 401, else the fallback. */
+    private String failureMessage(int code, okhttp3.ResponseBody errorBody, int fallbackRes) {
+        if (code == 401) {
+            return activity.getString(R.string.toast_session_expired);
+        }
+        String message = ApiClient.parseError(errorBody).firstMessage();
+        return message != null ? message : activity.getString(fallbackRes);
     }
 
     private void showAvatarPreview() {
@@ -197,19 +255,15 @@ final class ProfileController {
         bindAvatar(currentScreenView.findViewById(R.id.profileAvatar));
     }
 
-    private void showIdPreview(boolean front, Bitmap bitmap) {
+    private void showIdPreview(Bitmap bitmap) {
         if (currentScreen != SCREEN_UPLOAD_ID || currentScreenView == null) {
             return;
         }
-        int previewId = front ? R.id.uiFrontPreview : R.id.uiBackPreview;
-        int hintId = front ? R.id.uiFrontHint : R.id.uiBackHint;
-        ImageView preview = currentScreenView.findViewById(previewId);
+        ImageView preview = currentScreenView.findViewById(R.id.uiFrontPreview);
         preview.setImageBitmap(bitmap);
         preview.setVisibility(View.VISIBLE);
-        currentScreenView.findViewById(hintId).setVisibility(View.GONE);
-        if (front) {
-            currentScreenView.findViewById(R.id.uiFrontError).setVisibility(View.GONE);
-        }
+        currentScreenView.findViewById(R.id.uiFrontHint).setVisibility(View.GONE);
+        currentScreenView.findViewById(R.id.uiFrontError).setVisibility(View.GONE);
     }
 
     private void showScreen(int screen) {
@@ -220,7 +274,7 @@ final class ProfileController {
         root.addView(v);
         currentScreenView = v;
         if (screen == SCREEN_MAIN || screen == SCREEN_HISTORY || screen == SCREEN_STATEMENT) {
-            startHistoryPolling();
+            watchHistory();
         }
     }
 
@@ -321,7 +375,6 @@ final class ProfileController {
         }
 
         bindHistoryCard(v);
-        fetchHistory();
 
         bindActionRow(v.findViewById(R.id.rowPersonalInfo), R.drawable.ic_person,
                 R.string.row_personal_information_title, R.string.row_personal_information_subtitle,
@@ -332,15 +385,14 @@ final class ProfileController {
 
         String idBadgeText;
         int idBadgeBg;
-        if (!ProfileStore.hasIdSubmission(activity)) {
-            idBadgeText = activity.getString(R.string.status_not_submitted);
-            idBadgeBg = R.drawable.bg_badge_neutral;
-        } else if (ProfileStore.isIdVerified(activity)) {
-            idBadgeText = activity.getString(R.string.status_verified);
+        // The server only knows whether an ID photo is on file; staff have no verify step, so
+        // there is no Pending/Verified to show.
+        if (ProfileStore.hasValidId(activity)) {
+            idBadgeText = activity.getString(R.string.status_on_file);
             idBadgeBg = R.drawable.bg_badge_success;
         } else {
-            idBadgeText = activity.getString(R.string.status_pending);
-            idBadgeBg = R.drawable.bg_badge_pending;
+            idBadgeText = activity.getString(R.string.status_not_submitted);
+            idBadgeBg = R.drawable.bg_badge_neutral;
         }
         bindActionRow(v.findViewById(R.id.rowValidId), R.drawable.ic_id_card,
                 R.string.row_valid_id_title, R.string.row_valid_id_subtitle,
@@ -373,9 +425,28 @@ final class ProfileController {
     /** Called when the Profile tab is (re)shown — re-reads the guest's records right away. */
     void onShown() {
         if (currentScreen == SCREEN_MAIN || currentScreen == SCREEN_HISTORY || currentScreen == SCREEN_STATEMENT) {
-            fetchHistory();
-            startHistoryPolling();
+            watchHistory();
         }
+    }
+
+    /** Registers this controller with the live feed: while a history screen is on view, record
+     *  statuses are polled every few seconds and {@link #onFeedChanged} re-binds them in place. */
+    private void watchHistory() {
+        ReservationFeed.watch(this, this::isHistoryVisible, this::onFeedChanged);
+    }
+
+    private boolean isHistoryVisible() {
+        boolean onHistoryScreen = currentScreen == SCREEN_MAIN || currentScreen == SCREEN_HISTORY
+                || currentScreen == SCREEN_STATEMENT;
+        return onHistoryScreen && root.isAttachedToWindow();
+    }
+
+    private void onFeedChanged() {
+        if (!isHistoryVisible()) {
+            return;
+        }
+        applyPendingHistoryReference();
+        refreshHistoryUi();
     }
 
     private void bindHistoryCard(View v) {
@@ -395,7 +466,8 @@ final class ProfileController {
                         ThemeManager.color(activity, R.attr.textPrimary)));
                 ((TextView) shortcut.findViewById(R.id.historyShortcutLabel)).setText(labels[tab]);
                 TextView badge = shortcut.findViewById(R.id.historyShortcutBadge);
-                int count = tab == ReservationHistory.TAB_PAST ? 0 : ReservationHistory.count(historyData, section, tab);
+                int count = tab == ReservationHistory.TAB_PAST ? 0
+                        : ReservationHistory.count(ReservationFeed.rows(), section, tab);
                 badge.setText(String.valueOf(count));
                 badge.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
                 shortcut.setOnClickListener(ClickGuard.wrap(view -> openHistory(sectionFinal, tabFinal)));
@@ -427,9 +499,9 @@ final class ProfileController {
         if (pendingHistoryReference == null || pendingHistoryReference.isEmpty()) {
             return;
         }
-        for (ReservationSummary summary : historyData) {
+        for (ReservationSummary summary : ReservationFeed.rows()) {
             if (pendingHistoryReference.equals(summary.booking_reference)) {
-                historySection = "reservation".equals(summary.kind)
+                historySection = summary.isBooking()
                         ? ReservationHistory.SECTION_BOOKINGS : ReservationHistory.SECTION_RESERVATIONS;
                 historyTab = ReservationHistory.tabOf(summary);
                 pendingHistoryReference = null;
@@ -454,9 +526,14 @@ final class ProfileController {
             });
         }
         renderHistory(v);
-        fetchHistory();
     }
 
+    /**
+     * Draws the tabs and the list for the current section and tab. A poll that only changed
+     * statuses (same records, same fields, same tab) re-binds each card's badge in place; anything
+     * else (a record appeared, moved to another tab, changed dates or totals) rebuilds the list.
+     * No spinner either way.
+     */
     private void renderHistory(View v) {
         int[] tabIds = {R.id.historyTabCurrent, R.id.historyTabUpcoming, R.id.historyTabPast};
         for (int tab = 0; tab < tabIds.length; tab++) {
@@ -464,9 +541,9 @@ final class ProfileController {
                     tab == historyTab ? R.attr.accentPrimary : R.attr.textMuted));
         }
 
-        List<ReservationSummary> bucket = ReservationHistory.select(historyData, historySection, historyTab);
+        List<ReservationSummary> bucket = ReservationHistory.select(
+                ReservationFeed.rows(), historySection, historyTab);
         LinearLayout container = v.findViewById(R.id.historyContainer);
-        container.removeAllViews();
         TextView emptyState = v.findViewById(R.id.historyEmptyState);
         emptyState.setVisibility(bucket.isEmpty() ? View.VISIBLE : View.GONE);
         boolean reservations = historySection == ReservationHistory.SECTION_RESERVATIONS;
@@ -476,6 +553,22 @@ final class ProfileController {
                 ? (reservations ? R.string.history_empty_reservations_upcoming : R.string.history_empty_bookings_upcoming)
                 : (reservations ? R.string.history_empty_reservations_past : R.string.history_empty_bookings_past));
 
+        StringBuilder signature = new StringBuilder();
+        for (ReservationSummary summary : bucket) {
+            signature.append(summary.kind).append(':').append(summary.id).append(':')
+                    .append(summary.booking_reference).append(':').append(summary.check_in).append(':')
+                    .append(summary.check_out).append(':').append(summary.subtotal).append(':')
+                    .append(summary.amount_paid).append(':').append(summary.amount_change).append(':')
+                    .append(PaymentVerificationUi.signature(summary.payment_verification)).append(';');
+        }
+        if (signature.toString().equals(container.getTag())) {
+            for (int i = 0; i < bucket.size(); i++) {
+                bindStatusBadge(container.getChildAt(i), bucket.get(i).status);
+            }
+            return;
+        }
+        container.setTag(signature.toString());
+        container.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(activity);
         for (ReservationSummary summary : bucket) {
             container.addView(buildHistoryCard(inflater, container, summary));
@@ -487,12 +580,11 @@ final class ProfileController {
     private void bindStatement(View v) {
         bindHeader(v, R.string.statement_title, () -> showScreen(SCREEN_MAIN));
         renderStatement(v);
-        fetchHistory();
     }
 
-    /** One card per paid-for booking (kind "reservation" - the ones that have a bill), newest
-     *  first as the server returns them; cancelled bookings are listed but left out of the
-     *  totals at the top. */
+    /** One card per paid-for booking (the ones that have a bill), newest
+     *  first as the server returns them; bookings whose status is cancelled are listed but left
+     *  out of the totals at the top. */
     private void renderStatement(View v) {
         LinearLayout container = v.findViewById(R.id.statementContainer);
         container.removeAllViews();
@@ -501,12 +593,12 @@ final class ProfileController {
         double balance = 0;
         int count = 0;
         LayoutInflater inflater = LayoutInflater.from(activity);
-        for (ReservationSummary summary : historyData) {
-            if (!"reservation".equals(summary.kind)) {
+        for (ReservationSummary summary : ReservationFeed.rows()) {
+            if (!summary.isBooking()) {
                 continue;
             }
             count++;
-            if (!summary.cancelled) {
+            if (summary.status == null || !summary.status.hasKey(StatusDetail.KEY_CANCELLED)) {
                 billed += summary.subtotal;
                 paid += summary.amount_paid;
                 balance += summary.remaining_balance;
@@ -524,10 +616,17 @@ final class ProfileController {
         // the money breakdown and its payment lines underneath.
         View card = buildHistoryCard(inflater, parent, summary);
         card.findViewById(R.id.reservationCardTotal).setVisibility(View.GONE);
+        // The money breakdown below already lists Paid and Change.
+        card.findViewById(R.id.reservationCardPaid).setVisibility(View.GONE);
+        // The statement lists each payment line with its own status below instead.
+        card.findViewById(R.id.reservationCardVerification).setVisibility(View.GONE);
         LinearLayout lines = (LinearLayout) card;
 
         addStatementRow(lines, R.string.statement_line_total, money(summary.subtotal), R.attr.textPrimary, true);
         addStatementRow(lines, R.string.statement_line_paid, money(summary.amount_paid), R.attr.successText, false);
+        if (summary.amount_change > 0) {
+            addStatementRow(lines, R.string.label_change, money(summary.amount_change), R.attr.textPrimary, false);
+        }
         addStatementRow(lines, R.string.statement_line_balance, money(summary.remaining_balance), R.attr.textPrimary, false);
 
         if (summary.payments == null || summary.payments.isEmpty()) {
@@ -564,10 +663,14 @@ final class ProfileController {
             }
             boolean verified = "verified".equals(payment.status);
             boolean cancelled = "cancelled".equals(payment.status);
+            boolean rejected = PaymentVerificationSummary.STATUS_REJECTED.equals(payment.status);
+            boolean reverifying = PaymentVerificationSummary.STATUS_PENDING_REVERIFICATION.equals(payment.status);
             TextView state = statementText(verified ? R.attr.successText
-                    : cancelled ? R.attr.errorText : R.attr.accentPrimary, 12, true);
+                    : cancelled || rejected ? R.attr.errorText : R.attr.accentPrimary, 12, true);
             state.setText(verified ? R.string.statement_payment_verified
                     : cancelled ? R.string.statement_payment_cancelled
+                    : rejected ? R.string.statement_payment_rejected
+                    : reverifying ? R.string.statement_payment_reverification
                     : R.string.statement_payment_pending);
             left.addView(state);
             row.addView(left);
@@ -623,6 +726,15 @@ final class ProfileController {
                 NumberFormat.getInstance(Locale.US).format(Math.round(amount)));
     }
 
+    /** Peso amount keeping centavos only when there are any ("₱1,500" / "₱1,500.50"). */
+    private String moneyExact(double amount) {
+        NumberFormat format = NumberFormat.getInstance(Locale.US);
+        boolean whole = Math.abs(amount - Math.rint(amount)) < 0.005;
+        format.setMinimumFractionDigits(whole ? 0 : 2);
+        format.setMaximumFractionDigits(whole ? 0 : 2);
+        return activity.getString(R.string.format_currency, format.format(amount));
+    }
+
     private int dp(int value) {
         return Math.round(value * activity.getResources().getDisplayMetrics().density);
     }
@@ -631,29 +743,7 @@ final class ProfileController {
         View card = inflater.inflate(R.layout.view_my_reservation_list_card, parent, false);
         ((TextView) card.findViewById(R.id.reservationCardTitle)).setText(facilityTitle(summary));
 
-        int colorAttr;
-        int labelRes;
-        if (summary.cancelled) {
-            colorAttr = R.attr.errorText;
-            labelRes = R.string.reservation_status_cancelled;
-        } else if (ReservationHistory.isExpired(summary)) {
-            colorAttr = R.attr.textMuted;
-            labelRes = R.string.reservation_status_expired;
-        } else if ("reservation".equals(summary.kind)) {
-            colorAttr = R.attr.successText;
-            labelRes = summary.current_step >= 3 ? R.string.history_status_checked_out
-                    : summary.current_step == 2 ? R.string.history_status_checked_in
-                    : summary.current_step == 1 ? R.string.history_status_confirmed
-                    : R.string.reservation_status_booked;
-        } else {
-            colorAttr = R.attr.accentPrimary;
-            labelRes = R.string.reservation_status_pending;
-        }
-        card.findViewById(R.id.reservationCardStatusDot).setBackgroundTintList(
-                android.content.res.ColorStateList.valueOf(ThemeManager.color(activity, colorAttr)));
-        TextView statusLabel = card.findViewById(R.id.reservationCardStatusLabel);
-        statusLabel.setText(labelRes);
-        statusLabel.setTextColor(ThemeManager.color(activity, colorAttr));
+        bindStatusBadge(card, summary.status);
 
         SimpleDateFormat shown = new SimpleDateFormat("MMM d, yyyy", Locale.US);
         long in = ReservationHistory.parseDate(summary.check_in);
@@ -661,11 +751,79 @@ final class ProfileController {
         ((TextView) card.findViewById(R.id.reservationCardDates)).setText(
                 (in > 0 ? shown.format(new java.util.Date(in)) : "") + " – "
                         + (out > 0 ? shown.format(new java.util.Date(out)) : ""));
+        TextView created = card.findViewById(R.id.reservationCardCreated);
+        String createdText = ReservationHistory.formatCreated(summary.created_at);
+        created.setVisibility(createdText.isEmpty() ? View.GONE : View.VISIBLE);
+        created.setText(activity.getString(R.string.history_created_on, createdText));
+        // A booking that has been paid: what the guest sent, plus the change when there is any.
+        TextView paid = card.findViewById(R.id.reservationCardPaid);
+        boolean paymentNotReceived = summary.payment_verification != null
+                && summary.payment_verification.isNotReceived();
+        if (summary.isBooking() && summary.amount_paid > 0 && !paymentNotReceived) {
+            String paidText = activity.getString(R.string.history_paid_amount, moneyExact(summary.amount_paid));
+            if (summary.amount_change > 0) {
+                paidText += "  ·  " + activity.getString(R.string.history_change_amount,
+                        moneyExact(summary.amount_change));
+            }
+            paid.setText(paidText);
+            paid.setVisibility(View.VISIBLE);
+        } else {
+            paid.setVisibility(View.GONE);
+        }
+        bindPaymentVerification(card, summary);
         ((TextView) card.findViewById(R.id.reservationCardReference)).setText(summary.booking_reference);
         ((TextView) card.findViewById(R.id.reservationCardTotal)).setText(activity.getString(
                 R.string.format_currency, NumberFormat.getInstance(Locale.US).format(Math.round(summary.subtotal))));
         card.setOnClickListener(ClickGuard.wrap(view -> onOpenReservation.accept(summary)));
         return card;
+    }
+
+    /**
+     * The receptionist's check of this booking's payment, under the card's dates: its status (the
+     * booking's own status badge is untouched), for a rejection the reason and the receptionist's
+     * note, and the Correct &amp; Resubmit button — only while the payment is rejected and no
+     * correction is on file. Once the guest has resubmitted it reads Pending Reverification with
+     * no button; a rejection again brings the button back.
+     */
+    private void bindPaymentVerification(View card, ReservationSummary summary) {
+        View block = card.findViewById(R.id.reservationCardVerification);
+        PaymentVerificationSummary verification = summary.isBooking() ? summary.payment_verification : null;
+        if (verification == null || verification.status == null) {
+            block.setVisibility(View.GONE);
+            return;
+        }
+        block.setVisibility(View.VISIBLE);
+        TextView status = card.findViewById(R.id.reservationCardVerificationStatus);
+        status.setText(PaymentVerificationUi.chip(activity, verification));
+        status.setTextColor(ThemeManager.color(activity, PaymentVerificationUi.colorAttr(verification)));
+
+        TextView reason = card.findViewById(R.id.reservationCardVerificationReason);
+        String reasonText = verification.isRejected() ? PaymentVerificationUi.reasonBlock(activity, verification) : null;
+        reason.setVisibility(reasonText == null ? View.GONE : View.VISIBLE);
+        reason.setText(reasonText);
+
+        Button correct = card.findViewById(R.id.reservationCardCorrectButton);
+        boolean canCorrect = PaymentCorrectionRules.canCorrect(summary);
+        correct.setVisibility(canCorrect ? View.VISIBLE : View.GONE);
+        correct.setOnClickListener(ClickGuard.wrap(view -> onCorrectPayment.accept(summary)));
+    }
+
+    /** The card's status dot and label, exactly as the backend describes the status (label and
+     *  colour untouched). Safe to call again on a card that is already on screen. */
+    private void bindStatusBadge(View card, StatusDetail status) {
+        View dot = card.findViewById(R.id.reservationCardStatusDot);
+        TextView label = card.findViewById(R.id.reservationCardStatusLabel);
+        if (status == null) {
+            dot.setVisibility(View.GONE);
+            label.setVisibility(View.GONE);
+            return;
+        }
+        int color = StatusCatalog.color(activity, status);
+        dot.setVisibility(View.VISIBLE);
+        dot.setBackgroundTintList(android.content.res.ColorStateList.valueOf(color));
+        label.setVisibility(View.VISIBLE);
+        label.setText(status.label);
+        label.setTextColor(color);
     }
 
     /** Card title: the facility kinds in the record ("Hotel Room", "Cottage", "KTV Room", or
@@ -686,7 +844,7 @@ final class ProfileController {
             hall = summary.facilities.contains("hall");
         }
         if (!hotel && !cottage && !ktv && !hall
-                && "advance_reservation".equals(summary.kind) && summary.service_lines != null) {
+                && summary.isRequest() && summary.service_lines != null) {
             for (String line : summary.service_lines) {
                 if ("Room".equals(line)) {
                     hotel = true;
@@ -721,31 +879,6 @@ final class ProfileController {
         return names.isEmpty() ? activity.getString(R.string.service_type_hotel) : String.join(", ", names);
     }
 
-    private void fetchHistory() {
-        String token = ProfileStore.getAuthToken(activity);
-        if (token.isEmpty() || historyLoading) {
-            return;
-        }
-        historyLoading = true;
-        ApiClient.bookingApi().getMyBookings("Bearer " + token).enqueue(new Callback<MyBookingsResponse>() {
-            @Override
-            public void onResponse(Call<MyBookingsResponse> call, Response<MyBookingsResponse> response) {
-                historyLoading = false;
-                if (response.isSuccessful() && response.body() != null && response.body().reservations != null) {
-                    historyData = response.body().reservations;
-                    applyPendingHistoryReference();
-                    refreshHistoryUi();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<MyBookingsResponse> call, Throwable t) {
-                // Keeps whatever was last loaded; the next poll or visit retries.
-                historyLoading = false;
-            }
-        });
-    }
-
     private void refreshHistoryUi() {
         if (currentScreenView == null) {
             return;
@@ -757,25 +890,6 @@ final class ProfileController {
         } else if (currentScreen == SCREEN_STATEMENT) {
             renderStatement(currentScreenView);
         }
-    }
-
-    private void startHistoryPolling() {
-        if (historyPolling) {
-            return;
-        }
-        historyPolling = true;
-        historyHandler.postDelayed(this::historyPollTick, HISTORY_POLL_MS);
-    }
-
-    private void historyPollTick() {
-        boolean onHistoryScreen = currentScreen == SCREEN_MAIN || currentScreen == SCREEN_HISTORY
-                || currentScreen == SCREEN_STATEMENT;
-        if (!onHistoryScreen || !root.isAttachedToWindow()) {
-            historyPolling = false;
-            return;
-        }
-        fetchHistory();
-        historyHandler.postDelayed(this::historyPollTick, HISTORY_POLL_MS);
     }
 
     /** Shows the saved avatar bitmap, or the placeholder person icon when none is set. */
@@ -851,10 +965,10 @@ final class ProfileController {
         phoneNumber.setText(ProfileStore.getContactNumber(activity));
 
         v.findViewById(R.id.piCancelButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_MAIN)));
-        v.findViewById(R.id.piChangeButton).setOnClickListener(ClickGuard.wrap(view -> {
+        Button changeButton = v.findViewById(R.id.piChangeButton);
+        changeButton.setOnClickListener(ClickGuard.wrap(view -> {
             if (validatePersonalInfo(v)) {
-                savePersonalInfo(v);
-                showScreen(SCREEN_PERSONAL_INFO_SUCCESS);
+                submitPersonalInfo(v, changeButton);
             }
         }));
     }
@@ -1038,20 +1152,96 @@ final class ProfileController {
         return valid;
     }
 
-    private void savePersonalInfo(View v) {
+    /**
+     * Sends the validated form to the backend — the same user/guest rows the website's My Profile
+     * page edits — and only on success copies it into this device's ProfileStore. The server has
+     * rules the form can't know (a taken username or email, a phone number already registered),
+     * so its answer decides whether the save worked.
+     */
+    private void submitPersonalInfo(View v, Button changeButton) {
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        String firstName = fieldText(v, R.id.piFirstNameField);
+        String middleName = fieldText(v, R.id.piMiddleNameField);
+        String lastName = fieldText(v, R.id.piLastNameField);
         int genderPos = ((Spinner) v.findViewById(R.id.piGenderSpinner)).getSelectedItemPosition();
-        ProfileStore.savePersonalInfo(activity,
-                fieldText(v, R.id.piFirstNameField),
-                fieldText(v, R.id.piMiddleNameField),
-                fieldText(v, R.id.piLastNameField),
-                genderPos,
-                fieldText(v, R.id.piBirthDateField),
-                fieldText(v, R.id.piPhoneNumberField),
-                selectedOption(v, R.id.piProvinceSpinner),
-                selectedOption(v, R.id.piCitySpinner),
-                selectedOption(v, R.id.piBarangaySpinner),
-                fieldText(v, R.id.piUsernameField),
-                fieldText(v, R.id.piEmailField));
+        String birthDate = fieldText(v, R.id.piBirthDateField);
+        String phoneNumber = fieldText(v, R.id.piPhoneNumberField);
+        String province = selectedOption(v, R.id.piProvinceSpinner);
+        String city = selectedOption(v, R.id.piCitySpinner);
+        String barangay = selectedOption(v, R.id.piBarangaySpinner);
+        String username = fieldText(v, R.id.piUsernameField);
+        String email = fieldText(v, R.id.piEmailField);
+
+        changeButton.setEnabled(false);
+        ApiClient.authApi().updateProfile("Bearer " + token, firstName, middleName, lastName, username,
+                email, genderApiValue(genderPos), birthDate, phoneNumber,
+                ProfileStore.buildAddress(province, city, barangay))
+                .enqueue(new Callback<ProfileResponse>() {
+                    @Override
+                    public void onResponse(Call<ProfileResponse> call, Response<ProfileResponse> response) {
+                        changeButton.setEnabled(true);
+                        if (response.isSuccessful()) {
+                            ProfileStore.savePersonalInfo(activity, firstName, middleName, lastName, genderPos,
+                                    birthDate, phoneNumber, province, city, barangay, username, email);
+                            if (currentScreenView == v) {
+                                showScreen(SCREEN_PERSONAL_INFO_SUCCESS);
+                            }
+                            return;
+                        }
+                        if (response.code() == 422) {
+                            ErrorResponse error = ApiClient.parseError(response.errorBody());
+                            showPersonalInfoErrors(v, error);
+                            Toast.makeText(activity, error.firstMessage() != null ? error.firstMessage()
+                                    : activity.getString(R.string.toast_profile_save_failed), Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        Toast.makeText(activity, failureMessage(response.code(), response.errorBody(),
+                                R.string.toast_profile_save_failed), Toast.LENGTH_LONG).show();
+                    }
+
+                    @Override
+                    public void onFailure(Call<ProfileResponse> call, Throwable t) {
+                        changeButton.setEnabled(true);
+                        Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    /** Puts each server validation message under the field it is about. */
+    private void showPersonalInfoErrors(View v, ErrorResponse error) {
+        if (error.errors == null) {
+            return;
+        }
+        String[] keys = {"Firstname", "Middlename", "Lastname", "gender", "birthday", "contact_number",
+                "address", "username", "email"};
+        int[] errorViews = {R.id.piFirstNameError, R.id.piMiddleNameError, R.id.piLastNameError,
+                R.id.piGenderError, R.id.piBirthDateError, R.id.piPhoneNumberError, R.id.piBarangayError,
+                R.id.piUsernameError, R.id.piEmailError};
+        for (int i = 0; i < keys.length; i++) {
+            List<String> messages = error.errors.get(keys[i]);
+            if (messages != null && !messages.isEmpty()) {
+                TextView errorView = v.findViewById(errorViews[i]);
+                errorView.setText(messages.get(0));
+                errorView.setVisibility(View.VISIBLE);
+            }
+        }
+    }
+
+    /** The website's gender values for the form's spinner position (1 Male, 2 Female, 3 Prefer not to say). */
+    private static String genderApiValue(int genderPos) {
+        switch (genderPos) {
+            case 1:
+                return "Male";
+            case 2:
+                return "Female";
+            default:
+                return "Prefer not to say";
+        }
     }
 
     // ---- Change Password ----------------------------------------
@@ -1076,25 +1266,67 @@ final class ProfileController {
         updatePasswordRequirements(v, "");
 
         v.findViewById(R.id.cpCancelButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_MAIN)));
-        v.findViewById(R.id.cpUpdateButton).setOnClickListener(ClickGuard.wrap(view -> {
+        Button updateButton = v.findViewById(R.id.cpUpdateButton);
+        updateButton.setOnClickListener(ClickGuard.wrap(view -> {
             boolean valid = true;
             String currentPw = current.getText().toString();
             String newPw = newPassword.getText().toString();
             String confirmPw = confirm.getText().toString();
 
-            valid &= checkField(v, R.id.cpCurrentError,
-                    !currentPw.isEmpty() && currentPw.equals(ProfileStore.getPassword(activity)),
-                    R.string.error_password_incorrect);
+            // Only the server knows the current password, so it is checked there (see submitPasswordChange).
+            valid &= checkField(v, R.id.cpCurrentError, !currentPw.isEmpty(), R.string.error_password_incorrect);
             valid &= checkField(v, R.id.cpNewError,
                     newPw.matches(PASSWORD_COMPLEXITY_REGEX), R.string.error_password_complexity);
             valid &= checkField(v, R.id.cpConfirmError,
                     confirmPw.equals(newPw), R.string.error_passwords_dont_match);
 
             if (valid) {
-                ProfileStore.setPassword(activity, newPw);
-                showScreen(SCREEN_CHANGE_PASSWORD_SUCCESS);
+                submitPasswordChange(v, updateButton, currentPw, newPw);
             }
         }));
+    }
+
+    /** Changes the password on the backend, the same account password the website login checks. */
+    private void submitPasswordChange(View v, Button updateButton, String currentPw, String newPw) {
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        updateButton.setEnabled(false);
+        ApiClient.authApi().changePassword("Bearer " + token, currentPw, newPw, newPw)
+                .enqueue(new Callback<MessageResponse>() {
+                    @Override
+                    public void onResponse(Call<MessageResponse> call, Response<MessageResponse> response) {
+                        updateButton.setEnabled(true);
+                        if (response.isSuccessful()) {
+                            if (currentScreenView == v) {
+                                showScreen(SCREEN_CHANGE_PASSWORD_SUCCESS);
+                            }
+                            return;
+                        }
+                        if (response.code() == 422) {
+                            ErrorResponse error = ApiClient.parseError(response.errorBody());
+                            if (error.errors != null && error.errors.containsKey("current_password")) {
+                                checkField(v, R.id.cpCurrentError, false, R.string.error_password_incorrect);
+                                return;
+                            }
+                            if (error.errors != null && error.errors.containsKey("new_password")) {
+                                checkField(v, R.id.cpNewError, false, R.string.error_password_complexity);
+                                return;
+                            }
+                        }
+                        Toast.makeText(activity, failureMessage(response.code(), response.errorBody(),
+                                R.string.toast_password_change_failed), Toast.LENGTH_LONG).show();
+                    }
+
+                    @Override
+                    public void onFailure(Call<MessageResponse> call, Throwable t) {
+                        updateButton.setEnabled(true);
+                        Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+                    }
+                });
     }
 
     private void updatePasswordRequirements(View v, String password) {
@@ -1121,45 +1353,35 @@ final class ProfileController {
     private void bindValidId(View v) {
         bindHeader(v, R.string.valid_id_title, () -> showScreen(SCREEN_MAIN));
 
-        boolean hasUpload = ProfileStore.hasIdSubmission(activity);
-        boolean verified = hasUpload && ProfileStore.isIdVerified(activity);
-        String uploadDate = ProfileStore.getIdUploadDate(activity);
+        // What the server holds: whether an ID photo is on file and its type. It has no
+        // verification step, so the screen reports "On File" rather than Pending/Verified.
+        boolean onFile = ProfileStore.hasValidId(activity);
 
         TextView statusText = v.findViewById(R.id.viStatusText);
         TextView statusDesc = v.findViewById(R.id.viStatusDesc);
         int statusTextRes;
         int statusDescRes;
         int statusColor;
-        if (!hasUpload) {
+        if (onFile) {
+            statusTextRes = R.string.status_on_file;
+            statusDescRes = R.string.valid_id_on_file_desc;
+            statusColor = 0xFF2E7D32;
+        } else {
             statusTextRes = R.string.status_not_submitted;
             statusDescRes = R.string.no_id_uploaded_message;
             statusColor = ThemeManager.color(activity, R.attr.iconMuted);
-        } else if (verified) {
-            statusTextRes = R.string.status_verified;
-            statusDescRes = R.string.verification_status_verified_desc;
-            statusColor = 0xFF2E7D32;
-        } else {
-            statusTextRes = R.string.status_pending;
-            statusDescRes = R.string.verification_status_pending_desc;
-            statusColor = 0xFFE0912E;
         }
         statusText.setText(statusTextRes);
         statusText.setTextColor(statusColor);
         ((ImageView) v.findViewById(R.id.viStatusIcon)).setColorFilter(statusColor);
         statusDesc.setText(statusDescRes);
 
-        v.findViewById(R.id.viUploadedIdCard).setVisibility(hasUpload ? View.VISIBLE : View.GONE);
-        v.findViewById(R.id.viNoIdMessage).setVisibility(hasUpload ? View.GONE : View.VISIBLE);
-        if (hasUpload) {
-            String[] idTypes = activity.getResources().getStringArray(R.array.id_type_options);
-            int idTypePos = ProfileStore.getIdTypePos(activity) - 1;
-            String idTypeLabel = idTypePos >= 0 && idTypePos < idTypes.length
-                    ? idTypes[idTypePos] : "";
-            ((TextView) v.findViewById(R.id.viIdTypeText)).setText(idTypeLabel);
-            ((TextView) v.findViewById(R.id.viUploadedOnText)).setText(
-                    activity.getString(R.string.uploaded_on_format, uploadDate));
-            ((TextView) v.findViewById(R.id.viIdNumberText)).setText(
-                    activity.getString(R.string.id_number_format, ProfileStore.getIdNumber(activity)));
+        v.findViewById(R.id.viUploadedIdCard).setVisibility(onFile ? View.VISIBLE : View.GONE);
+        v.findViewById(R.id.viNoIdMessage).setVisibility(onFile ? View.GONE : View.VISIBLE);
+        if (onFile) {
+            String idType = ProfileStore.getValidIdType(activity);
+            ((TextView) v.findViewById(R.id.viIdTypeText)).setText(
+                    idType.isEmpty() ? activity.getString(R.string.valid_id_type_unknown) : idType);
         }
 
         v.findViewById(R.id.viUploadNewIdButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_UPLOAD_ID)));
@@ -1174,36 +1396,66 @@ final class ProfileController {
 
         // Always starts as a fresh, blank submission.
         idFrontBitmap = null;
-        idBackBitmap = null;
 
         setUpPromptedSpinner(v.findViewById(R.id.uiIdTypeSpinner), R.string.id_type_prompt,
                 R.array.id_type_options, 0);
 
         v.findViewById(R.id.uiFrontDropzone).setOnClickListener(ClickGuard.wrap(view -> pickImage(REQUEST_ID_FRONT)));
-        v.findViewById(R.id.uiBackDropzone).setOnClickListener(ClickGuard.wrap(view -> pickImage(REQUEST_ID_BACK)));
-
-        EditText expiry = v.findViewById(R.id.uiExpiryField);
-        expiry.setOnClickListener(ClickGuard.wrap(view -> showFutureDatePicker(date -> expiry.setText(date))));
 
         v.findViewById(R.id.uiCancelButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_VALID_ID)));
-        v.findViewById(R.id.uiSubmitButton).setOnClickListener(ClickGuard.wrap(view -> {
+        Button submitButton = v.findViewById(R.id.uiSubmitButton);
+        submitButton.setOnClickListener(ClickGuard.wrap(view -> {
             boolean valid = true;
             int idTypePos = ((Spinner) v.findViewById(R.id.uiIdTypeSpinner)).getSelectedItemPosition();
-            String idNumber = fieldText(v, R.id.uiIdNumberField);
 
             valid &= checkField(v, R.id.uiIdTypeError, idTypePos > 0, R.string.error_id_type_required);
             valid &= checkField(v, R.id.uiFrontError, idFrontBitmap != null, R.string.error_id_required);
-            valid &= checkField(v, R.id.uiIdNumberError, !idNumber.isEmpty(),
-                    R.string.error_id_number_required);
 
             if (valid) {
-                String today = new SimpleDateFormat("MMMM d, yyyy", Locale.US)
-                        .format(Calendar.getInstance().getTime());
-                ProfileStore.saveIdSubmission(activity, idTypePos, idNumber, today);
-                Toast.makeText(activity, R.string.id_submitted_message, Toast.LENGTH_LONG).show();
-                showScreen(SCREEN_VALID_ID);
+                submitValidId(v, submitButton, idTypePos);
             }
         }));
+    }
+
+    /** Uploads the ID photo and its type; staff open it from the booking's "View ID Document" link. */
+    private void submitValidId(View v, Button submitButton, int idTypePos) {
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            return;
+        }
+        byte[] jpeg = RequestParts.jpegBytes(activity.getContentResolver(), null, idFrontBitmap);
+        if (jpeg == null) {
+            Toast.makeText(activity, R.string.toast_photo_unreadable, Toast.LENGTH_LONG).show();
+            return;
+        }
+        String idType = activity.getResources().getStringArray(R.array.id_type_options)[idTypePos - 1];
+
+        submitButton.setEnabled(false);
+        ApiClient.authApi().uploadValidId("Bearer " + token, RequestParts.text(idType),
+                RequestParts.file("validID", "valid_id.jpg", RequestParts.jpegBody(jpeg)))
+                .enqueue(new Callback<ProfileResponse>() {
+                    @Override
+                    public void onResponse(Call<ProfileResponse> call, Response<ProfileResponse> response) {
+                        submitButton.setEnabled(true);
+                        if (response.isSuccessful()) {
+                            ProfileStore.saveValidId(activity, idType);
+                            Toast.makeText(activity, R.string.id_submitted_message, Toast.LENGTH_LONG).show();
+                            if (currentScreenView == v) {
+                                showScreen(SCREEN_VALID_ID);
+                            }
+                            return;
+                        }
+                        Toast.makeText(activity, failureMessage(response.code(), response.errorBody(),
+                                R.string.toast_id_upload_failed), Toast.LENGTH_LONG).show();
+                    }
+
+                    @Override
+                    public void onFailure(Call<ProfileResponse> call, Throwable t) {
+                        submitButton.setEnabled(true);
+                        Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+                    }
+                });
     }
 
     private void pickImage(int requestCode) {
@@ -1255,12 +1507,6 @@ final class ProfileController {
         } catch (Exception ignored) {}
 
         GlassDatePicker.showBirthdatePicker(activity, current, millis -> {
-            callback.onDatePicked(new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date(millis)));
-        });
-    }
-
-    private void showFutureDatePicker(DateCallback callback) {
-        GlassDatePicker.showCalendarPicker(activity, -1, System.currentTimeMillis() - 1000L, millis -> {
             callback.onDatePicked(new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date(millis)));
         });
     }

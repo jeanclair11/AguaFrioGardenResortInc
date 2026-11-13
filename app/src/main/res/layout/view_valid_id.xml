@@ -106,26 +106,6 @@
                     android:textColor="?attr/textPrimary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/viUploadedOnText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    android:textColor="?attr/textMuted"
-                    android:textSize="12sp" />
-
-                <TextView
-                    android:id="@+id/viIdNumberText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    android:textColor="?attr/textMuted"
-                    android:textSize="12sp" />
             </LinearLayout>
         </LinearLayout>
 
