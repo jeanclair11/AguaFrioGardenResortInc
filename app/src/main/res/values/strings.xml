@@ -881,4 +881,45 @@
     <string name="label_package_included_note">Included in package price</string>
     <string name="toast_package_not_available">This package can\'t be booked right now.</string>
 
+    <!-- Payment verification: the receptionist rejects a payment, the guest corrects and resubmits it -->
+    <string name="statement_payment_rejected">Rejected</string>
+    <string name="statement_payment_reverification">Pending reverification</string>
+    <string name="payment_status_chip">Payment: %1$s</string>
+    <string name="section_payment_verification">PAYMENT VERIFICATION</string>
+    <string name="payment_reason_line">Reason: %1$s</string>
+    <string name="payment_remarks_line">Receptionist\'s note: %1$s</string>
+    <string name="payment_reverification_note">Your corrected payment details have been submitted and are awaiting verification.</string>
+    <string name="payment_verified_note">Your payment has been verified.</string>
+    <string name="payment_pending_note">Your payment is waiting to be verified by our staff.</string>
+    <string name="label_submitted_amount">Submitted Amount</string>
+    <string name="label_original_amount">Original Amount</string>
+    <string name="label_original_reference">Original Reference Number</string>
+    <string name="label_proof_of_payment">Proof of Payment</string>
+    <string name="payment_no_proof">No screenshot on file</string>
+    <string name="button_correct_resubmit">Correct &amp; Resubmit</string>
+    <string name="button_resubmit_payment">Resubmit Payment</string>
+    <string name="payment_correction_title">Correct Payment</string>
+    <string name="payment_correction_subtitle">Fix what was wrong and resubmit. Your booking, dates and charges stay exactly as they are.</string>
+    <string name="payment_rejected_title">Payment Rejected</string>
+    <string name="payment_rejected_message">Your payment submission was rejected because %1$s. Please correct the information and resubmit.</string>
+    <string name="payment_rejected_message_other">Your payment submission was rejected: %1$s. Please correct the information and resubmit.</string>
+    <string name="payment_rejected_message_generic">Your payment submission was rejected. Please correct the information and resubmit.</string>
+    <string name="payment_reason_incorrect_amount">the payment amount is incorrect</string>
+    <string name="payment_reason_incorrect_reference">the reference number is incorrect</string>
+    <string name="payment_reason_invalid_proof">the proof of payment is invalid or incorrect</string>
+    <string name="payment_reason_payment_not_found">the payment could not be found</string>
+    <string name="section_original_submission">ORIGINALLY SUBMITTED</string>
+    <string name="section_corrected_details">CORRECTED PAYMENT DETAILS</string>
+    <string name="payment_flagged">The receptionist flagged this — please check it.</string>
+    <string name="payment_proof_remove">Remove screenshot</string>
+    <string name="payment_proof_replace_hint">Tap the screenshot to choose a different one.</string>
+    <string name="payment_proof_current">Current screenshot</string>
+    <string name="payment_proof_new">New screenshot</string>
+    <string name="toast_amount_too_high">That amount is too large. Please check it.</string>
+    <string name="toast_screenshot_too_large">That screenshot is larger than 10 MB. Please choose a smaller image.</string>
+    <string name="toast_screenshot_unreadable">We couldn\'t read that image. Please choose another screenshot.</string>
+    <string name="toast_resubmit_failed">We couldn\'t resubmit your payment. Please try again.</string>
+    <string name="dialog_payment_resubmitted_title">Payment Resubmitted</string>
+    <string name="dialog_payment_resubmitted_message">Your corrected payment details have been submitted successfully and are awaiting verification.</string>
+
 </resources>

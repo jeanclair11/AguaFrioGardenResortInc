@@ -25,6 +25,7 @@ import android.widget.Toast;
 import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.ErrorResponse;
 import com.aguafriogarden.resortinc.network.MessageResponse;
+import com.aguafriogarden.resortinc.network.PaymentVerificationSummary;
 import com.aguafriogarden.resortinc.network.ProfileResponse;
 import com.aguafriogarden.resortinc.network.ReservationSummary;
 import com.aguafriogarden.resortinc.network.StatusDetail;
@@ -103,6 +104,8 @@ final class ProfileController {
     private final Runnable onLogout;
     private final Runnable onAvatarChanged;
     private final Consumer<ReservationSummary> onOpenReservation;
+    /** "Correct &amp; Resubmit" on a booking whose payment was rejected: opens the correction form. */
+    private final Consumer<ReservationSummary> onCorrectPayment;
     private final FrameLayout root;
     private int historySection = ReservationHistory.SECTION_RESERVATIONS;
     private int historyTab = ReservationHistory.TAB_CURRENT;
@@ -116,9 +119,11 @@ final class ProfileController {
     private Bitmap idFrontBitmap;
 
     ProfileController(Activity activity, Runnable onBackToHome, Runnable onLogout,
-            Runnable onAvatarChanged, Consumer<ReservationSummary> onOpenReservation) {
+            Runnable onAvatarChanged, Consumer<ReservationSummary> onOpenReservation,
+            Consumer<ReservationSummary> onCorrectPayment) {
         this.activity = activity;
         this.onOpenReservation = onOpenReservation;
+        this.onCorrectPayment = onCorrectPayment;
         this.onBackToHome = onBackToHome;
         this.onLogout = onLogout;
         this.onAvatarChanged = onAvatarChanged;
@@ -553,7 +558,8 @@ final class ProfileController {
             signature.append(summary.kind).append(':').append(summary.id).append(':')
                     .append(summary.booking_reference).append(':').append(summary.check_in).append(':')
                     .append(summary.check_out).append(':').append(summary.subtotal).append(':')
-                    .append(summary.amount_paid).append(':').append(summary.amount_change).append(';');
+                    .append(summary.amount_paid).append(':').append(summary.amount_change).append(':')
+                    .append(PaymentVerificationUi.signature(summary.payment_verification)).append(';');
         }
         if (signature.toString().equals(container.getTag())) {
             for (int i = 0; i < bucket.size(); i++) {
@@ -612,6 +618,8 @@ final class ProfileController {
         card.findViewById(R.id.reservationCardTotal).setVisibility(View.GONE);
         // The money breakdown below already lists Paid and Change.
         card.findViewById(R.id.reservationCardPaid).setVisibility(View.GONE);
+        // The statement lists each payment line with its own status below instead.
+        card.findViewById(R.id.reservationCardVerification).setVisibility(View.GONE);
         LinearLayout lines = (LinearLayout) card;
 
         addStatementRow(lines, R.string.statement_line_total, money(summary.subtotal), R.attr.textPrimary, true);
@@ -655,10 +663,14 @@ final class ProfileController {
             }
             boolean verified = "verified".equals(payment.status);
             boolean cancelled = "cancelled".equals(payment.status);
+            boolean rejected = PaymentVerificationSummary.STATUS_REJECTED.equals(payment.status);
+            boolean reverifying = PaymentVerificationSummary.STATUS_PENDING_REVERIFICATION.equals(payment.status);
             TextView state = statementText(verified ? R.attr.successText
-                    : cancelled ? R.attr.errorText : R.attr.accentPrimary, 12, true);
+                    : cancelled || rejected ? R.attr.errorText : R.attr.accentPrimary, 12, true);
             state.setText(verified ? R.string.statement_payment_verified
                     : cancelled ? R.string.statement_payment_cancelled
+                    : rejected ? R.string.statement_payment_rejected
+                    : reverifying ? R.string.statement_payment_reverification
                     : R.string.statement_payment_pending);
             left.addView(state);
             row.addView(left);
@@ -745,7 +757,9 @@ final class ProfileController {
         created.setText(activity.getString(R.string.history_created_on, createdText));
         // A booking that has been paid: what the guest sent, plus the change when there is any.
         TextView paid = card.findViewById(R.id.reservationCardPaid);
-        if (summary.isBooking() && summary.amount_paid > 0) {
+        boolean paymentNotReceived = summary.payment_verification != null
+                && summary.payment_verification.isNotReceived();
+        if (summary.isBooking() && summary.amount_paid > 0 && !paymentNotReceived) {
             String paidText = activity.getString(R.string.history_paid_amount, moneyExact(summary.amount_paid));
             if (summary.amount_change > 0) {
                 paidText += "  ·  " + activity.getString(R.string.history_change_amount,
@@ -756,11 +770,42 @@ final class ProfileController {
         } else {
             paid.setVisibility(View.GONE);
         }
+        bindPaymentVerification(card, summary);
         ((TextView) card.findViewById(R.id.reservationCardReference)).setText(summary.booking_reference);
         ((TextView) card.findViewById(R.id.reservationCardTotal)).setText(activity.getString(
                 R.string.format_currency, NumberFormat.getInstance(Locale.US).format(Math.round(summary.subtotal))));
         card.setOnClickListener(ClickGuard.wrap(view -> onOpenReservation.accept(summary)));
         return card;
+    }
+
+    /**
+     * The receptionist's check of this booking's payment, under the card's dates: its status (the
+     * booking's own status badge is untouched), for a rejection the reason and the receptionist's
+     * note, and the Correct &amp; Resubmit button — only while the payment is rejected and no
+     * correction is on file. Once the guest has resubmitted it reads Pending Reverification with
+     * no button; a rejection again brings the button back.
+     */
+    private void bindPaymentVerification(View card, ReservationSummary summary) {
+        View block = card.findViewById(R.id.reservationCardVerification);
+        PaymentVerificationSummary verification = summary.isBooking() ? summary.payment_verification : null;
+        if (verification == null || verification.status == null) {
+            block.setVisibility(View.GONE);
+            return;
+        }
+        block.setVisibility(View.VISIBLE);
+        TextView status = card.findViewById(R.id.reservationCardVerificationStatus);
+        status.setText(PaymentVerificationUi.chip(activity, verification));
+        status.setTextColor(ThemeManager.color(activity, PaymentVerificationUi.colorAttr(verification)));
+
+        TextView reason = card.findViewById(R.id.reservationCardVerificationReason);
+        String reasonText = verification.isRejected() ? PaymentVerificationUi.reasonBlock(activity, verification) : null;
+        reason.setVisibility(reasonText == null ? View.GONE : View.VISIBLE);
+        reason.setText(reasonText);
+
+        Button correct = card.findViewById(R.id.reservationCardCorrectButton);
+        boolean canCorrect = PaymentCorrectionRules.canCorrect(summary);
+        correct.setVisibility(canCorrect ? View.VISIBLE : View.GONE);
+        correct.setOnClickListener(ClickGuard.wrap(view -> onCorrectPayment.accept(summary)));
     }
 
     /** The card's status dot and label, exactly as the backend describes the status (label and

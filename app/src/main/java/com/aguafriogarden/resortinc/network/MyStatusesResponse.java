@@ -15,5 +15,9 @@ public class MyStatusesResponse {
         public int id;
         public String booking_reference;
         public StatusDetail status;
+        /** Just status/label/needs_correction of the booking's payment verification, so a
+         *  rejection (the booking itself stays Pending) is noticed while polling. Null when there
+         *  is nothing to verify or from servers that predate it. */
+        public PaymentVerificationSummary payment_verification;
     }
 }

@@ -7,6 +7,7 @@ import android.os.Looper;
 import com.aguafriogarden.resortinc.network.ApiClient;
 import com.aguafriogarden.resortinc.network.MyBookingsResponse;
 import com.aguafriogarden.resortinc.network.MyStatusesResponse;
+import com.aguafriogarden.resortinc.network.PaymentVerificationSummary;
 import com.aguafriogarden.resortinc.network.ReservationSummary;
 import com.aguafriogarden.resortinc.network.StatusDetail;
 
@@ -195,6 +196,24 @@ final class ReservationFeed {
         ReservationSummary row = find(kind, id);
         if (row != null && status != null && !status.equals(row.status)) {
             row.status = status;
+            notifyWatchers();
+        }
+        refresh();
+    }
+
+    /** After the guest resubmitted a rejected payment: show the booking's new payment verification
+     *  (Pending Reverification, with the corrected amount, reference and proof) on its row at once,
+     *  then refetch for everything else that came with it. The booking itself is untouched. */
+    static void applyPaymentVerification(String kind, int id, PaymentVerificationSummary verification,
+            StatusDetail status) {
+        ReservationSummary row = find(kind, id);
+        if (row != null) {
+            if (verification != null) {
+                row.payment_verification = verification;
+            }
+            if (status != null) {
+                row.status = status;
+            }
             notifyWatchers();
         }
         refresh();

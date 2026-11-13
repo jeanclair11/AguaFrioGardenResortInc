@@ -45,6 +45,7 @@ import com.aguafriogarden.resortinc.network.KtvUnitListResponse;
 import com.aguafriogarden.resortinc.network.PackageCheckResponse;
 import com.aguafriogarden.resortinc.network.PackageInclusion;
 import com.aguafriogarden.resortinc.network.PackagePromo;
+import com.aguafriogarden.resortinc.network.PaymentVerificationSummary;
 import com.aguafriogarden.resortinc.network.PriceBreakdownEntry;
 import com.aguafriogarden.resortinc.network.PromoCoupon;
 import com.aguafriogarden.resortinc.network.PromoCouponListResponse;
@@ -52,6 +53,7 @@ import com.aguafriogarden.resortinc.network.ReservationRequestResponse;
 import com.aguafriogarden.resortinc.network.ReservationStatusResponse;
 import com.aguafriogarden.resortinc.network.ReservationSummary;
 import com.aguafriogarden.resortinc.network.ReserveResponse;
+import com.aguafriogarden.resortinc.network.ResubmitPaymentResponse;
 import com.aguafriogarden.resortinc.network.StatusDetail;
 import com.aguafriogarden.resortinc.network.RoomListResponse;
 import com.aguafriogarden.resortinc.network.RoomSummary;
@@ -156,6 +158,9 @@ final class HotelBookingFlowController {
     private static final int SCREEN_ROOM_GUESTS = 39;
     private static final int SCREEN_COTTAGE_GUESTS = 40;
     private static final int SCREEN_KTV_GUESTS = 41;
+    // "Correct & Resubmit": the guest fixes the amount / reference number / proof of a payment the
+    // receptionist rejected, on the same booking (opened from My Bookings or Reservation Details).
+    private static final int SCREEN_PAYMENT_CORRECTION = 42;
 
     private static final int FAC_ROOM = PendingRoomSelection.TYPE_ROOM;
     private static final int FAC_COTTAGE = PendingRoomSelection.TYPE_COTTAGE;
@@ -394,6 +399,22 @@ final class HotelBookingFlowController {
     private double reservationAmountPaid = 0;
     private double reservationAmountChange = 0;
     private int reservationSnapshotGrandTotal = 0;
+    // The receptionist's verification of this booking's payment (rejected, awaiting reverification,
+    // verified...), as the backend reports it; null when there is nothing to verify. Followed from
+    // the live feed like the status.
+    private PaymentVerificationSummary reservationPaymentVerification = null;
+    // Correct & Resubmit form state. The corrected values start as what the guest submitted before.
+    private String correctionAmountText = "";
+    private String correctionReferenceText = "";
+    /** A screenshot picked for the correction; null until the guest chooses one. */
+    private Uri correctionProofUri = null;
+    /** Keep the screenshot already on file (unless a new one is picked or this was removed). */
+    private boolean correctionKeepOriginalProof = true;
+    /** A resubmit request is on its way: further taps do nothing, so it cannot be sent twice. */
+    private boolean paymentCorrectionInFlight = false;
+    /** Back from the correction form returns to Reservation Details (opened from there) rather than
+     *  straight to My Bookings (opened from the card's button). */
+    private boolean paymentCorrectionFromDetails = false;
     // Reservation Details' back target, set by whichever entry point navigates in ("View
     // Reservation" right after reserving — see bindReservationConfirmed; the Profile history
     // goes through reservationDetailsExternalBack instead).
@@ -653,6 +674,9 @@ final class HotelBookingFlowController {
             case SCREEN_RESERVATION_PAYMENT:
                 showScreen(SCREEN_RESERVATION_DETAILS);
                 return true;
+            case SCREEN_PAYMENT_CORRECTION:
+                leavePaymentCorrection();
+                return true;
             default:
                 return true;
         }
@@ -714,6 +738,16 @@ final class HotelBookingFlowController {
     void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode != REQUEST_PAYMENT_SCREENSHOT || resultCode != Activity.RESULT_OK
                 || data == null || data.getData() == null) {
+            return;
+        }
+        if (currentScreen == SCREEN_PAYMENT_CORRECTION) {
+            // The correction form keeps its own pick, so a screenshot chosen for a new booking's
+            // payment (screenshotUri) is never touched by it.
+            correctionProofUri = data.getData();
+            correctionKeepOriginalProof = false;
+            if (currentScreenView != null) {
+                renderCorrectionProof(currentScreenView);
+            }
             return;
         }
         screenshotUri = data.getData();
@@ -993,6 +1027,8 @@ final class HotelBookingFlowController {
                 return R.layout.view_hotel_payment;
             case SCREEN_RESERVATION_PAYMENT_CONFIRMED:
                 return R.layout.view_reservation_payment_confirmed;
+            case SCREEN_PAYMENT_CORRECTION:
+                return R.layout.view_payment_correction;
             case SCREEN_MULTI_REVIEW:
                 return R.layout.view_multi_review;
             case SCREEN_MULTI_BILLING:
@@ -1079,6 +1115,9 @@ final class HotelBookingFlowController {
                 break;
             case SCREEN_RESERVATION_PAYMENT_CONFIRMED:
                 bindReservationPaymentConfirmed(v);
+                break;
+            case SCREEN_PAYMENT_CORRECTION:
+                bindPaymentCorrection(v);
                 break;
             case SCREEN_MULTI_REVIEW:
                 bindMultiReview(v);
@@ -1459,6 +1498,7 @@ final class HotelBookingFlowController {
         reservationAmountPaid = summary.amount_paid;
         reservationAmountChange = summary.amount_change;
         reservationSnapshotGrandTotal = (int) Math.round(summary.subtotal);
+        reservationPaymentVerification = isRealReservation ? summary.payment_verification : null;
     }
 
     /** "yyyy-MM-dd" (check_in/check_out from the my-bookings response) — decode counterpart of
@@ -3173,13 +3213,19 @@ final class HotelBookingFlowController {
         bindRow(v.findViewById(R.id.reservationDetailsRowDownPayment), R.string.label_down_payment_30,
                 formatCurrency(computePartialAmount(reservationGrandTotal)));
 
-        // What the guest sent, and the change over what was due — only once something is paid.
+        // What the guest sent, and the change over what was due — only once something is paid. A
+        // payment that was rejected, or is a correction nobody has verified yet, is not money
+        // received, so neither line shows it (its amount is in the Payment Verification card).
+        boolean paymentReceived = reservationPaymentVerification == null
+                || !reservationPaymentVerification.isNotReceived();
         View paidRow = v.findViewById(R.id.reservationDetailsRowAmountPaid);
-        paidRow.setVisibility(reservationAmountPaid > 0 ? View.VISIBLE : View.GONE);
+        paidRow.setVisibility(reservationAmountPaid > 0 && paymentReceived ? View.VISIBLE : View.GONE);
         bindRow(paidRow, R.string.label_amount_paid, formatMoneyAmount(reservationAmountPaid));
         View changeRow = v.findViewById(R.id.reservationDetailsRowChange);
-        changeRow.setVisibility(reservationAmountChange > 0 ? View.VISIBLE : View.GONE);
+        changeRow.setVisibility(reservationAmountChange > 0 && paymentReceived ? View.VISIBLE : View.GONE);
         bindRow(changeRow, R.string.label_change, formatMoneyAmount(reservationAmountChange));
+
+        renderPaymentVerification(v);
 
         bindRow(v.findViewById(R.id.reservationDetailsRowFullName), R.string.label_full_name, ProfileStore.getFullName(activity));
         bindRow(v.findViewById(R.id.reservationDetailsRowEmail), R.string.label_email_address, ProfileStore.getEmail(activity));
@@ -3202,6 +3248,380 @@ final class HotelBookingFlowController {
         Button cancelButton = v.findViewById(R.id.reservationDetailsCancelButton);
         cancelButton.setVisibility(canAct ? View.VISIBLE : View.GONE);
         cancelButton.setOnClickListener(ClickGuard.wrap(view -> showCancelConfirmDialog()));
+    }
+
+    // ---- Payment verification: rejected -> Correct & Resubmit -> Pending Reverification -------
+
+    /** The booking record this screen shows, as the feed keys it; -1 unless it is a booking. */
+    private int paymentBookingId() {
+        return ReservationSummary.KIND_BOOKING.equals(reservationFeedKind) ? reservationRecordId : -1;
+    }
+
+    /** Whether the booking on Reservation Details has a rejected payment waiting for the guest. */
+    private boolean canCorrectPayment() {
+        return paymentBookingId() > 0 && reservationPaymentVerification != null
+                && reservationPaymentVerification.canCorrect();
+    }
+
+    /**
+     * The "Payment Verification" card on Reservation Details and its Correct &amp; Resubmit button.
+     * The card says where the payment stands (all wording from the backend), why it was rejected,
+     * and the latest amount, reference number and proof on file; the button exists only while the
+     * payment is rejected and no correction has been sent. Nothing here touches the booking.
+     */
+    private void renderPaymentVerification(View v) {
+        PaymentVerificationSummary pv = reservationPaymentVerification;
+        boolean show = pv != null && pv.status != null && paymentBookingId() > 0;
+        v.findViewById(R.id.reservationDetailsVerificationContainer).setVisibility(show ? View.VISIBLE : View.GONE);
+
+        Button correctButton = v.findViewById(R.id.reservationDetailsCorrectPaymentButton);
+        correctButton.setVisibility(canCorrectPayment() ? View.VISIBLE : View.GONE);
+        correctButton.setOnClickListener(ClickGuard.wrap(view -> {
+            paymentCorrectionFromDetails = true;
+            beginPaymentCorrection();
+            showScreen(SCREEN_PAYMENT_CORRECTION);
+        }));
+        if (!show) {
+            return;
+        }
+
+        int color = ThemeManager.color(activity, PaymentVerificationUi.colorAttr(pv));
+        v.findViewById(R.id.reservationDetailsVerificationDot).setBackgroundTintList(ColorStateList.valueOf(color));
+        TextView statusView = v.findViewById(R.id.reservationDetailsVerificationStatus);
+        statusView.setText(PaymentVerificationUi.label(pv));
+        statusView.setTextColor(color);
+
+        String message = pv.isRejected() ? PaymentVerificationUi.rejectionMessage(activity, pv)
+                : pv.isPendingReverification() ? activity.getString(R.string.payment_reverification_note)
+                : pv.isVerified() ? activity.getString(R.string.payment_verified_note)
+                : activity.getString(R.string.payment_pending_note);
+        ((TextView) v.findViewById(R.id.reservationDetailsVerificationMessage)).setText(message);
+        TextView remarks = v.findViewById(R.id.reservationDetailsVerificationRemarks);
+        String remarksText = pv.isRejected() ? PaymentVerificationUi.remarksLine(activity, pv) : null;
+        remarks.setVisibility(remarksText == null ? View.GONE : View.VISIBLE);
+        remarks.setText(remarksText);
+
+        // The submission on file: for a rejection, the one that was rejected (the payment's own
+        // amount is back to 0), otherwise the latest — including a correction still being checked.
+        double amount = pv.isRejected() ? pv.originalAmount() : pv.submitted_amount;
+        bindRow(v.findViewById(R.id.reservationDetailsVerificationAmount), R.string.label_submitted_amount,
+                formatMoneyAmount(amount));
+        bindRow(v.findViewById(R.id.reservationDetailsVerificationReference), R.string.label_reference_number,
+                TextUtils.isEmpty(pv.reference_number) ? "—" : pv.reference_number);
+
+        boolean hasProof = !TextUtils.isEmpty(pv.proof_url);
+        v.findViewById(R.id.reservationDetailsVerificationProofLabel).setVisibility(hasProof ? View.VISIBLE : View.GONE);
+        ImageView proof = v.findViewById(R.id.reservationDetailsVerificationProof);
+        proof.setVisibility(hasProof ? View.VISIBLE : View.GONE);
+        if (hasProof) {
+            ImageLoader.load(proof, pv.proof_url, R.drawable.ic_gallery);
+        }
+    }
+
+    /** Seeds the Correct &amp; Resubmit form with what the guest submitted before: the rejected amount
+     *  and reference number, and the screenshot on file. */
+    private void beginPaymentCorrection() {
+        PaymentVerificationSummary pv = reservationPaymentVerification;
+        double amount = pv == null ? 0 : pv.originalAmount();
+        correctionAmountText = amount > 0 ? String.format(Locale.US, "%.2f", amount) : "";
+        correctionReferenceText = pv == null || pv.reference_number == null ? "" : pv.reference_number;
+        correctionProofUri = null;
+        correctionKeepOriginalProof = pv != null && !TextUtils.isEmpty(pv.proof_url);
+        // paymentCorrectionInFlight is deliberately left alone: a request still on its way keeps
+        // blocking a second one even if the guest backs out and opens the form again.
+    }
+
+    /** My Bookings' Correct &amp; Resubmit button: opens the form for this booking; Back returns to
+     *  My Bookings via {@code onBack}. A booking with nothing to correct opens its details instead. */
+    void openPaymentCorrectionFromHistory(ReservationSummary summary, Runnable onBack) {
+        loadReservationFromSummary(summary);
+        reservationDetailsExternalBack = onBack;
+        paymentCorrectionFromDetails = false;
+        if (!PaymentCorrectionRules.canCorrect(summary)) {
+            showScreen(SCREEN_RESERVATION_DETAILS);
+            return;
+        }
+        beginPaymentCorrection();
+        showScreen(SCREEN_PAYMENT_CORRECTION);
+    }
+
+    private void leavePaymentCorrection() {
+        if (paymentCorrectionFromDetails) {
+            showScreen(SCREEN_RESERVATION_DETAILS);
+        } else {
+            leaveReservationDetails();
+        }
+    }
+
+    /** Whether a screenshot will be on file once the form is sent: the one already there, or a new one. */
+    private boolean correctionHasProof() {
+        return correctionProofUri != null || (correctionKeepOriginalProof
+                && reservationPaymentVerification != null
+                && !TextUtils.isEmpty(reservationPaymentVerification.proof_url));
+    }
+
+    /**
+     * Correct &amp; Resubmit. At the top, why the receptionist rejected the payment; below it the
+     * booking's reference and total, which this form never changes, and what was submitted
+     * originally; then the corrected amount, reference number and screenshot, starting from the
+     * original values. Resubmit Payment validates them, then sends them for the same booking.
+     */
+    private void bindPaymentCorrection(View v) {
+        bindHeader(v, R.id.paymentCorrectionHeaderBar, R.string.payment_correction_title, this::leavePaymentCorrection);
+        PaymentVerificationSummary pv = reservationPaymentVerification;
+
+        if (pv != null) {
+            ((TextView) v.findViewById(R.id.paymentCorrectionRejectedMessage))
+                    .setText(PaymentVerificationUi.rejectionMessage(activity, pv));
+            TextView remarks = v.findViewById(R.id.paymentCorrectionRejectedRemarks);
+            String remarksText = PaymentVerificationUi.remarksLine(activity, pv);
+            remarks.setVisibility(remarksText == null ? View.GONE : View.VISIBLE);
+            remarks.setText(remarksText);
+
+            bindRow(v.findViewById(R.id.paymentCorrectionRowOriginalAmount), R.string.label_original_amount,
+                    formatMoneyAmount(pv.originalAmount()));
+            bindRow(v.findViewById(R.id.paymentCorrectionRowOriginalReference), R.string.label_original_reference,
+                    TextUtils.isEmpty(pv.reference_number) ? "—" : pv.reference_number);
+
+            // The reason points at the field the receptionist found wrong.
+            String reason = pv.rejection_reason == null ? "" : pv.rejection_reason;
+            v.findViewById(R.id.paymentCorrectionAmountFlag).setVisibility(
+                    "incorrect_amount".equals(reason) ? View.VISIBLE : View.GONE);
+            v.findViewById(R.id.paymentCorrectionReferenceFlag).setVisibility(
+                    "incorrect_reference".equals(reason) ? View.VISIBLE : View.GONE);
+            v.findViewById(R.id.paymentCorrectionProofFlag).setVisibility(
+                    "invalid_proof".equals(reason) ? View.VISIBLE : View.GONE);
+        }
+        bindRow(v.findViewById(R.id.paymentCorrectionRowReference), R.string.label_reference_no, reservationReferenceNo);
+        bindRow(v.findViewById(R.id.paymentCorrectionRowTotal), R.string.label_total_booking_amount,
+                formatMoneyAmount(reservationSnapshotGrandTotal));
+
+        EditText amountField = v.findViewById(R.id.paymentCorrectionAmountField);
+        EditText referenceField = v.findViewById(R.id.paymentCorrectionReferenceField);
+        amountField.setFilters(new InputFilter[]{AMOUNT_INPUT_FILTER});
+        referenceField.setFilters(new InputFilter[]{DIGITS_ONLY_FILTER, new InputFilter.LengthFilter(REFERENCE_NUMBER_LENGTH)});
+        amountField.setText(correctionAmountText);
+        referenceField.setText(correctionReferenceText);
+        AuthUiUtils.afterTextChanged(amountField, () -> correctionAmountText = amountField.getText().toString());
+        AuthUiUtils.afterTextChanged(referenceField, () -> correctionReferenceText = referenceField.getText().toString());
+        amountField.setOnFocusChangeListener((view, hasFocus) -> {
+            if (hasFocus) {
+                return;
+            }
+            double typed = PaymentCorrectionRules.parseAmount(amountField.getText().toString());
+            if (typed > 0) {
+                String formatted = String.format(Locale.US, "%.2f", typed);
+                amountField.setText(formatted);
+                correctionAmountText = formatted;
+            }
+        });
+
+        v.findViewById(R.id.paymentCorrectionProofDropzone).setOnClickListener(ClickGuard.wrap(view -> {
+            Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            activity.startActivityForResult(intent, REQUEST_PAYMENT_SCREENSHOT);
+        }));
+        v.findViewById(R.id.paymentCorrectionProofRemove).setOnClickListener(view -> {
+            // Removes the screenshot on file (or the new pick); the guest must upload one to resubmit.
+            correctionProofUri = null;
+            correctionKeepOriginalProof = false;
+            renderCorrectionProof(v);
+        });
+        renderCorrectionProof(v);
+
+        Button resubmitButton = v.findViewById(R.id.paymentCorrectionResubmitButton);
+        resubmitButton.setEnabled(!paymentCorrectionInFlight);
+        resubmitButton.setOnClickListener(ClickGuard.wrap(view -> attemptResubmit(v, resubmitButton)));
+    }
+
+    /** The screenshot area: the new pick, else the one on file, else the empty upload box. */
+    private void renderCorrectionProof(View v) {
+        ImageView preview = v.findViewById(R.id.paymentCorrectionProofPreview);
+        View hint = v.findViewById(R.id.paymentCorrectionProofHint);
+        TextView caption = v.findViewById(R.id.paymentCorrectionProofCaption);
+        View remove = v.findViewById(R.id.paymentCorrectionProofRemove);
+        PaymentVerificationSummary pv = reservationPaymentVerification;
+
+        if (correctionProofUri != null) {
+            preview.setVisibility(View.VISIBLE);
+            hint.setVisibility(View.GONE);
+            ImageLoader.loadUri(preview, correctionProofUri, R.drawable.ic_gallery);
+            caption.setText(R.string.payment_proof_new);
+            remove.setVisibility(View.VISIBLE);
+        } else if (correctionKeepOriginalProof && pv != null && !TextUtils.isEmpty(pv.proof_url)) {
+            preview.setVisibility(View.VISIBLE);
+            hint.setVisibility(View.GONE);
+            ImageLoader.load(preview, pv.proof_url, R.drawable.ic_gallery);
+            caption.setText(R.string.payment_proof_current);
+            remove.setVisibility(View.VISIBLE);
+        } else {
+            preview.setVisibility(View.GONE);
+            hint.setVisibility(View.VISIBLE);
+            caption.setText("");
+            remove.setVisibility(View.GONE);
+        }
+    }
+
+    /**
+     * Resubmit Payment's checks, in the order of the form: a real amount, a 13-digit GCash
+     * reference number, and a screenshot (the one on file or a new one). More than the booking's
+     * total is sent only after the guest confirms it, as on the other Payment screens.
+     */
+    private void attemptResubmit(View v, Button resubmitButton) {
+        if (paymentCorrectionInFlight) {
+            return;
+        }
+        EditText amountField = v.findViewById(R.id.paymentCorrectionAmountField);
+        EditText referenceField = v.findViewById(R.id.paymentCorrectionReferenceField);
+        PaymentCorrectionRules.Problem problem = PaymentCorrectionRules.validate(
+                correctionAmountText, correctionReferenceText, correctionHasProof());
+        switch (problem) {
+            case AMOUNT_REQUIRED:
+                Toast.makeText(activity, R.string.toast_amount_paid_required, Toast.LENGTH_LONG).show();
+                amountField.requestFocus();
+                return;
+            case AMOUNT_TOO_HIGH:
+                Toast.makeText(activity, R.string.toast_amount_too_high, Toast.LENGTH_LONG).show();
+                amountField.requestFocus();
+                return;
+            case REFERENCE_REQUIRED:
+                Toast.makeText(activity, R.string.toast_reference_number_required, Toast.LENGTH_LONG).show();
+                referenceField.requestFocus();
+                return;
+            case REFERENCE_LENGTH:
+                Toast.makeText(activity, R.string.toast_reference_number_invalid_length, Toast.LENGTH_LONG).show();
+                referenceField.requestFocus();
+                return;
+            case PROOF_REQUIRED:
+                Toast.makeText(activity, R.string.toast_screenshot_required, Toast.LENGTH_LONG).show();
+                return;
+            default:
+                break;
+        }
+
+        double amount = PaymentCorrectionRules.parseAmount(correctionAmountText);
+        if (!PaymentCorrectionRules.needsOverpaymentConfirmation(amount, reservationSnapshotGrandTotal)) {
+            submitPaymentCorrection(v, resubmitButton);
+            return;
+        }
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setMessage(R.string.dialog_overpayment_message)
+                .setNegativeButton(R.string.button_no, (d, which) -> {
+                    amountField.requestFocus();
+                    amountField.setSelection(amountField.getText().length());
+                })
+                .setPositiveButton(R.string.button_yes, (d, which) -> submitPaymentCorrection(v, resubmitButton))
+                .create();
+        ThemeManager.applyGlassEffect(dialog.getWindow());
+        dialog.show();
+    }
+
+    /**
+     * Sends the correction for the booking's own payment (POST booking/bookings/{id}/payment/resubmit):
+     * no new booking, reservation or payment is created. Only the amount, reference number and — if
+     * the guest picked one — the screenshot go; the server keeps the previous values in the
+     * payment's history and puts the payment back in front of the receptionist as Pending
+     * Reverification. One request at a time: the button is disabled and further taps are ignored
+     * until it answers.
+     */
+    private void submitPaymentCorrection(View v, Button resubmitButton) {
+        if (paymentCorrectionInFlight) {
+            return;
+        }
+        String token = ProfileStore.getAuthToken(activity);
+        if (token.isEmpty()) {
+            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+            return;
+        }
+        final int bookingId = paymentBookingId();
+        if (bookingId <= 0) {
+            Toast.makeText(activity, R.string.toast_resubmit_failed, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        MultipartBody.Part proofPart = null;
+        if (correctionProofUri != null) {
+            RequestBody proofBody;
+            try {
+                proofBody = readImagePart(correctionProofUri);
+                if (proofBody == null || proofBody.contentType() == null
+                        || !"image".equals(proofBody.contentType().type())) {
+                    Toast.makeText(activity, R.string.toast_screenshot_unreadable, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                if (!PaymentCorrectionRules.proofSizeAllowed(proofBody.contentLength())) {
+                    Toast.makeText(activity, R.string.toast_screenshot_too_large, Toast.LENGTH_LONG).show();
+                    return;
+                }
+            } catch (IOException e) {
+                Toast.makeText(activity, R.string.toast_screenshot_unreadable, Toast.LENGTH_LONG).show();
+                return;
+            }
+            proofPart = MultipartBody.Part.createFormData("proof_image", "payment_proof.jpg", proofBody);
+        }
+
+        paymentCorrectionInFlight = true;
+        resubmitButton.setEnabled(false);
+        String amountText = String.format(Locale.US, "%.2f", PaymentCorrectionRules.parseAmount(correctionAmountText));
+
+        ApiClient.bookingApi().resubmitPayment("Bearer " + token, bookingId, textPart(amountText),
+                textPart(correctionReferenceText.trim()), proofPart)
+                .enqueue(new Callback<ResubmitPaymentResponse>() {
+                    @Override
+                    public void onResponse(Call<ResubmitPaymentResponse> call, Response<ResubmitPaymentResponse> response) {
+                        paymentCorrectionInFlight = false;
+                        resubmitButton.setEnabled(true);
+                        if (response.isSuccessful() && response.body() != null) {
+                            onPaymentResubmitted(bookingId, response.body());
+                        } else if (response.code() == 401) {
+                            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
+                        } else {
+                            // E.g. 422: the payment is no longer waiting for a correction (another
+                            // device already sent one, or the receptionist acted), or the server
+                            // refused a value. Say what it said and re-read the booking.
+                            ErrorResponse error = ApiClient.parseError(response.errorBody());
+                            Toast.makeText(activity, error.firstMessage() != null ? error.firstMessage()
+                                    : activity.getString(R.string.toast_resubmit_failed), Toast.LENGTH_LONG).show();
+                            ReservationFeed.refresh();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<ResubmitPaymentResponse> call, Throwable t) {
+                        paymentCorrectionInFlight = false;
+                        resubmitButton.setEnabled(true);
+                        Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    /** The correction was accepted: the same booking's payment is Pending Reverification now. Show
+     *  that on its details, in the lists, and confirm it to the guest. */
+    private void onPaymentResubmitted(int bookingId, ResubmitPaymentResponse body) {
+        if (body.payment_verification != null) {
+            reservationPaymentVerification = body.payment_verification;
+        }
+        if (body.status_detail != null) {
+            reservationStatus = body.status_detail;
+            rememberActiveReservationStatus();
+        }
+        correctionProofUri = null;
+        ReservationFeed.applyPaymentVerification(ReservationSummary.KIND_BOOKING, bookingId,
+                body.payment_verification, body.status_detail);
+
+        if (currentScreen != SCREEN_PAYMENT_CORRECTION) {
+            // The guest left the form while it was sending; the lists already show the new state.
+            Toast.makeText(activity, R.string.dialog_payment_resubmitted_message, Toast.LENGTH_LONG).show();
+            return;
+        }
+        paymentCorrectionFromDetails = false;
+        showScreen(SCREEN_RESERVATION_DETAILS);
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setTitle(R.string.dialog_payment_resubmitted_title)
+                .setMessage(R.string.dialog_payment_resubmitted_message)
+                .setPositiveButton(R.string.button_ok, null)
+                .create();
+        ThemeManager.applyGlassEffect(dialog.getWindow());
+        dialog.show();
     }
 
     /** The live feed changed: re-read this record's status from it and re-draw if it differs. A
@@ -3266,14 +3686,18 @@ final class HotelBookingFlowController {
         // A request that was just paid is a booking now: pick up what was sent and any change.
         double previousPaid = reservationAmountPaid;
         double previousChange = reservationAmountChange;
+        String previousVerification = PaymentVerificationUi.signature(reservationPaymentVerification);
         if (row.isBooking()) {
             reservationAmountPaid = row.amount_paid;
             reservationAmountChange = row.amount_change;
+            // A rejection, the guest's correction and the receptionist's verdict all arrive here.
+            reservationPaymentVerification = row.payment_verification;
         }
 
         boolean changed = !Objects.equals(previousStatus, reservationStatus)
                 || previousPaid != reservationAmountPaid
                 || previousChange != reservationAmountChange
+                || !previousVerification.equals(PaymentVerificationUi.signature(reservationPaymentVerification))
                 || !Objects.equals(previousReason, reservationCancelReason)
                 || !Objects.equals(previousBy, reservationCancelledBy);
         if (changed) {
@@ -4814,6 +5238,13 @@ final class HotelBookingFlowController {
         amountPaidText = "";
         referenceNumberText = "";
         screenshotUri = null;
+        // The Correct & Resubmit form is a draft: nothing typed or picked there outlives the visit.
+        // (An in-flight request is left to answer for itself, see paymentCorrectionInFlight.)
+        correctionAmountText = "";
+        correctionReferenceText = "";
+        correctionProofUri = null;
+        correctionKeepOriginalProof = true;
+        paymentCorrectionFromDetails = false;
         // Deliberately NOT reset: bookingReference, reservationReferenceNo,
         // reservationAdvanceReservationId, reservationStatus, reservationFeedKind,
         // reservationRecordId, reservationCancelReason,

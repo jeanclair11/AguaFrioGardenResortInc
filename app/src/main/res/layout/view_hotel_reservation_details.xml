@@ -109,6 +109,93 @@
                 <include android:id="@+id/reservationDetailsRowChange" layout="@layout/view_hotel_label_value_row" />
             </LinearLayout>
 
+            <!-- Payment verification: the receptionist's check of the submitted payment — its status,
+                 why it was rejected, and the latest amount / reference / proof on file (see
+                 HotelBookingFlowController#renderPaymentVerification). Gone when there is nothing
+                 to verify. -->
+            <LinearLayout
+                android:id="@+id/reservationDetailsVerificationContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_browse_card"
+                android:elevation="4dp"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
+                android:padding="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    style="@style/BillingSectionLabel"
+                    android:text="@string/section_payment_verification" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <View
+                        android:id="@+id/reservationDetailsVerificationDot"
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:background="@drawable/bg_progress_dot_filled" />
+
+                    <TextView
+                        android:id="@+id/reservationDetailsVerificationStatus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/reservationDetailsVerificationMessage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:lineSpacingExtra="3dp"
+                    android:textColor="?attr/textPrimary"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/reservationDetailsVerificationRemarks"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:lineSpacingExtra="3dp"
+                    android:textColor="?attr/textMuted"
+                    android:textSize="12sp" />
+
+                <include android:id="@+id/reservationDetailsVerificationAmount" layout="@layout/view_hotel_label_value_row" />
+                <include android:id="@+id/reservationDetailsVerificationReference" layout="@layout/view_hotel_label_value_row" />
+
+                <TextView
+                    android:id="@+id/reservationDetailsVerificationProofLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:letterSpacing="0.04"
+                    android:textAllCaps="true"
+                    android:textColor="?attr/textMuted"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:text="@string/label_proof_of_payment" />
+
+                <ImageView
+                    android:id="@+id/reservationDetailsVerificationProof"
+                    android:layout_width="match_parent"
+                    android:layout_height="180dp"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/bg_upload_dropzone"
+                    android:scaleType="centerCrop"
+                    android:importantForAccessibility="no" />
+            </LinearLayout>
+
             <!-- Who cancelled and why (shown only when the record's status key is cancelled) -->
             <LinearLayout
                 android:id="@+id/reservationDetailsCancelledContainer"
@@ -190,6 +277,14 @@
         android:paddingTop="10dp"
         android:paddingEnd="20dp"
         android:paddingBottom="16dp">
+
+        <!-- Shown only while the booking's payment is rejected and waiting for the guest's correction. -->
+        <Button
+            android:id="@+id/reservationDetailsCorrectPaymentButton"
+            style="@style/PrimaryButton"
+            android:text="@string/button_correct_resubmit"
+            android:textAllCaps="false"
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/reservationDetailsPayNowButton"

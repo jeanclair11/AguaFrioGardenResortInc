@@ -1,6 +1,7 @@
 package com.aguafriogarden.resortinc;
 
 import com.aguafriogarden.resortinc.network.MyStatusesResponse;
+import com.aguafriogarden.resortinc.network.PaymentVerificationSummary;
 import com.aguafriogarden.resortinc.network.ReservationSummary;
 
 import java.util.List;
@@ -16,7 +17,9 @@ import java.util.Objects;
  *       vanished) or a status that moved to another kind/key means the full list must be
  *       refetched ({@link #needsRefetch}), so the other fields follow;</li>
  *   <li>a status merely re-worded or re-coloured under the same kind/key only needs the in-place
- *       patch.</li>
+ *       patch;</li>
+ *   <li>a booking whose payment verification moved (rejected, corrected, verified) needs the
+ *       refetch too, since its status stays the same while the reason and amounts change.</li>
  * </ul>
  */
 final class FeedDiff {
@@ -41,6 +44,12 @@ final class FeedDiff {
             if (mine == null) {
                 sameSet = false;
                 continue;
+            }
+            // A payment the receptionist rejected, or approved after the guest's correction, leaves
+            // the booking's own status as it was (still Pending); the poll only carries the
+            // verification's status, so the full record (reason, history, amounts) is refetched.
+            if (!PaymentVerificationSummary.sameState(mine.payment_verification, incoming.payment_verification)) {
+                statusMoved = true;
             }
             if (incoming.status == null || incoming.status.equals(mine.status)) {
                 continue;

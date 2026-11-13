@@ -59,9 +59,14 @@ public class ReservationSummary {
         public double amount;
         /** Excess over what was due on this payment; 0 when none. */
         public double change;
-        /** "pending" (awaiting staff verification), "verified" or "cancelled". */
+        /** "pending" (awaiting staff verification), "verified" or "cancelled" — or, once the
+         *  receptionist has looked at it, "rejected" / "pending_reverification". */
         public String status;
     }
+    /** The receptionist's verification of the payment submitted with this booking (rejected,
+     *  waiting for a correction, ...); null when there is nothing to verify or from servers that
+     *  predate it. Only ever set for a {@link #KIND_BOOKING}. */
+    public PaymentVerificationSummary payment_verification;
     public String created_at;
     /** Only meaningful for a {@link #KIND_REQUEST} — null once promoted or if never set. */
     public String payment_deadline;

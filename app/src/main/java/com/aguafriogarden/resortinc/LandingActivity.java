@@ -412,7 +412,7 @@ public class LandingActivity extends Activity {
                 this::setBottomNavHidden);
         dashboardHome = new DashboardHomeController(this);
         profileController = new ProfileController(this, this::showHome, this::logout, this::bindHeaderAvatar,
-                this::openHistoryReservation);
+                this::openHistoryReservation, this::openPaymentCorrection);
         feedbackController = new FeedbackController(this);
         chatController = new ChatController(this);
         notificationController = new NotificationController(this, n -> {
@@ -837,6 +837,15 @@ public class LandingActivity extends Activity {
             showModule(Section.RESERVE);
             reserveCatalog.showReservationDetails(summary, backToProfile);
         }
+    }
+
+    /** "Correct &amp; Resubmit" on a My Bookings card: opens the payment correction form for that
+     *  booking in the Book flow (a payment is only ever rejected on a booking); Back returns to
+     *  Profile. */
+    private void openPaymentCorrection(com.aguafriogarden.resortinc.network.ReservationSummary summary) {
+        Runnable backToProfile = () -> showModule(Section.PROFILE);
+        showModule(Section.BOOK);
+        bookingCatalog.showPaymentCorrection(summary, backToProfile);
     }
 
     /** Book flow success screen's View Booking: opens that booking in Profile's history. */

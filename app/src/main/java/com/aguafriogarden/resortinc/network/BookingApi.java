@@ -259,6 +259,23 @@ public interface BookingApi {
             @PartMap Map<String, RequestBody> quantities);
 
     /**
+     * The guest's correction of a payment the receptionist rejected ("Reject &amp; Request
+     * Correction"), for the booking the payment belongs to ({@code bookingId} is the booking's own
+     * id, as in my-bookings). Nothing new is created: the same payment goes to Pending
+     * Reverification with these details. {@code proofImage} is null to keep the screenshot already
+     * on file (a null part is simply not sent); a new one replaces it. The old values stay in the
+     * payment's history on the server.
+     */
+    @Multipart
+    @POST("booking/bookings/{id}/payment/resubmit")
+    Call<ResubmitPaymentResponse> resubmitPayment(
+            @Header("Authorization") String bearerToken,
+            @Path("id") int bookingId,
+            @Part("amount_paid") RequestBody amountPaid,
+            @Part("reference_number") RequestBody referenceNumber,
+            @Part MultipartBody.Part proofImage);
+
+    /**
      * Cancels a still-Pending reservation the guest submitted themselves (matches the backend's
      * own guard: 404/422 if it's not theirs, already promoted, or no longer pending).
      */
