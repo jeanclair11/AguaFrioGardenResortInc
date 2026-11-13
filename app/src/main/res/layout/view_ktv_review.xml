@@ -53,6 +53,10 @@
                     android:layout_marginTop="0dp" />
 
                 <include
+                    android:id="@+id/ktvReviewRowDuration"
+                    layout="@layout/view_hotel_label_value_row" />
+
+                <include
                     android:id="@+id/ktvReviewRowDate"
                     layout="@layout/view_hotel_label_value_row" />
 

@@ -19,6 +19,11 @@ public class CottageKtvOption {
     /** KTV units only: guests included in the price, and the charge per guest beyond that. */
     public int base_capacity;
     public double extra_person_price;
+    /** KTV units only: the rental length (hours) and rate type ("3 Hours") the Admin configured for
+     *  this unit's Type in KTV Room Management. Read-only in the app; 0 / null when not configured
+     *  (such a unit is never offered). */
+    public int rental_hours;
+    public String rate_label;
     public int group_id;
     public int variant_id;
     public String variant_name;

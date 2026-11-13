@@ -86,6 +86,7 @@
                 <include android:id="@+id/reservationSummaryDetailsRow3" layout="@layout/view_hotel_label_value_row" />
                 <include android:id="@+id/reservationSummaryDetailsRow4" layout="@layout/view_hotel_label_value_row" />
                 <include android:id="@+id/reservationSummaryDetailsRow5" layout="@layout/view_hotel_label_value_row" />
+                <include android:id="@+id/reservationSummaryDetailsRow6" layout="@layout/view_hotel_label_value_row" android:visibility="gone" />
             </LinearLayout>
 
             <!-- Selected Room(s)/Cottage/KTV Room â€” title and line items depend on category. -->

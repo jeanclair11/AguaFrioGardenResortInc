@@ -309,11 +309,6 @@ final class HotelBookingFlowController {
 
     private List<CottageKtvOption> cottageItems = new ArrayList<>();
     private List<CottageKtvOption> ktvItems = new ArrayList<>();
-    /** The KTV session length (Book and Reserve). The guest never picks it: it is taken from the
-     *  session length HR configured in KTV Room Management (the price packages' hours — see
-     *  #loadKtvSessionHours) and feeds availability/pricing lookups, the end-time calc, the
-     *  Review/Billing rows and the submitted ktv[duration_hours]. 0 until loaded. */
-    private int ktvDurationHours = 0;
     private List<RoomTypeAvailability> availableRoomTypes = new ArrayList<>();
     private final Map<Integer, Integer> roomQuantities = new LinkedHashMap<>();
     // Choose Your Stay Dates (see bindRoomDates): availableRoomTypes is what the server said was free
@@ -1651,8 +1646,6 @@ final class HotelBookingFlowController {
 
         updateKtvDateField(dateText);
         updateKtvStartTimeField(startTimeText);
-        updateKtvDatesEndTimeAndDuration(v);
-        loadKtvSessionHours(v);
         // In the multi-facility flow the date is carried over from the first facility and isn't
         // asked for again — only the session details (start time) are.
         if (multiMode && multiIndex > 0) {
@@ -1679,7 +1672,7 @@ final class HotelBookingFlowController {
                 ktvStartHour = hour;
                 ktvStartMinute = minute;
                 updateKtvStartTimeField(startTimeText);
-                updateKtvDatesEndTimeAndDuration(v);
+                updateKtvRentalDetails(v);
                 startTimeError.setVisibility(View.GONE);
                 if (changed) {
                     onFacilityScheduleChanged(v, FAC_KTV);
@@ -1693,10 +1686,6 @@ final class HotelBookingFlowController {
 
         v.findViewById(R.id.ktvDatesNextButton).setOnClickListener(ClickGuard.wrap(view -> {
             boolean valid = true;
-            if (ktvDurationHours <= 0) {
-                Toast.makeText(activity, R.string.toast_ktv_no_rates, Toast.LENGTH_LONG).show();
-                valid = false;
-            }
             if (ktvDateMillis < 0) {
                 showError(dateError, R.string.error_date_required);
                 valid = false;
@@ -1734,54 +1723,44 @@ final class HotelBookingFlowController {
                 + String.format(Locale.US, "%02d:%02d", ktvStartHour, ktvStartMinute);
     }
 
-    /** Sets the session length from what HR configured in KTV Room Management: the hours of the
-     *  KTV price packages, fetched live each time this screen opens (so admin changes show up).
-     *  Shown read-only — there is no control to change it. If the configured packages don't all
-     *  share one length, the shortest (the base session) is used; with none configured the guest
-     *  is told rates are unavailable and Next is blocked. */
-    private void loadKtvSessionHours(View v) {
-        TextView info = v.findViewById(R.id.ktvDatesDurationInfo);
-        Runnable render = () -> {
-            info.setText(ktvDurationHours > 0
-                    ? activity.getString(R.string.format_ktv_session_hours, ktvDurationHours)
-                    : activity.getString(R.string.label_ktv_no_rates));
-            updateKtvDatesEndTimeAndDuration(v);
-        };
-        render.run();
-
-        ApiClient.bookingApi().getKtvUnits(null, null, null).enqueue(new Callback<KtvUnitListResponse>() {
-            @Override
-            public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
-                if (!response.isSuccessful() || response.body() == null || !v.isAttachedToWindow()) {
-                    return;
-                }
-                List<Integer> configured = response.body().durationOptions(); // ascending
-                ktvDurationHours = configured.isEmpty() ? 0 : configured.get(0);
-                render.run();
+    /** The KTV rooms' picks: the live ones, except in a multi-facility booking once the guest has
+     *  moved on from the KTV step (KTV is the last facility, so its picks were saved then). */
+    private Map<Integer, Integer> ktvPicks() {
+        if (multiMode && multiIndex >= 0 && multiIndex < multiQueue.size()
+                && multiQueue.get(multiIndex) != FAC_KTV) {
+            Map<Integer, Integer> saved = multiQuantities.get(FAC_KTV);
+            if (saved != null) {
+                return saved;
             }
-
-            @Override
-            public void onFailure(Call<KtvUnitListResponse> call, Throwable t) {
-                // Keeps whatever was last loaded; nothing is invented.
-            }
-        });
+        }
+        return roomQuantities;
     }
 
-    private void updateKtvDatesEndTimeAndDuration(View v) {
-        TextView endTimeText = v.findViewById(R.id.ktvDatesEndTimeText);
-        int hours = ktvDurationHours;
+    /** The rental length (hours) the session's end time follows: the one the Admin configured for the
+     *  picked KTV room in KTV Room Management, never entered by the guest. Rooms of different Types
+     *  may differ; the longest counts, as on the Receptionist's forms. 0 while nothing is picked. */
+    private int ktvSelectedHours() {
+        return KtvRentalRules.longestHours(ktvItems, ktvPicks());
+    }
 
-        if (hours <= 0 || ktvStartHour < 0) {
-            endTimeText.setText(R.string.placeholder_em_dash);
-            endTimeText.setAlpha(0.5f);
+    /** Fills the read-only Rental Details card under the room list (rate type, duration, end time and
+     *  rental price) from the picked rooms; the card is hidden until a room is picked. */
+    private void updateKtvRentalDetails(View v) {
+        View card = v.findViewById(R.id.ktvDatesRentalCard);
+        if (card == null) {
             return;
         }
-        Calendar calendar = Calendar.getInstance();
-        calendar.set(Calendar.HOUR_OF_DAY, ktvStartHour);
-        calendar.set(Calendar.MINUTE, ktvStartMinute);
-        calendar.add(Calendar.HOUR_OF_DAY, hours);
-        endTimeText.setText(formatHourMinute(calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE)));
-        endTimeText.setAlpha(1f);
+        Map<Integer, Integer> picks = ktvPicks();
+        if (FacilitySelectionRules.itemCount(ktvItems, picks) <= 0) {
+            card.setVisibility(View.GONE);
+            return;
+        }
+        card.setVisibility(View.VISIBLE);
+        bindRow(v.findViewById(R.id.ktvDatesRentalRowRate), R.string.label_rate_type, ktvRateTypeLabel());
+        bindRow(v.findViewById(R.id.ktvDatesRentalRowDuration), R.string.label_duration, ktvDurationLabel());
+        bindRow(v.findViewById(R.id.ktvDatesRentalRowEnd), R.string.label_end_time, formatKtvEndTime());
+        bindRow(v.findViewById(R.id.ktvDatesRentalRowPrice), R.string.label_rental_price,
+                formatCurrency(KtvRentalRules.rentalSubtotal(ktvItems, picks)));
     }
 
     // ---- Cottage / KTV: the schedule's available list ------------------------------------
@@ -1867,6 +1846,10 @@ final class HotelBookingFlowController {
                     : R.string.toast_select_ktv, Toast.LENGTH_LONG).show();
             return;
         }
+        if (facility == FAC_KTV && !KtvRentalRules.allConfigured(ktvItems, roomQuantities)) {
+            Toast.makeText(activity, R.string.toast_ktv_no_rates, Toast.LENGTH_LONG).show();
+            return;
+        }
         if (multiMode && multiIndex > 0) {
             multiAdvance();
             return;
@@ -1878,6 +1861,13 @@ final class HotelBookingFlowController {
      *  loads, a retry after a failure, a note when nothing is free, otherwise one card per item that
      *  has availability (the guest's original pick first). */
     private void renderFacilityList(View v, int facility) {
+        renderFacilityItems(v, facility);
+        if (facility == FAC_KTV) {
+            updateKtvRentalDetails(v);
+        }
+    }
+
+    private void renderFacilityItems(View v, int facility) {
         boolean cottage = facility == FAC_COTTAGE;
         FacilityLoad load = loadOf(facility);
         LinearLayout container = v.findViewById(R.id.facilityListContainer);
@@ -1993,15 +1983,9 @@ final class HotelBookingFlowController {
                 public void onResponse(Call<KtvUnitListResponse> call, Response<KtvUnitListResponse> response) {
                     List<CottageKtvOption> items = null;
                     if (response.isSuccessful() && response.body() != null) {
-                        if (ktvDurationHours <= 0) {
-                            // Before the session length has loaded, take it from these same packages.
-                            List<Integer> configured = response.body().durationOptions();
-                            ktvDurationHours = configured.isEmpty() ? 0 : configured.get(0);
-                            if (v.isAttachedToWindow()) {
-                                updateKtvDatesEndTimeAndDuration(v);
-                            }
-                        }
-                        items = new ArrayList<>(response.body().toOptions(ktvDurationHours));
+                        // Each room carries the rental length, rate type and price the Admin
+                        // configured for it; nothing about them is chosen or kept in the app.
+                        items = new ArrayList<>(response.body().toOptions());
                     }
                     onFacilityResponse(v, facility, key, call, foreground, response.code(), items);
                 }
@@ -2552,7 +2536,8 @@ final class HotelBookingFlowController {
         bindHeader(v, R.id.ktvReviewHeaderBar, R.string.hotel_review_title,
                 () -> showScreen(SCREEN_KTV_GUESTS));
 
-        bindRow(v.findViewById(R.id.ktvReviewRowRateType), R.string.label_duration, ktvDurationLabel());
+        bindRow(v.findViewById(R.id.ktvReviewRowRateType), R.string.label_rate_type, ktvRateTypeLabel());
+        bindRow(v.findViewById(R.id.ktvReviewRowDuration), R.string.label_duration, ktvDurationLabel());
         bindRow(v.findViewById(R.id.ktvReviewRowDate), R.string.label_date, formatDate(ktvDateMillis));
         bindRow(v.findViewById(R.id.ktvReviewRowTime), R.string.label_time, formatHourMinute(ktvStartHour, ktvStartMinute));
         bindRow(v.findViewById(R.id.ktvReviewRowEndTime), R.string.label_end_time, formatKtvEndTime());
@@ -2590,26 +2575,41 @@ final class HotelBookingFlowController {
         }));
     }
 
+    /** The configured rental length of the picked KTV rooms, e.g. "3 Hours" (or "3 Hours, 5 Hours"
+     *  when their Types differ); an em dash until a room with a configured length is picked. */
     private String ktvDurationLabel() {
-        return activity.getString(R.string.format_duration_hours, ktvDurationHours);
+        List<Integer> hours = KtvRentalRules.pickedHours(ktvItems, ktvPicks());
+        if (hours.isEmpty()) {
+            return activity.getString(R.string.placeholder_em_dash);
+        }
+        StringBuilder label = new StringBuilder();
+        for (int h : hours) {
+            if (label.length() > 0) {
+                label.append(", ");
+            }
+            label.append(activity.getString(R.string.format_duration_hours, h));
+        }
+        return label.toString();
+    }
+
+    /** The configured rate type of the picked KTV rooms, e.g. "3 Hours". */
+    private String ktvRateTypeLabel() {
+        String label = KtvRentalRules.rateLabel(ktvItems, ktvPicks());
+        return label.isEmpty() ? ktvDurationLabel() : label;
     }
 
     private String formatKtvGuests() {
         return ktvGuestCount + (ktvGuestCount == 1 ? " Guest" : " Guests");
     }
 
-    /** Same calculation as updateKtvDatesEndTimeAndDuration, as a plain String for the Review
-     *  screen's read-only row instead of writing straight into a TextView. */
+    /** The session's end time: the start time plus the configured rental length of the picked
+     *  rooms (1:00 PM + 3 hours = 4:00 PM). An em dash until there is a start time and a room. */
     private String formatKtvEndTime() {
-        int hours = ktvDurationHours;
-        if (hours <= 0 || ktvStartHour < 0) {
+        int end = KtvRentalRules.endMinuteOfDay(ktvStartHour, ktvStartMinute, ktvSelectedHours());
+        if (end < 0) {
             return activity.getString(R.string.placeholder_em_dash);
         }
-        Calendar calendar = Calendar.getInstance();
-        calendar.set(Calendar.HOUR_OF_DAY, ktvStartHour);
-        calendar.set(Calendar.MINUTE, ktvStartMinute);
-        calendar.add(Calendar.HOUR_OF_DAY, hours);
-        return formatHourMinute(calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE));
+        return formatHourMinute(end / 60, end % 60);
     }
 
     /**
@@ -2629,16 +2629,17 @@ final class HotelBookingFlowController {
         bindRow(v.findViewById(R.id.billingRowAddress), R.string.label_address, ProfileStore.getAddress(activity));
 
         // Stay Details has 6 generic label/value row slots (built for check-in/out/nights/
-        // adults/children/total-guests); KTV only needs 5 differently-shaped fields, so they're
-        // remapped onto those same rows (CheckIn->RateType, CheckOut->Date, Nights->Time,
-        // Adults->EndTime, Children->TotalGuest) and the 6th slot is hidden — same reuse-the-
-        // layout approach as bindCottageBilling, just with one fewer field needed.
-        bindRow(v.findViewById(R.id.billingRowCheckIn), R.string.label_duration, ktvDurationLabel());
-        bindRow(v.findViewById(R.id.billingRowCheckOut), R.string.label_date, formatDate(ktvDateMillis));
-        bindRow(v.findViewById(R.id.billingRowNights), R.string.label_time, formatHourMinute(ktvStartHour, ktvStartMinute));
-        bindRow(v.findViewById(R.id.billingRowAdults), R.string.label_end_time, formatKtvEndTime());
-        bindRow(v.findViewById(R.id.billingRowChildren), R.string.label_total_guest, formatKtvGuests());
-        v.findViewById(R.id.billingRowTotalGuests).setVisibility(View.GONE);
+        // adults/children/total-guests); KTV's 6 differently-shaped fields are remapped onto those
+        // same rows (CheckIn->RateType, CheckOut->Duration, Nights->Date, Adults->StartTime,
+        // Children->EndTime, TotalGuests->TotalGuest) — same reuse-the-layout approach as
+        // bindCottageBilling.
+        bindRow(v.findViewById(R.id.billingRowCheckIn), R.string.label_rate_type, ktvRateTypeLabel());
+        bindRow(v.findViewById(R.id.billingRowCheckOut), R.string.label_duration, ktvDurationLabel());
+        bindRow(v.findViewById(R.id.billingRowNights), R.string.label_date, formatDate(ktvDateMillis));
+        bindRow(v.findViewById(R.id.billingRowAdults), R.string.label_start_time, formatHourMinute(ktvStartHour, ktvStartMinute));
+        bindRow(v.findViewById(R.id.billingRowChildren), R.string.label_end_time, formatKtvEndTime());
+        bindRow(v.findViewById(R.id.billingRowTotalGuests), R.string.label_total_guest, formatKtvGuests());
+        v.findViewById(R.id.billingRowTotalGuests).setVisibility(View.VISIBLE);
 
         ((TextView) v.findViewById(R.id.billingAccommodationLabel)).setText(R.string.section_ktv_rooms);
         LinearLayout accommodationContainer = v.findViewById(R.id.billingAccommodationContainer);
@@ -2834,6 +2835,7 @@ final class HotelBookingFlowController {
         View row3 = v.findViewById(R.id.reservationSummaryDetailsRow3);
         View row4 = v.findViewById(R.id.reservationSummaryDetailsRow4);
         View row5 = v.findViewById(R.id.reservationSummaryDetailsRow5);
+        View row6 = v.findViewById(R.id.reservationSummaryDetailsRow6);
         LinearLayout itemsContainer = v.findViewById(R.id.reservationSummaryItemsContainer);
         itemsContainer.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(activity);
@@ -2848,6 +2850,7 @@ final class HotelBookingFlowController {
             row3.setVisibility(View.GONE);
             bindRow(row4, R.string.label_number_of_guests, formatCottageGuests());
             row5.setVisibility(View.GONE);
+            row6.setVisibility(View.GONE);
 
             selectedTitle.setText(R.string.section_selected_cottage);
             for (CottageKtvOption item : cottageItems) {
@@ -2868,12 +2871,14 @@ final class HotelBookingFlowController {
             grandTotal = computeCottageGrandTotal();
         } else if (activeContinuation == CONTINUATION_KTV) {
             detailsTitle.setText(R.string.section_visit_details);
-            bindRow(row1, R.string.label_duration, ktvDurationLabel());
-            bindRow(row2, R.string.label_date, formatDate(ktvDateMillis));
-            bindRow(row3, R.string.label_start_time, formatHourMinute(ktvStartHour, ktvStartMinute));
-            bindRow(row4, R.string.label_end_time, formatKtvEndTime());
-            bindRow(row5, R.string.label_number_of_guests, formatKtvGuests());
+            bindRow(row1, R.string.label_rate_type, ktvRateTypeLabel());
+            bindRow(row2, R.string.label_duration, ktvDurationLabel());
+            bindRow(row3, R.string.label_date, formatDate(ktvDateMillis));
+            bindRow(row4, R.string.label_start_time, formatHourMinute(ktvStartHour, ktvStartMinute));
+            bindRow(row5, R.string.label_end_time, formatKtvEndTime());
+            bindRow(row6, R.string.label_number_of_guests, formatKtvGuests());
             row5.setVisibility(View.VISIBLE);
+            row6.setVisibility(View.VISIBLE);
 
             selectedTitle.setText(R.string.section_selected_ktv_rooms);
             for (CottageKtvOption item : ktvItems) {
@@ -2901,6 +2906,7 @@ final class HotelBookingFlowController {
             bindRow(row3, R.string.label_number_of_nights, String.valueOf(nights));
             bindRow(row4, R.string.label_number_of_guests, formatGuests());
             row5.setVisibility(View.GONE);
+            row6.setVisibility(View.GONE);
 
             selectedTitle.setText(R.string.section_selected_rooms);
             for (RoomTypeAvailability room : availableRoomTypes) {
@@ -5219,7 +5225,6 @@ final class HotelBookingFlowController {
         ktvGuestCount = 1;
         ktvAdults = 1;
         ktvChildren = 0;
-        ktvDurationHours = 0;
         resetFacilitySelection();
         resetRoomSelection();
         specialRequest = "";
@@ -5986,7 +5991,6 @@ final class HotelBookingFlowController {
                 fields.put("ktv[event_date]", day.format(new Date(ktvDateMillis)));
                 fields.put("ktv[start_time]", String.format(Locale.US, "%02d:%02d", ktvStartHour, ktvStartMinute));
                 fields.put("ktv[guest_count]", String.valueOf(ktvGuestCount));
-                fields.put("ktv[duration_hours]", String.valueOf(ktvDurationHours));
                 putKtvSelection(fields, quantitiesFor.apply(FAC_KTV));
             }
         }

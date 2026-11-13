@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Hotel booking flow's own focused "Plan Your KTV Session" gate screen (rate type, date, start
-     time, read-only end time/duration, guest count, Next) for KTV Rooms — the Book/Reserve tabs'
+<!-- Hotel booking flow's own focused "Plan Your KTV Session" gate screen (date, start time, the
+     free rooms and a read-only Rental Details card: rate type, duration, end time, price) for KTV Rooms — the Book/Reserve tabs'
      shared entry point, reached either from their "What do you want to book/reserve?" picker or
      from a KTV Overview's "Book Now"/"Reserve Now" — deliberately distinct from the hotel-room
      (view_room_booking_dates.xml) and cottage (view_cottage_booking_dates.xml) gate screens. See
@@ -134,64 +134,6 @@
             </com.aguafriogarden.resortinc.AuthInputField>
             <com.aguafriogarden.resortinc.AuthFieldError android:id="@+id/ktvDatesStartTimeError" style="@style/AuthFieldError" />
 
-            <!-- End Time (read-only, start time + chosen duration) -->
-            <TextView
-                style="@style/FieldLabel"
-                android:layout_marginTop="18dp"
-                android:text="@string/label_end_time" />
-
-            <com.aguafriogarden.resortinc.AuthInputField
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_auth_input"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:padding="14dp">
-
-                <TextView
-                    android:id="@+id/ktvDatesEndTimeText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    android:text="@string/placeholder_em_dash"
-                    android:textColor="?attr/textPrimary"
-                    android:alpha="0.5"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-            </com.aguafriogarden.resortinc.AuthInputField>
-
-            <!-- Duration: read-only. The length comes from the price packages configured in KTV Room
-                 Management (see HotelBookingFlowController#loadKtvSessionHours); the guest cannot
-                 change it. -->
-            <TextView
-                style="@style/FieldLabel"
-                android:layout_marginTop="18dp"
-                android:text="@string/label_duration" />
-
-            <com.aguafriogarden.resortinc.AuthInputField
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_auth_input"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:padding="14dp">
-
-                <TextView
-                    android:id="@+id/ktvDatesDurationInfo"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    android:textColor="?attr/textPrimary"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-            </com.aguafriogarden.resortinc.AuthInputField>
-
             <!-- The cottages / KTV rooms free for the chosen schedule, filled by
                  HotelBookingFlowController#renderFacilityList: one card per item that has availability,
                  each with its own quantity control (a KTV room is a SELECT toggle). An item with
@@ -237,6 +179,46 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:visibility="gone" />
+
+            <!-- Read-only Rental Details, shown once a room is picked (see
+                 HotelBookingFlowController#updateKtvRentalDetails): everything here is what the Admin
+                 configured for the picked room's Type in KTV Room Management, so the guest never
+                 enters a duration or rate type; the end time is the start time plus the duration. -->
+            <LinearLayout
+                android:id="@+id/ktvDatesRentalCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:background="@drawable/bg_browse_card"
+                android:elevation="4dp"
+                android:orientation="vertical"
+                android:outlineAmbientShadowColor="@color/card_shadow_ambient"
+                android:outlineSpotShadowColor="@color/card_shadow_spot"
+                android:padding="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    style="@style/BillingSectionLabel"
+                    android:text="@string/section_rental_details" />
+
+                <include
+                    android:id="@+id/ktvDatesRentalRowRate"
+                    layout="@layout/view_hotel_label_value_row"
+                    android:layout_marginTop="0dp" />
+
+                <include
+                    android:id="@+id/ktvDatesRentalRowDuration"
+                    layout="@layout/view_hotel_label_value_row" />
+
+                <include
+                    android:id="@+id/ktvDatesRentalRowEnd"
+                    layout="@layout/view_hotel_label_value_row" />
+
+                <include
+                    android:id="@+id/ktvDatesRentalRowPrice"
+                    layout="@layout/view_hotel_label_value_row" />
+
+            </LinearLayout>
 
         </LinearLayout>
     </ScrollView>

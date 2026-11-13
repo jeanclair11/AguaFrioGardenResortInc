@@ -1311,7 +1311,7 @@ public class LandingActivity extends Activity {
                 if (!ok && hasLoadedOnce(container)) {
                     return;
                 }
-                bindCottageKtvOptions(container, emptyState, ok ? response.body().toOptions(0) : new ArrayList<>(),
+                bindCottageKtvOptions(container, emptyState, ok ? response.body().toOptions() : new ArrayList<>(),
                         getString(R.string.service_type_ktv), true, Section.KTV);
             }
 

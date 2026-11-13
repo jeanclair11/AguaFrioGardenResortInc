@@ -593,7 +593,7 @@
     <!-- KTV Overview's "Book Now" entry only (see HotelBookingFlowController#bindKtvDatesEntry) —
          the Book/Reserve tabs' shared focused, KTV-only gate screen. -->
     <string name="ktv_dates_title">Plan Your KTV Session</string>
-    <string name="ktv_dates_subtitle">Set your preferred date and start time to see the KTV rooms available for that session, then select the ones you\'d like. You\'ll tell us how many guests are coming on the next step.</string>
+    <string name="ktv_dates_subtitle">Set your preferred date and start time to see the KTV rooms available for that session, then select the one you\'d like. Each room\'s rental duration, rate and price are already set by the resort, and the end time is worked out for you. You\'ll tell us how many guests are coming on the next step.</string>
     <string name="button_next">Next</string>
     <string name="button_add">Add</string>
     <string name="button_reserve">Reserve</string>
@@ -617,9 +617,10 @@
     <string name="label_duration">Duration</string>
     <string name="format_ktv_extra_guests">+%1$d extra guest/s: PHP %2$s</string>
     <string name="toast_ktv_duration_unavailable">No KTV room offers that duration.</string>
-    <string name="label_ktv_no_rates">No KTV rates are available right now.</string>
-    <string name="toast_ktv_no_rates">KTV rates are not available right now. Please try again later.</string>
-    <string name="format_ktv_session_hours">KTV Session: %1$d Hours</string>
+    <string name="toast_ktv_no_rates">A KTV room you picked has no rental rate set up yet. Please choose another room.</string>
+    <string name="label_rate_type">Rate Type</string>
+    <string name="label_rental_price">Rental Price</string>
+    <string name="section_rental_details">RENTAL DETAILS</string>
     <string name="button_select">SELECT</string>
     <string name="button_selected">SELECTED</string>
     <string name="status_available">Available</string>
