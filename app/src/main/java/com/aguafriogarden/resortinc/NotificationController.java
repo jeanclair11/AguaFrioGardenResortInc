@@ -141,16 +141,21 @@ final class NotificationController {
         ((TextView) card.findViewById(R.id.notificationTimestamp)).setText(timestampLabel(n, group));
 
         Button actionButton = card.findViewById(R.id.notificationActionButton);
-        if (n.buttonLabel != null) {
-            actionButton.setText(n.buttonLabel);
-            actionButton.setVisibility(View.VISIBLE);
-            actionButton.setOnClickListener(v -> {
+        String label = actionLabel(n);
+        if (label != null) {
+            // The whole card and its button do the same thing: open what the alert is about.
+            View.OnClickListener open = v -> {
                 // Following the alert to its screen counts as having read it.
                 if (!n.isRead) {
                     NotificationStore.setRead(activity, n, true);
+                    onStateChanged.run();
                 }
                 onAction.accept(n);
-            });
+            };
+            actionButton.setText(label);
+            actionButton.setVisibility(View.VISIBLE);
+            actionButton.setOnClickListener(open);
+            card.setOnClickListener(open);
         } else {
             actionButton.setVisibility(View.GONE);
         }
@@ -164,6 +169,17 @@ final class NotificationController {
         card.findViewById(R.id.notificationArchiveToggle).setOnClickListener(v -> toggleArchived(n));
 
         return card;
+    }
+
+    /** The button's text — what tapping opens. Worked out here rather than stored so an alert whose
+     *  reservation request was since paid (and is now a booking) says so. Null: nothing to open. */
+    private String actionLabel(NotificationStore.Notification n) {
+        if (n.hasTarget()) {
+            return activity.getString("payment_rejected".equals(n.event) ? R.string.notif_button_correct_payment
+                    : n.isTargetBooking() ? R.string.notif_button_view_booking
+                    : R.string.notif_button_view_reservation_request);
+        }
+        return n.buttonLabel;
     }
 
     private void toggleRead(NotificationStore.Notification n) {
@@ -184,7 +200,10 @@ final class NotificationController {
             case FEEDBACK:
                 return R.drawable.ic_feedback;
             case RESERVATION:
+            case BOOKING:
                 return R.drawable.ic_calendar;
+            case PAYMENT:
+                return R.drawable.ic_payment;
             default:
                 String title = n.title == null ? "" : n.title.toLowerCase(Locale.ROOT);
                 if (title.contains("order") || title.contains("food")) {

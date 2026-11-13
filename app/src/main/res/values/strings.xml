@@ -435,6 +435,11 @@
     <string name="guest_alerts_channel_name">Resort updates</string>
     <string name="guest_alerts_channel_desc">Updates from the resort staff, such as payments received and replies to your feedback</string>
     <string name="notif_button_view_reservation">VIEW RESERVATION</string>
+    <string name="notif_button_view_booking">VIEW BOOKING</string>
+    <string name="notif_button_view_reservation_request">VIEW RESERVATION</string>
+    <string name="notif_button_correct_payment">CORRECT PAYMENT</string>
+    <string name="notif_target_unavailable">That booking or reservation is no longer available.</string>
+    <string name="notif_target_loading_failed">Couldn\'t open it right now. Check your connection and try again.</string>
     <string name="notif_button_view_feedback">VIEW RESPONSE</string>
     <string name="badge_count_overflow">9+</string>
 

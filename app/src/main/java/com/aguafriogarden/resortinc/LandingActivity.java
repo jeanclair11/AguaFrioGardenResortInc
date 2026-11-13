@@ -220,7 +220,9 @@ public class LandingActivity extends Activity {
         }
         restoreSection(savedInstanceState);
         String openModule = getIntent().getStringExtra(ChatPollingService.EXTRA_OPEN_MODULE);
-        if (loggedIn && ChatPollingService.EXTRA_VALUE_CHAT.equals(openModule)) {
+        if (loggedIn && ChatPollingService.EXTRA_VALUE_ALERT_TARGET.equals(openModule)) {
+            openFromSystemNotification(getIntent());
+        } else if (loggedIn && ChatPollingService.EXTRA_VALUE_CHAT.equals(openModule)) {
             showModule(Section.CHAT);
         } else if (loggedIn && ChatPollingService.EXTRA_VALUE_RESERVE.equals(openModule)) {
             showModule(Section.RESERVE);
@@ -420,6 +422,8 @@ public class LandingActivity extends Activity {
                 showModule(Section.CHAT);
             } else if (n.type == NotificationStore.Type.FEEDBACK) {
                 showModule(Section.FEEDBACK);
+            } else if (n.hasTarget()) {
+                openNotificationTarget(n.targetKind, n.targetId, n.event);
             } else {
                 // ReservationStore-backed reservation details no longer exist (the Reserve tab's
                 // old ReservationFlowController module was fully replaced by ReserveCatalogController
@@ -427,7 +431,11 @@ public class LandingActivity extends Activity {
                 showModule(Section.RESERVE);
             }
         }, this::refreshBadges);
+        // The saved copy first, so the history is there at once (and offline); the refresh then
+        // brings in whatever happened since.
+        NotificationStore.restore(this);
         NotificationStore.refresh(this);
+        PushTokens.register(this);
 
         heroOrGreetingSlot.removeAllViews();
         heroOrGreetingSlot.addView(dashboardHome.getRootView());
@@ -618,6 +626,9 @@ public class LandingActivity extends Activity {
 
     private void logout() {
         stopService(new Intent(this, ChatPollingService.class));
+        // While the session still exists: tells the backend to stop pushing this guest's
+        // notifications to this phone (the next person to sign in on it gets their own).
+        PushTokens.unregister(this);
         ProfileStore.clearAuthToken(this);
         ProfileStore.clearActiveReservation(this);
         ProfileStore.clearChatCursor(this);
@@ -829,13 +840,17 @@ public class LandingActivity extends Activity {
      *  flow's Reservation Details, paid bookings in the Book flow's — Back returns to Profile. (Tab first, then details, so the
      *  flow's own hide-bottom-nav isn't undone by showModule.) */
     private void openHistoryReservation(com.aguafriogarden.resortinc.network.ReservationSummary summary) {
-        Runnable backToProfile = () -> showModule(Section.PROFILE);
+        openReservationDetails(summary, () -> showModule(Section.PROFILE));
+    }
+
+    private void openReservationDetails(com.aguafriogarden.resortinc.network.ReservationSummary summary,
+            Runnable back) {
         if (summary.isBooking()) {
             showModule(Section.BOOK);
-            bookingCatalog.showReservationDetails(summary, backToProfile);
+            bookingCatalog.showReservationDetails(summary, back);
         } else {
             showModule(Section.RESERVE);
-            reserveCatalog.showReservationDetails(summary, backToProfile);
+            reserveCatalog.showReservationDetails(summary, back);
         }
     }
 
@@ -843,9 +858,66 @@ public class LandingActivity extends Activity {
      *  booking in the Book flow (a payment is only ever rejected on a booking); Back returns to
      *  Profile. */
     private void openPaymentCorrection(com.aguafriogarden.resortinc.network.ReservationSummary summary) {
-        Runnable backToProfile = () -> showModule(Section.PROFILE);
+        openPaymentCorrection(summary, () -> showModule(Section.PROFILE));
+    }
+
+    private void openPaymentCorrection(com.aguafriogarden.resortinc.network.ReservationSummary summary,
+            Runnable back) {
         showModule(Section.BOOK);
-        bookingCatalog.showPaymentCorrection(summary, backToProfile);
+        bookingCatalog.showPaymentCorrection(summary, back);
+    }
+
+    /**
+     * A notification was tapped (in the Alerts tab, or as a system notification): opens the booking
+     * or reservation it is about — a rejected payment goes straight to its correction form — and
+     * Back returns to Alerts. The record is looked up in the live feed; one that is missing (a
+     * booking made moments ago) or a payment event (which must show the payment's current state)
+     * refetches first, and a record that still isn't there (deleted, or someone else's) says so
+     * instead of opening nothing.
+     */
+    private void openNotificationTarget(String kind, long id, String event) {
+        boolean payment = event != null && event.startsWith("payment_");
+        if (!payment && openFeedRecord(kind, id, event)) {
+            return;
+        }
+        ReservationFeed.refreshThen(() -> {
+            if (!loggedIn || isFinishing() || isDestroyed()) {
+                return;
+            }
+            if (!openFeedRecord(kind, id, event)) {
+                android.widget.Toast.makeText(this, R.string.notif_target_unavailable,
+                        android.widget.Toast.LENGTH_LONG).show();
+                showModule(Section.ALERTS);
+            }
+        });
+    }
+
+    private boolean openFeedRecord(String kind, long id, String event) {
+        com.aguafriogarden.resortinc.network.ReservationSummary row = ReservationFeed.find(kind, (int) id);
+        if (row == null) {
+            return false;
+        }
+        Runnable backToAlerts = () -> showModule(Section.ALERTS);
+        if ("payment_rejected".equals(event) && row.payment_verification != null
+                && row.payment_verification.needs_correction) {
+            openPaymentCorrection(row, backToAlerts);
+        } else {
+            openReservationDetails(row, backToAlerts);
+        }
+        return true;
+    }
+
+    /** A system notification for a server alert was tapped: it counts as read, and it opens the
+     *  record it is about (or the Alerts tab when it has none). */
+    private void openFromSystemNotification(Intent intent) {
+        NotificationStore.markReadById(this, intent.getLongExtra(ChatPollingService.EXTRA_NOTIFICATION_ID, 0L));
+        String kind = intent.getStringExtra(ChatPollingService.EXTRA_TARGET_KIND);
+        long id = intent.getLongExtra(ChatPollingService.EXTRA_TARGET_ID, 0L);
+        if (kind != null && !kind.isEmpty() && id > 0) {
+            openNotificationTarget(kind, id, intent.getStringExtra(ChatPollingService.EXTRA_EVENT));
+        } else {
+            showModule(Section.ALERTS);
+        }
     }
 
     /** Book flow success screen's View Booking: opens that booking in Profile's history. */

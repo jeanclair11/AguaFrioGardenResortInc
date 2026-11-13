@@ -10,5 +10,8 @@ public class AguaFrioApp extends Application {
         super.onCreate();
         StatusCatalog.init(this);
         ReservationFeed.init(this);
+        NotificationStore.init(this);
+        // Also when the process was started by a push while the app was closed.
+        PushTokens.ensureInitialized(this);
     }
 }

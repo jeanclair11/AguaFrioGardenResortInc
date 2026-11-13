@@ -41,6 +41,9 @@ final class ProfileStore {
     private static final String KEY_CHAT_CURSOR = "chat_cursor";
     private static final String KEY_ALERT_CURSOR = "alert_cursor";
     private static final String KEY_NOTIFICATIONS_SYNC_PENDING = "notifications_sync_pending";
+    private static final String KEY_ANNOUNCED_ALERTS = "announced_alerts";
+    private static final String KEY_PUSH_TOKEN = "push_token";
+    private static final String KEY_NOTIFICATION_CACHE = "notification_cache";
 
     private ProfileStore() {
     }
@@ -332,6 +335,55 @@ final class ProfileStore {
 
     static void clearAlertCursor(Context context) {
         prefs(context).edit().remove(KEY_ALERT_CURSOR).apply();
+    }
+
+    private static final int ANNOUNCED_ALERTS_KEPT = 100;
+
+    /** Whether a system notification was already raised for this server alert id — by the push
+     *  handler or by the poll, whichever heard of it first — so the other doesn't raise it again
+     *  (which would bring back a notification the guest had just swiped away). */
+    static boolean wasAlertAnnounced(Context context, long alertId) {
+        String stored = prefs(context).getString(KEY_ANNOUNCED_ALERTS, "");
+        return ("," + stored + ",").contains("," + alertId + ",");
+    }
+
+    /** Remembers the newest {@value #ANNOUNCED_ALERTS_KEPT} announced alert ids. */
+    static void markAlertAnnounced(Context context, long alertId) {
+        String stored = prefs(context).getString(KEY_ANNOUNCED_ALERTS, "");
+        if (("," + stored + ",").contains("," + alertId + ",")) {
+            return;
+        }
+        String[] ids = stored.isEmpty() ? new String[0] : stored.split(",");
+        StringBuilder kept = new StringBuilder();
+        for (int i = Math.max(0, ids.length - (ANNOUNCED_ALERTS_KEPT - 1)); i < ids.length; i++) {
+            kept.append(ids[i]).append(',');
+        }
+        kept.append(alertId);
+        prefs(context).edit().putString(KEY_ANNOUNCED_ALERTS, kept.toString()).apply();
+    }
+
+    /** The phone's Firebase Cloud Messaging token, as last registered with the backend. */
+    static String getPushToken(Context context) {
+        return prefs(context).getString(KEY_PUSH_TOKEN, "");
+    }
+
+    static void setPushToken(Context context, String token) {
+        prefs(context).edit().putString(KEY_PUSH_TOKEN, token).apply();
+    }
+
+    /** The Alerts feed as last fetched (JSON), so the history shows at once — and offline — when
+     *  the app is reopened, before the refresh answers. */
+    static String getNotificationCache(Context context) {
+        return prefs(context).getString(KEY_NOTIFICATION_CACHE, "");
+    }
+
+    static void setNotificationCache(Context context, String json) {
+        prefs(context).edit().putString(KEY_NOTIFICATION_CACHE, json).apply();
+    }
+
+    /** Logout: the next guest on this phone starts with no alerts of the previous one's. */
+    static void clearNotificationState(Context context) {
+        prefs(context).edit().remove(KEY_NOTIFICATION_CACHE).remove(KEY_ANNOUNCED_ALERTS).apply();
     }
 
     static void clearActiveReservation(Context context) {

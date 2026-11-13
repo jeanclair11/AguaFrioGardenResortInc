@@ -136,6 +136,7 @@ final class ReservationFeed {
     /** Logout: forget everything, drop in-flight responses, stop polling. */
     static void clear() {
         generation++;
+        AFTER_REFRESH.clear();
         rows = new ArrayList<>();
         loaded = false;
         refreshing = false;
@@ -143,6 +144,31 @@ final class ReservationFeed {
         pollingStatuses = false;
         lastRefreshAt = 0L;
         unwatchAll();
+    }
+
+    /** Callbacks waiting for the next refetch to finish; see {@link #refreshThen}. */
+    private static final List<Runnable> AFTER_REFRESH = new ArrayList<>();
+
+    /** Refetches the records and then runs {@code done} on the main thread — whether the fetch worked
+     *  or not (it then sees whatever was loaded before). For opening a record a notification points
+     *  at, which may be newer than the list the app holds. Dropped if the guest logs out meanwhile. */
+    static void refreshThen(Runnable done) {
+        AFTER_REFRESH.add(done);
+        refresh();
+        if (token().isEmpty()) {
+            drainAfterRefresh();
+        }
+    }
+
+    private static void drainAfterRefresh() {
+        if (AFTER_REFRESH.isEmpty()) {
+            return;
+        }
+        List<Runnable> waiting = new ArrayList<>(AFTER_REFRESH);
+        AFTER_REFRESH.clear();
+        for (Runnable callback : waiting) {
+            callback.run();
+        }
     }
 
     /** Silent full refetch of GET /booking/my-bookings: no spinner, watchers just re-bind. Used on
@@ -176,6 +202,9 @@ final class ReservationFeed {
                     }
                 }
                 runQueuedRefresh();
+                if (!refreshing) {
+                    drainAfterRefresh();
+                }
             }
 
             @Override
@@ -186,6 +215,9 @@ final class ReservationFeed {
                 // Keeps whatever was last loaded; the next poll or visit retries.
                 refreshing = false;
                 runQueuedRefresh();
+                if (!refreshing) {
+                    drainAfterRefresh();
+                }
             }
         });
     }

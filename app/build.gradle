@@ -2,6 +2,15 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+// Push notifications (Firebase Cloud Messaging). The Firebase project's client configuration comes
+// from firebase.properties in the project root (see firebase.properties.example). Without that file
+// these stay empty and the app builds and runs with no push channel — it just polls, as before.
+def firebaseProps = new Properties()
+def firebaseFile = rootProject.file('firebase.properties')
+if (firebaseFile.exists()) {
+    firebaseFile.withInputStream { firebaseProps.load(it) }
+}
+
 android {
     namespace 'com.aguafriogarden.resortinc'
     compileSdk {
@@ -16,6 +25,11 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        resValue "string", "fcm_project_id", firebaseProps.getProperty('project_id', '')
+        resValue "string", "fcm_application_id", firebaseProps.getProperty('application_id', '')
+        resValue "string", "fcm_api_key", firebaseProps.getProperty('api_key', '')
+        resValue "string", "fcm_sender_id", firebaseProps.getProperty('sender_id', '')
     }
 
     buildTypes {
@@ -23,6 +37,10 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+    }
+    buildFeatures {
+        // For the fcm_* string resources filled in from firebase.properties above.
+        resValues true
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
@@ -36,6 +54,7 @@ dependencies {
     implementation libs.okhttp
     implementation libs.okhttp.logging.interceptor
     implementation libs.glide
+    implementation libs.firebase.messaging
 
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit

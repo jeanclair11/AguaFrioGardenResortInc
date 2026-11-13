@@ -1,0 +1,20 @@
+# Push notifications (Firebase Cloud Messaging).
+#
+# Copy this file to firebase.properties (same folder) and fill in the four values from your
+# Firebase project: Firebase console > Project settings > General > "Your apps" > the Android app
+# with package com.aguafriogarden.resortinc. They are also in the google-services.json you can
+# download there:
+#
+#   project_id      = project_info.project_id
+#   sender_id       = project_info.project_number
+#   application_id  = client[0].client_info.mobilesdk_app_id   (looks like 1:123456789:android:abc123)
+#   api_key         = client[0].api_key[0].current_key
+#
+# These are client identifiers (every APK carries them), not secrets. The backend's own credential
+# is a different file (a service-account key), configured on the server as FCM_CREDENTIALS_PATH.
+#
+# Without firebase.properties the app builds and works as before, with no push channel.
+project_id=
+sender_id=
+application_id=
+api_key=

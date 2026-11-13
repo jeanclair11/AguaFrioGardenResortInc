@@ -4,6 +4,7 @@ import retrofit2.Call;
 import retrofit2.http.Field;
 import retrofit2.http.FormUrlEncoded;
 import retrofit2.http.GET;
+import retrofit2.http.HTTP;
 import retrofit2.http.Header;
 import retrofit2.http.PATCH;
 import retrofit2.http.POST;
@@ -47,4 +48,19 @@ public interface NotificationApi {
 
     @POST("notifications/read-all")
     Call<MessageResponse> readAll(@Header("Authorization") String bearerToken);
+
+    /** Registers this phone's push (FCM) token for the signed-in guest so their notifications also
+     *  arrive while the app is closed. Idempotent. */
+    @FormUrlEncoded
+    @POST("notifications/device-token")
+    Call<MessageResponse> registerDevice(
+            @Header("Authorization") String bearerToken,
+            @Field("token") String token);
+
+    /** Logout: stops pushing this guest's notifications to this phone. */
+    @FormUrlEncoded
+    @HTTP(method = "DELETE", path = "notifications/device-token", hasBody = true)
+    Call<MessageResponse> unregisterDevice(
+            @Header("Authorization") String bearerToken,
+            @Field("token") String token);
 }

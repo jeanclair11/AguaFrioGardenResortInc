@@ -7,6 +7,9 @@ import com.aguafriogarden.resortinc.network.MessageResponse;
 import com.aguafriogarden.resortinc.network.NotificationDto;
 import com.aguafriogarden.resortinc.network.NotificationListResponse;
 import com.aguafriogarden.resortinc.network.NotificationResponse;
+import com.aguafriogarden.resortinc.network.ReservationSummary;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,11 +33,13 @@ import retrofit2.Response;
  */
 final class NotificationStore {
 
-    /** Distinguishes reservation-lifecycle alerts from chat alerts so the bell's
-     *  action button can route to the right module. GENERAL is anything staff raised on the
-     *  website (payment received, checked in, ...), which has no in-app screen to route to. */
+    /** Distinguishes what an alert is about so the card can route to the right screen and the
+     *  nav badges count the right ones: RESERVATION is a reservation request (submitted, cancelled,
+     *  expired), BOOKING a booking (submitted, confirmed, checked in/out, ...), PAYMENT money
+     *  (rejected, resubmitted, verified, refunded). GENERAL is anything staff raised on the website
+     *  that carries no category (an order status, ...). */
     enum Type {
-        RESERVATION, CHAT, FEEDBACK, GENERAL
+        RESERVATION, BOOKING, PAYMENT, CHAT, FEEDBACK, GENERAL
     }
 
     static final class Notification {
@@ -42,6 +47,11 @@ final class NotificationStore {
         final String message;
         final String buttonLabel;
         final String targetReference;
+        /** What happened ("payment_rejected", "booking_confirmed", ...); null when unknown. */
+        String event;
+        /** The record this alert opens, in {@code ReservationSummary.kind} words; null for none. */
+        String targetKind;
+        long targetId;
         /** The phone's clock until the server stores the alert, then the server's (see
          *  {@link #adoptServerTime}) so every alert is ordered on one clock. */
         long timestampMillis;
@@ -75,6 +85,96 @@ final class NotificationStore {
             this.timestampMillis = timestampMillis;
             this.type = type;
             this.clientUuid = clientUuid;
+        }
+
+        /** True when tapping this alert can open a specific booking or reservation. */
+        boolean hasTarget() {
+            return targetKind != null && !targetKind.isEmpty() && targetId > 0;
+        }
+
+        boolean isTargetBooking() {
+            return ReservationSummary.KIND_BOOKING.equals(targetKind);
+        }
+    }
+
+    /** The app's process context, for persisting the cache from the mutators that don't take one. */
+    private static Context appContext;
+
+    static void init(Context context) {
+        appContext = context.getApplicationContext();
+    }
+
+    /**
+     * Fills the cache from the copy saved on the phone (see {@link #persist}) so the guest's
+     * notification history shows immediately — and offline — when the app is reopened, before the
+     * first refresh answers. Does nothing once the cache has anything in it.
+     */
+    static void restore(Context context) {
+        if (!ALL.isEmpty()) {
+            return;
+        }
+        String json = ProfileStore.getNotificationCache(context);
+        if (json.isEmpty()) {
+            return;
+        }
+        try {
+            List<NotificationDto> saved = new Gson().fromJson(json,
+                    new TypeToken<List<NotificationDto>>() { }.getType());
+            if (saved == null) {
+                return;
+            }
+            for (NotificationDto dto : saved) {
+                ALL.add(fromDto(context, dto));
+            }
+            ALL.sort(NEWEST_FIRST);
+        } catch (RuntimeException ignored) {
+            // A cache that can't be read is just a cache miss: the refresh rebuilds it.
+            ALL.clear();
+        }
+    }
+
+    /** Saves the server-backed part of the cache on the phone. Local-only rows (a chat alert still
+     *  uploading) are left out; they join the saved copy once the server has them. */
+    private static void persist() {
+        if (appContext == null || ProfileStore.getAuthToken(appContext).isEmpty()) {
+            return;
+        }
+        List<NotificationDto> saved = new ArrayList<>();
+        for (Notification n : ALL) {
+            if (n.serverId <= 0) {
+                continue;
+            }
+            NotificationDto dto = new NotificationDto();
+            dto.id = n.serverId;
+            dto.title = n.title;
+            dto.message = n.message;
+            dto.type = typeKey(n.type);
+            dto.event = n.event;
+            dto.target_kind = n.targetKind;
+            dto.target_id = n.targetId;
+            dto.client_uuid = n.clientUuid;
+            dto.is_read = n.isRead;
+            dto.is_archived = n.isArchived;
+            dto.created_at_ms = n.timestampMillis;
+            saved.add(dto);
+        }
+        ProfileStore.setNotificationCache(appContext, new Gson().toJson(saved));
+    }
+
+    private static String typeKey(Type type) {
+        switch (type) {
+            case CHAT:
+                return "chat";
+            case RESERVATION:
+                return "reservation";
+            case BOOKING:
+                return "booking";
+            case PAYMENT:
+                return "payment";
+            case FEEDBACK:
+                return "feedback";
+            default:
+                return null;
         }
     }
 
@@ -179,6 +279,7 @@ final class NotificationStore {
         if (!any) {
             return;
         }
+        persist();
         Context app = context.getApplicationContext();
         String token = ProfileStore.getAuthToken(app);
         if (token.isEmpty()) {
@@ -211,7 +312,45 @@ final class NotificationStore {
 
     static void setRead(Context context, Notification n, boolean read) {
         n.isRead = read;
+        persist();
         sendState(context.getApplicationContext(), n);
+    }
+
+    /**
+     * Marks the alert with this server id read — what happens when the guest taps its system
+     * notification, which can happen before the Alerts feed has loaded. When the alert isn't in
+     * the cache yet the server is told directly, and the next refresh brings it in already read.
+     */
+    static void markReadById(Context context, long serverId) {
+        if (serverId <= 0) {
+            return;
+        }
+        for (Notification n : ALL) {
+            if (n.serverId == serverId) {
+                if (!n.isRead) {
+                    setRead(context, n, true);
+                }
+                return;
+            }
+        }
+        Context app = context.getApplicationContext();
+        String token = ProfileStore.getAuthToken(app);
+        if (token.isEmpty()) {
+            return;
+        }
+        pendingUpdates++;
+        ApiClient.notificationApi().update("Bearer " + token, serverId, 1, null)
+                .enqueue(new Callback<NotificationResponse>() {
+                    @Override
+                    public void onResponse(Call<NotificationResponse> call, Response<NotificationResponse> response) {
+                        finishUpdate(app, response.isSuccessful());
+                    }
+
+                    @Override
+                    public void onFailure(Call<NotificationResponse> call, Throwable t) {
+                        finishUpdate(app, false);
+                    }
+                });
     }
 
     /** Archiving also marks it read (same as the staff Notifications page); unarchiving leaves
@@ -221,6 +360,7 @@ final class NotificationStore {
         if (archived) {
             n.isRead = true;
         }
+        persist();
         sendState(context.getApplicationContext(), n);
     }
 
@@ -230,6 +370,9 @@ final class NotificationStore {
         pendingUpdates = 0;
         clockOffsetMs = 0;
         settingInFlight = false;
+        if (appContext != null) {
+            ProfileStore.clearNotificationState(appContext);
+        }
     }
 
     /** Fetches the server copy, merges it into the cache, and retries any alert whose upload
@@ -254,6 +397,7 @@ final class NotificationStore {
                     syncNotificationsSetting(app, response.body().notifications_enabled);
                     List<Notification> arrived = merge(app, response.body().notifications);
                     announceArrivals(app, response.body().notifications, arrived);
+                    persist();
                     notifyChanged();
                 }
             }
@@ -338,7 +482,10 @@ final class NotificationStore {
             return;
         }
         for (Notification n : arrived) {
-            if (n.serverId > cursor && !n.isRead && !n.isArchived && n.type != Type.CHAT) {
+            // Not when the push handler already raised it: the guest may have swiped it away.
+            if (n.serverId > cursor && !n.isRead && !n.isArchived && n.type != Type.CHAT
+                    && !ProfileStore.wasAlertAnnounced(context, n.serverId)) {
+                ProfileStore.markAlertAnnounced(context, n.serverId);
                 ChatPollingService.postAlertNotification(context, n);
             }
         }
@@ -372,6 +519,12 @@ final class NotificationStore {
             } else {
                 n.serverId = dto.id;
                 adoptServerTime(n, dto);
+                // A reservation request that was paid is re-pointed at its booking by the server.
+                if (dto.target_kind != null && dto.target_id > 0) {
+                    n.event = dto.event;
+                    n.targetKind = dto.target_kind;
+                    n.targetId = dto.target_id;
+                }
                 if (pendingUpdates == 0) {
                     n.isRead = dto.is_read;
                     n.isArchived = dto.is_archived;
@@ -387,19 +540,42 @@ final class NotificationStore {
         return created;
     }
 
+    /** The server's category word for an alert ({@code NotificationDto.type}) as a {@link Type}. */
+    static Type typeFromKey(String key) {
+        return "chat".equals(key) ? Type.CHAT
+                : "reservation".equals(key) ? Type.RESERVATION
+                : "booking".equals(key) ? Type.BOOKING
+                : "payment".equals(key) ? Type.PAYMENT
+                : "feedback".equals(key) ? Type.FEEDBACK : Type.GENERAL;
+    }
+
     private static Notification fromDto(Context context, NotificationDto dto) {
-        Type type = "chat".equals(dto.type) ? Type.CHAT
-                : "reservation".equals(dto.type) ? Type.RESERVATION
-                : "feedback".equals(dto.type) ? Type.FEEDBACK : Type.GENERAL;
-        String button = type == Type.CHAT ? context.getString(R.string.notif_button_view_chat)
-                : type == Type.RESERVATION ? context.getString(R.string.notif_button_view_reservation)
-                : type == Type.FEEDBACK ? context.getString(R.string.notif_button_view_feedback)
-                : null;
+        Type type = typeFromKey(dto.type);
+        boolean hasTarget = dto.target_kind != null && !dto.target_kind.isEmpty() && dto.target_id > 0;
+        boolean isBooking = ReservationSummary.KIND_BOOKING.equals(dto.target_kind);
+        String button;
+        if (type == Type.CHAT) {
+            button = context.getString(R.string.notif_button_view_chat);
+        } else if (type == Type.FEEDBACK) {
+            button = context.getString(R.string.notif_button_view_feedback);
+        } else if (hasTarget && "payment_rejected".equals(dto.event)) {
+            button = context.getString(R.string.notif_button_correct_payment);
+        } else if (hasTarget) {
+            button = context.getString(isBooking ? R.string.notif_button_view_booking
+                    : R.string.notif_button_view_reservation_request);
+        } else if (type == Type.RESERVATION) {
+            button = context.getString(R.string.notif_button_view_reservation);
+        } else {
+            button = null;
+        }
         Notification n = new Notification(dto.title, dto.message, button, null, dto.created_at_ms,
                 type, dto.client_uuid);
         n.serverId = dto.id;
         n.isRead = dto.is_read;
         n.isArchived = dto.is_archived;
+        n.event = dto.event;
+        n.targetKind = hasTarget ? dto.target_kind : null;
+        n.targetId = hasTarget ? dto.target_id : 0;
         return n;
     }
 

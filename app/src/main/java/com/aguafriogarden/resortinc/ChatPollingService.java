@@ -44,7 +44,6 @@ public class ChatPollingService extends Service {
     private static final String CHANNEL_RESERVATIONS = "reservation_updates";
     private static final int NOTIFICATION_ID_SERVICE = 1001;
     private static final int NOTIFICATION_ID_MESSAGE = 1002;
-    private static final int NOTIFICATION_ID_RESERVATION = 1003;
     private static final String CHANNEL_ALERTS = "guest_alerts";
     /** Staff-raised alerts (feedback reply, payment received, ...) get one slot each, offset past
      *  the fixed IDs above, so several arriving together don't replace one another. */
@@ -55,6 +54,13 @@ public class ChatPollingService extends Service {
     static final String EXTRA_VALUE_RESERVE = "reserve";
     static final String EXTRA_VALUE_FEEDBACK = "feedback";
     static final String EXTRA_VALUE_ALERTS = "alerts";
+    /** A system notification for a server alert: marks that alert read and opens what it is about
+     *  (see LandingActivity#openFromSystemNotification). Carries the extras below. */
+    static final String EXTRA_VALUE_ALERT_TARGET = "alert_target";
+    static final String EXTRA_NOTIFICATION_ID = "notification_id";
+    static final String EXTRA_TARGET_KIND = "target_kind";
+    static final String EXTRA_TARGET_ID = "target_id";
+    static final String EXTRA_EVENT = "event";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable pollRunnable = this::poll;
@@ -184,57 +190,53 @@ public class ChatPollingService extends Service {
         notifyReservationStatus(status, body.cancel_reason);
     }
 
-    /** Not stored in the Alerts feed: the front desk's action already creates a guest
-     *  notification on the server, which the next refresh brings in — storing this one too would
-     *  show the same event twice. Only the system notification is raised here (the server's row
-     *  replaces it, same slot, if it arrives first). */
+    /** The status changed on the server, and the server has already created the guest's
+     *  notification for it (see GuestNotifier on the backend) — which the refresh brings in and the
+     *  push or the next poll announces, with its own wording and a way to open the record. Raising
+     *  a second system notification from the bare status here would show the same event twice, so
+     *  this only pulls the alerts in sooner. */
     private void notifyReservationStatus(StatusDetail status, String reason) {
-        String definition = status.definition != null ? status.definition : "";
-        String body = reason != null && !reason.trim().isEmpty()
-                ? getString(R.string.format_reservation_update_reason, definition, reason.trim()).trim()
-                : definition;
-        postSystemIfEnabled(status.label != null ? status.label : "", body);
         NotificationStore.refresh(this);
     }
 
-    private void postSystemIfEnabled(String title, String body) {
-        if (ProfileStore.isNotificationsEnabled(this)) {
-            postSystemReservationNotification(title, body);
-        }
-    }
-
-    private void postSystemReservationNotification(String title, String body) {
-        postModuleNotification(this, NOTIFICATION_ID_RESERVATION, CHANNEL_RESERVATIONS,
-                R.drawable.ic_calendar, title, body, EXTRA_VALUE_RESERVE, true);
-    }
-
     /**
-     * Raises the system notification for an alert staff created on the website, found by
-     * {@link NotificationStore#refresh}. Reservation alerts reuse the reservation slot, so the
-     * "Reservation Confirmed" notification ChatPollingService already raises from the status poll
-     * and the server's own row for the same event collapse into one. Chat alerts are never routed
-     * here — the chat poll raises its own.
+     * Raises the system notification for a server alert (a booking, reservation or payment update,
+     * or one staff raised on the website), found by {@link NotificationStore#refresh} or delivered
+     * by push ({@link FcmService}). One slot per alert id, so hearing of it twice replaces rather
+     * than repeats it. Tapping it marks the alert read and opens the booking or reservation it is
+     * about. Chat alerts are never routed here — the chat poll raises its own.
      */
     static void postAlertNotification(Context context, NotificationStore.Notification n) {
+        postServerAlert(context, n.serverId, n.title, n.message, n.type, n.event, n.targetKind, n.targetId);
+    }
+
+    static void postServerAlert(Context context, long alertId, String title, String message,
+            NotificationStore.Type type, String event, String targetKind, long targetId) {
         if (!ProfileStore.isNotificationsEnabled(context)) {
             return;
         }
-        String title = n.title == null ? "" : n.title;
-        String message = n.message == null ? "" : n.message;
-        switch (n.type) {
-            case RESERVATION:
-                postModuleNotification(context, NOTIFICATION_ID_RESERVATION, CHANNEL_RESERVATIONS,
-                        R.drawable.ic_calendar, title, message, EXTRA_VALUE_RESERVE, true);
-                break;
-            case FEEDBACK:
-                postModuleNotification(context, NOTIFICATION_ID_ALERT_BASE + (int) (n.serverId % 10000),
-                        CHANNEL_ALERTS, R.drawable.ic_feedback, title, message, EXTRA_VALUE_FEEDBACK, true);
-                break;
-            default:
-                postModuleNotification(context, NOTIFICATION_ID_ALERT_BASE + (int) (n.serverId % 10000),
-                        CHANNEL_ALERTS, R.drawable.ic_bell, title, message, EXTRA_VALUE_ALERTS, true);
-                break;
+        String safeTitle = title == null ? "" : title;
+        String safeMessage = message == null ? "" : message;
+        boolean about = type == NotificationStore.Type.RESERVATION || type == NotificationStore.Type.BOOKING
+                || type == NotificationStore.Type.PAYMENT;
+        int icon = type == NotificationStore.Type.PAYMENT ? R.drawable.ic_payment
+                : about ? R.drawable.ic_calendar
+                : type == NotificationStore.Type.FEEDBACK ? R.drawable.ic_feedback : R.drawable.ic_bell;
+        Intent extras = new Intent();
+        extras.putExtra(EXTRA_NOTIFICATION_ID, alertId);
+        if (targetKind != null && !targetKind.isEmpty() && targetId > 0) {
+            extras.putExtra(EXTRA_TARGET_KIND, targetKind);
+            extras.putExtra(EXTRA_TARGET_ID, targetId);
         }
+        if (event != null && !event.isEmpty()) {
+            extras.putExtra(EXTRA_EVENT, event);
+        }
+        // A rejected payment needs the guest's attention: it alerts every time, not once.
+        boolean urgent = "payment_rejected".equals(event);
+        postModuleNotification(context, NOTIFICATION_ID_ALERT_BASE + (int) (alertId % 10000),
+                about ? CHANNEL_RESERVATIONS : CHANNEL_ALERTS, icon, safeTitle, safeMessage,
+                type == NotificationStore.Type.FEEDBACK ? EXTRA_VALUE_FEEDBACK : EXTRA_VALUE_ALERT_TARGET,
+                !urgent, extras);
     }
 
     /** The PendingIntent's request code is the notification ID: FLAG_UPDATE_CURRENT matches on
@@ -242,6 +244,13 @@ public class ChatPollingService extends Service {
      *  an earlier one was supposed to open. */
     private static void postModuleNotification(Context context, int notificationId, String channelId,
             int iconRes, String title, String body, String module, boolean onlyAlertOnce) {
+        postModuleNotification(context, notificationId, channelId, iconRes, title, body, module,
+                onlyAlertOnce, null);
+    }
+
+    /** {@code extras}: more extras for the launch intent (which alert, and the record it opens). */
+    private static void postModuleNotification(Context context, int notificationId, String channelId,
+            int iconRes, String title, String body, String module, boolean onlyAlertOnce, Intent extras) {
         ensureChannels(context);
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager == null) {
@@ -249,6 +258,9 @@ public class ChatPollingService extends Service {
         }
         Intent intent = new Intent(context, LandingActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        if (extras != null && extras.getExtras() != null) {
+            intent.putExtras(extras.getExtras());
+        }
         intent.putExtra(EXTRA_OPEN_MODULE, module);
         PendingIntent pendingIntent = PendingIntent.getActivity(context, notificationId, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -258,6 +270,7 @@ public class ChatPollingService extends Service {
                 : new Notification.Builder(context);
         builder.setContentTitle(title)
                 .setContentText(body)
+                .setStyle(new Notification.BigTextStyle().bigText(body))
                 .setSmallIcon(iconRes)
                 .setAutoCancel(true)
                 .setOnlyAlertOnce(onlyAlertOnce)
