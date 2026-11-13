@@ -1467,7 +1467,7 @@ public class LandingActivity extends Activity {
                 formatTypeTitle(name, category),
                 roomType.capacity, roomType.description, priceText,
                 roomType.available_quantity, true, Section.ROOMS,
-                name, category, roomType.variant_id, roomType.image_path, priceText, null);
+                name, category, roomType.variant_id, roomType.image_path, priceText, null, roomType.images);
     }
 
     /**
@@ -1485,7 +1485,7 @@ public class LandingActivity extends Activity {
         bindCard(card, option.image_path, name,
                 option.capacity, option.description, priceText,
                 option.available_quantity, bookable, origin,
-                name, null, option.variant_id, option.image_path, priceText, option.price_breakdown);
+                name, null, option.variant_id, option.image_path, priceText, option.price_breakdown, option.images);
     }
 
     /** Which noun the "X ___ Available" house-icon pill uses (see #bindCard) — Rooms/Cottages/
@@ -1536,8 +1536,8 @@ public class LandingActivity extends Activity {
     private void bindCard(View card, String imagePath, String titleText, int capacity, String description,
                            String priceText, int availableQty, boolean bookable, Section origin,
                            String roomTypeName, String categoryName, int variantId, String imagePathForStorage, String pricePerNight,
-                           List<PriceBreakdownEntry> priceBreakdown) {
-        loadImage(card.findViewById(R.id.roomTypeCardImage), imagePath);
+                           List<PriceBreakdownEntry> priceBreakdown, List<String> imagePaths) {
+        bindCardImages(card.findViewById(R.id.roomTypeCardImage), imagePath, imagePaths);
 
         ((TextView) card.findViewById(R.id.roomTypeCardName)).setText(titleText);
         boolean isCottageCard = origin == Section.COTTAGES;
@@ -1614,6 +1614,23 @@ public class LandingActivity extends Activity {
             return;
         }
         showRoomOverview(PendingRoomSelection.take());
+    }
+
+    /**
+     * Fills a browse card's swipeable photo area: the backend's picture list when it sent one
+     * (Hotel Rooms/Cottages — main image first, then the first unit's pictures), otherwise just
+     * the card's single image as before (KTV, or an older server).
+     */
+    private void bindCardImages(ImageCarouselView carousel, String imagePath, List<String> imagePaths) {
+        List<String> urls = new ArrayList<>();
+        if (imagePaths != null && !imagePaths.isEmpty()) {
+            for (String path : imagePaths) {
+                urls.add(ApiClient.imageUrl(path));
+            }
+        } else {
+            urls.add(ApiClient.imageUrl(imagePath));
+        }
+        carousel.setImages(urls, R.drawable.ic_bed);
     }
 
     /** Loads a photo from the backend, falling back to a placeholder icon. */

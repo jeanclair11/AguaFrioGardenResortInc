@@ -37,4 +37,8 @@ public class CottageKtvOption {
      *  KTV/Halls, which fall back to the flat price/price_unit line instead. See
      *  LandingActivity#bindCottageKtvCard. */
     public List<PriceBreakdownEntry> price_breakdown;
+    /** Cottages only, from GET /api/booking/cottage-types: the home-card carousel (storage paths,
+     *  the Type's main image first, then the pictures of the first unit added under it). Null for
+     *  KTV/Halls and from an older server — the card then shows just {@link #image_path}. */
+    public List<String> images;
 }

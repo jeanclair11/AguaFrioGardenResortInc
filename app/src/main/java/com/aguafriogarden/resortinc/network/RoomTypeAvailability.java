@@ -15,4 +15,8 @@ public class RoomTypeAvailability {
     public int capacity;
     public double price_per_night;
     public int available_quantity;
+    /** Home-card carousel, from GET /api/booking/room-types: storage paths, the Type's main image
+     *  first, then the pictures of the first unit added under it. Null from an older server (the
+     *  card then shows just {@link #image_path}). */
+    public java.util.List<String> images;
 }

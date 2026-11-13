@@ -19,12 +19,12 @@
         android:layout_height="180dp"
         android:background="@drawable/bg_browse_image_top">
 
-        <ImageView
+        <!-- Swipeable photos (main image first, then the first unit's pictures); a single photo
+             renders as a static picture. See ImageCarouselView. -->
+        <com.aguafriogarden.resortinc.ImageCarouselView
             android:id="@+id/roomTypeCardImage"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:importantForAccessibility="no"
-            android:scaleType="centerCrop" />
+            android:layout_height="match_parent" />
 
         <!-- Fully booked (available_quantity == 0). -->
         <TextView
