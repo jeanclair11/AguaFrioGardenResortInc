@@ -100,8 +100,6 @@ public class MainActivity extends Activity {
     };
 
     private static final int PICK_IMAGE_PROFILE = 1001;
-    private static final int PICK_IMAGE_GOV_ID = 1002;
-    private static final int CAPTURE_GOV_ID = 1003;
 
     private ScrollView scroll;
     private FrameLayout card;
@@ -123,7 +121,6 @@ public class MainActivity extends Activity {
         String firstName = "";
         String middleName = "";
         String lastName = "";
-        int genderPos;
         String birthDate = "";
         String phoneNumber = "";
         String province = "";
@@ -133,9 +130,6 @@ public class MainActivity extends Activity {
         String email = "";
         String password = "";
         String confirmPassword = "";
-        int idTypePos;
-        Uri govIdUri;
-        Bitmap govIdBitmap;
         Uri profileUri;
         Bitmap profileBitmap;
         boolean termsAccepted;
@@ -246,7 +240,6 @@ public class MainActivity extends Activity {
                 showScreen(SCREEN_SIGN_UP_3, true);
                 break;
             case SCREEN_SIGN_UP_3:
-                saveSignUpStep3(currentContent);
                 showScreen(SCREEN_SIGN_UP_2, true);
                 break;
             case SCREEN_SIGN_UP_2:
@@ -708,9 +701,6 @@ public class MainActivity extends Activity {
         ((EditText) card.findViewById(R.id.middleNameField)).setText(s.middleName);
         ((EditText) card.findViewById(R.id.lastNameField)).setText(s.lastName);
 
-        setUpPromptedSpinner(card.findViewById(R.id.genderSpinner),
-                R.string.gender_prompt, R.array.gender_options, s.genderPos);
-
         EditText birthDate = card.findViewById(R.id.birthDateField);
         birthDate.setText(s.birthDate);
         birthDate.setOnClickListener(ClickGuard.wrap(v -> showDatePicker(birthDate)));
@@ -742,7 +732,6 @@ public class MainActivity extends Activity {
         s.firstName = fieldText(card, R.id.firstNameField);
         s.middleName = fieldText(card, R.id.middleNameField);
         s.lastName = fieldText(card, R.id.lastNameField);
-        s.genderPos = ((Spinner) card.findViewById(R.id.genderSpinner)).getSelectedItemPosition();
         s.birthDate = fieldText(card, R.id.birthDateField);
         s.phoneNumber = fieldText(card, R.id.phoneNumberField);
         // s.province/city/barangay are kept current live by the address spinner
@@ -760,8 +749,6 @@ public class MainActivity extends Activity {
                 R.string.error_name_invalid);
         valid &= checkField(card, R.id.lastNameError,
                 s.lastName.matches("[a-zA-Z ]+"), R.string.error_name_invalid);
-        valid &= checkField(card, R.id.genderError,
-                s.genderPos > 0, R.string.error_gender_required);
         valid &= checkField(card, R.id.phoneNumberError,
                 s.phoneNumber.matches("09\\d{9}"), R.string.error_phone_invalid);
 
@@ -843,15 +830,7 @@ public class MainActivity extends Activity {
         CheckBox terms = card.findViewById(R.id.termsCheckbox);
         Button createButton = card.findViewById(R.id.createAccountButton);
 
-        setUpPromptedSpinner(card.findViewById(R.id.idTypeSpinner),
-                R.string.id_type_prompt, R.array.id_type_options, s.idTypePos);
-
-        // Restore previews picked earlier (gallery or camera).
-        if (s.govIdBitmap != null) {
-            ImageView preview = card.findViewById(R.id.govIdPreview);
-            preview.setImageBitmap(s.govIdBitmap);
-            preview.setVisibility(View.VISIBLE);
-        }
+        // Restore the profile picture picked earlier.
         if (s.profileBitmap != null) {
             ((ImageView) card.findViewById(R.id.profilePreview)).setImageBitmap(s.profileBitmap);
         }
@@ -866,31 +845,18 @@ public class MainActivity extends Activity {
             }
         });
 
-        card.findViewById(R.id.uploadGovIdButton).setOnClickListener(ClickGuard.wrap(v -> pickImage(PICK_IMAGE_GOV_ID)));
-        card.findViewById(R.id.captureGovIdButton).setOnClickListener(ClickGuard.wrap(v -> captureGovId()));
         card.findViewById(R.id.uploadProfileButton).setOnClickListener(ClickGuard.wrap(v -> pickImage(PICK_IMAGE_PROFILE)));
 
         card.findViewById(R.id.signUp3BackButton).setOnClickListener(ClickGuard.wrap(v -> {
-            saveSignUpStep3(card);
             showScreen(SCREEN_SIGN_UP_2, true);
         }));
         createButton.setOnClickListener(ClickGuard.wrap(v -> attemptCreateAccount(card)));
     }
 
-    private void saveSignUpStep3(View card) {
-        signUpState.idTypePos =
-                ((Spinner) card.findViewById(R.id.idTypeSpinner)).getSelectedItemPosition();
-    }
-
     private void attemptCreateAccount(View card) {
         SignUpState s = signUpState;
-        saveSignUpStep3(card);
 
         boolean valid = true;
-        valid &= checkField(card, R.id.idTypeError,
-                s.idTypePos > 0, R.string.error_id_type_required);
-        valid &= checkField(card, R.id.govIdError,
-                s.govIdUri != null || s.govIdBitmap != null, R.string.error_id_required);
         valid &= checkField(card, R.id.termsError,
                 s.termsAccepted, R.string.error_terms_required);
 
@@ -905,7 +871,6 @@ public class MainActivity extends Activity {
         setCreateAccountLoading(card, true);
 
         RequestBody profileImagePart = imagePart(s.profileUri, s.profileBitmap);
-        RequestBody validIdPart = imagePart(s.govIdUri, s.govIdBitmap);
 
         ApiClient.authApi().register(
                 textPart(s.username),
@@ -915,13 +880,13 @@ public class MainActivity extends Activity {
                 textPart(s.firstName),
                 optionalTextPart(s.middleName),
                 textPart(s.lastName),
-                optionalTextPart(genderApiValue(s.genderPos)),
+                null,
                 optionalTextPart(s.birthDate),
                 textPart(s.phoneNumber),
                 optionalTextPart(buildAddress(s)),
-                optionalTextPart(idTypeLabel(s.idTypePos)),
+                null,
                 toMultipart("profile_image", "profile.jpg", profileImagePart),
-                toMultipart("validID", "valid_id.jpg", validIdPart)
+                null
         ).enqueue(new Callback<RegisterResponse>() {
             @Override
             public void onResponse(Call<RegisterResponse> call, Response<RegisterResponse> response) {
@@ -970,26 +935,6 @@ public class MainActivity extends Activity {
             }
         }
         return address.toString();
-    }
-
-    /** The ID type's display name for the prompted spinner position (0 is the "Select..." prompt), or null if none is chosen. */
-    private String idTypeLabel(int idTypePos) {
-        String[] idTypes = getResources().getStringArray(R.array.id_type_options);
-        return idTypePos > 0 && idTypePos <= idTypes.length ? idTypes[idTypePos - 1] : null;
-    }
-
-    /** Maps the sign-up spinner position to the website's gender enum (Male/Female/Other). */
-    private static String genderApiValue(int genderPos) {
-        switch (genderPos) {
-            case 1:
-                return "Male";
-            case 2:
-                return "Female";
-            case 3:
-                return "Other";
-            default:
-                return null;
-        }
     }
 
     private static RequestBody textPart(String value) {
@@ -1136,30 +1081,10 @@ public class MainActivity extends Activity {
         startActivityForResult(intent, requestCode);
     }
 
-    /** Opens the camera for the valid-ID photo; the capture returns a preview bitmap. */
-    private void captureGovId() {
-        try {
-            startActivityForResult(new Intent(MediaStore.ACTION_IMAGE_CAPTURE), CAPTURE_GOV_ID);
-        } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, R.string.error_no_camera, Toast.LENGTH_SHORT).show();
-        }
-    }
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode != RESULT_OK || data == null) {
-            return;
-        }
-
-        if (requestCode == CAPTURE_GOV_ID) {
-            Bitmap shot = data.getExtras() != null
-                    ? (Bitmap) data.getExtras().get("data") : null;
-            if (shot != null) {
-                signUpState.govIdBitmap = shot;
-                signUpState.govIdUri = null;
-                showGovIdPreview(shot);
-            }
             return;
         }
 
@@ -1173,21 +1098,10 @@ public class MainActivity extends Activity {
                 signUpState.profileUri = uri;
                 signUpState.profileBitmap = bitmap;
                 ((ImageView) currentContent.findViewById(R.id.profilePreview)).setImageBitmap(bitmap);
-            } else if (requestCode == PICK_IMAGE_GOV_ID) {
-                signUpState.govIdUri = uri;
-                signUpState.govIdBitmap = bitmap;
-                showGovIdPreview(bitmap);
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    private void showGovIdPreview(Bitmap bitmap) {
-        ImageView preview = currentContent.findViewById(R.id.govIdPreview);
-        preview.setImageBitmap(bitmap);
-        preview.setVisibility(View.VISIBLE);
-        currentContent.findViewById(R.id.govIdError).setVisibility(View.GONE);
     }
 
     private void bindRecoveryCard(View card) {

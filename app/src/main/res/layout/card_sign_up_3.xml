@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Sign-up step 3: valid ID type + photo, optional profile picture,
-     terms, and the final Create Account action. -->
+<!-- Sign-up step 3: optional profile picture, terms, and the final
+     Create Account action. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -29,75 +29,10 @@
         android:textColor="?attr/textMuted"
         android:textSize="13sp" />
 
-    <!-- Valid ID Type -->
-    <TextView
-        style="@style/FieldLabel"
-        android:layout_marginTop="22dp"
-        android:text="@string/label_id_type" />
-
-    <com.aguafriogarden.resortinc.AuthInputField
-        style="@style/AuthInputField">
-
-        <Spinner
-            android:id="@+id/idTypeSpinner"
-            style="@style/AuthSpinner" />
-    </com.aguafriogarden.resortinc.AuthInputField>
-
-    <com.aguafriogarden.resortinc.AuthFieldError
-        android:id="@+id/idTypeError"
-        style="@style/AuthFieldError" />
-
-    <!-- Upload Valid ID -->
-    <TextView
-        style="@style/FieldLabel"
-        android:layout_marginTop="20dp"
-        android:text="@string/label_upload_valid_id" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/uploadGovIdButton"
-            style="@style/SecondaryButton"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp"
-            android:textColor="?attr/accentPrimary"
-            android:text="@string/button_upload" />
-
-        <Button
-            android:id="@+id/captureGovIdButton"
-            style="@style/SecondaryButton"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:textColor="?attr/accentPrimary"
-            android:text="@string/button_use_camera" />
-    </LinearLayout>
-
-    <ImageView
-        android:id="@+id/govIdPreview"
-        android:layout_width="match_parent"
-        android:layout_height="120dp"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/bg_auth_input"
-        android:scaleType="fitCenter"
-        android:visibility="gone"
-        android:contentDescription="@string/label_upload_valid_id" />
-
-    <com.aguafriogarden.resortinc.AuthFieldError
-        android:id="@+id/govIdError"
-        style="@style/AuthFieldError" />
-
     <!-- Profile Picture (optional) -->
     <TextView
         style="@style/FieldLabel"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="22dp"
         android:text="@string/label_profile_picture" />
 
     <LinearLayout

@@ -127,7 +127,7 @@
     <!-- Sign up wizard steps -->
     <string name="signup_step1_subheading">Step 1 of 4 — Personal Information</string>
     <string name="signup_step2_subheading">Step 2 of 4 — Account Information</string>
-    <string name="signup_step3_subheading">Step 3 of 4 — Identity Verification</string>
+    <string name="signup_step3_subheading">Step 3 of 4 — Profile Picture</string>
     <string name="signup_step4_subheading">Step 4 of 4 — Verify Your Email</string>
 
     <string name="otp_heading">Check Your Email</string>

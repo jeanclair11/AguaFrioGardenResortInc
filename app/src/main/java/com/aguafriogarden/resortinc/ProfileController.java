@@ -67,12 +67,9 @@ final class ProfileController {
     private static final int SCREEN_PERSONAL_INFO_SUCCESS = 2;
     private static final int SCREEN_CHANGE_PASSWORD = 3;
     private static final int SCREEN_CHANGE_PASSWORD_SUCCESS = 4;
-    private static final int SCREEN_VALID_ID = 5;
-    private static final int SCREEN_UPLOAD_ID = 6;
     private static final int SCREEN_HISTORY = 7;
     private static final int SCREEN_STATEMENT = 8;
 
-    private static final int REQUEST_ID_FRONT = 3001;
     private static final int REQUEST_AVATAR = 3003;
 
     private static final String PASSWORD_COMPLEXITY_REGEX =
@@ -115,9 +112,6 @@ final class ProfileController {
     private View currentScreenView;
     private int currentScreen = -1;
 
-    // Upload New ID's in-progress, unsaved pick.
-    private Bitmap idFrontBitmap;
-
     ProfileController(Activity activity, Runnable onBackToHome, Runnable onLogout,
             Runnable onAvatarChanged, Consumer<ReservationSummary> onOpenReservation,
             Consumer<ReservationSummary> onCorrectPayment) {
@@ -146,13 +140,9 @@ final class ProfileController {
             case SCREEN_PERSONAL_INFO_SUCCESS:
             case SCREEN_CHANGE_PASSWORD:
             case SCREEN_CHANGE_PASSWORD_SUCCESS:
-            case SCREEN_VALID_ID:
             case SCREEN_HISTORY:
             case SCREEN_STATEMENT:
                 showScreen(SCREEN_MAIN);
-                return true;
-            case SCREEN_UPLOAD_ID:
-                showScreen(SCREEN_VALID_ID);
                 return true;
             default:
                 onBackToHome.run();
@@ -167,21 +157,6 @@ final class ProfileController {
         Uri uri = data.getData();
         if (requestCode == REQUEST_AVATAR) {
             changeAvatar(uri);
-            return;
-        }
-        if (requestCode != REQUEST_ID_FRONT) {
-            return;
-        }
-        try {
-            // Scaled and upright, the same form that will be uploaded, so a huge camera photo
-            // never has to be held in memory at full size.
-            Bitmap bitmap = RequestParts.decodeScaled(activity.getContentResolver(), uri);
-            if (bitmap != null) {
-                idFrontBitmap = bitmap;
-                showIdPreview(bitmap);
-            }
-        } catch (IOException e) {
-            Toast.makeText(activity, R.string.toast_photo_unreadable, Toast.LENGTH_LONG).show();
         }
     }
 
@@ -255,17 +230,6 @@ final class ProfileController {
         bindAvatar(currentScreenView.findViewById(R.id.profileAvatar));
     }
 
-    private void showIdPreview(Bitmap bitmap) {
-        if (currentScreen != SCREEN_UPLOAD_ID || currentScreenView == null) {
-            return;
-        }
-        ImageView preview = currentScreenView.findViewById(R.id.uiFrontPreview);
-        preview.setImageBitmap(bitmap);
-        preview.setVisibility(View.VISIBLE);
-        currentScreenView.findViewById(R.id.uiFrontHint).setVisibility(View.GONE);
-        currentScreenView.findViewById(R.id.uiFrontError).setVisibility(View.GONE);
-    }
-
     private void showScreen(int screen) {
         currentScreen = screen;
         View v = LayoutInflater.from(activity).inflate(layoutFor(screen), root, false);
@@ -287,10 +251,6 @@ final class ProfileController {
                 return R.layout.view_success_screen;
             case SCREEN_CHANGE_PASSWORD:
                 return R.layout.view_change_password;
-            case SCREEN_VALID_ID:
-                return R.layout.view_valid_id;
-            case SCREEN_UPLOAD_ID:
-                return R.layout.view_upload_new_id;
             case SCREEN_HISTORY:
                 return R.layout.view_profile_history;
             case SCREEN_STATEMENT:
@@ -315,12 +275,6 @@ final class ProfileController {
             case SCREEN_CHANGE_PASSWORD_SUCCESS:
                 bindSuccess(v, R.string.password_success_title,
                         R.string.password_success_message, () -> showScreen(SCREEN_MAIN));
-                break;
-            case SCREEN_VALID_ID:
-                bindValidId(v);
-                break;
-            case SCREEN_UPLOAD_ID:
-                bindUploadId(v);
                 break;
             case SCREEN_HISTORY:
                 bindHistory(v);
@@ -383,20 +337,6 @@ final class ProfileController {
                 R.string.row_change_password_title, R.string.row_change_password_subtitle,
                 null, 0, () -> showScreen(SCREEN_CHANGE_PASSWORD));
 
-        String idBadgeText;
-        int idBadgeBg;
-        // The server only knows whether an ID photo is on file; staff have no verify step, so
-        // there is no Pending/Verified to show.
-        if (ProfileStore.hasValidId(activity)) {
-            idBadgeText = activity.getString(R.string.status_on_file);
-            idBadgeBg = R.drawable.bg_badge_success;
-        } else {
-            idBadgeText = activity.getString(R.string.status_not_submitted);
-            idBadgeBg = R.drawable.bg_badge_neutral;
-        }
-        bindActionRow(v.findViewById(R.id.rowValidId), R.drawable.ic_id_card,
-                R.string.row_valid_id_title, R.string.row_valid_id_subtitle,
-                idBadgeText, idBadgeBg, () -> showScreen(SCREEN_VALID_ID));
         bindActionRow(v.findViewById(R.id.rowStatement), R.drawable.ic_payment,
                 R.string.row_statement_title, R.string.row_statement_subtitle,
                 null, 0, () -> showScreen(SCREEN_STATEMENT));
@@ -950,8 +890,6 @@ final class ProfileController {
         ((EditText) v.findViewById(R.id.piUsernameField)).setText(ProfileStore.getUsername(activity));
         ((EditText) v.findViewById(R.id.piEmailField)).setText(ProfileStore.getEmail(activity));
 
-        setUpPromptedSpinner(v.findViewById(R.id.piGenderSpinner), R.string.gender_prompt,
-                R.array.gender_options, ProfileStore.getGenderPos(activity));
 
         EditText birthDate = v.findViewById(R.id.piBirthDateField);
         birthDate.setText(ProfileStore.getBirthDate(activity));
@@ -1120,7 +1058,6 @@ final class ProfileController {
         String barangay = selectedOption(v, R.id.piBarangaySpinner);
         String username = fieldText(v, R.id.piUsernameField);
         String email = fieldText(v, R.id.piEmailField);
-        int genderPos = ((Spinner) v.findViewById(R.id.piGenderSpinner)).getSelectedItemPosition();
 
         valid &= checkField(v, R.id.piFirstNameError,
                 firstName.matches("[a-zA-Z ]+"), R.string.error_name_invalid);
@@ -1128,7 +1065,6 @@ final class ProfileController {
                 middleName.isEmpty() || middleName.matches("[a-zA-Z. ]+"), R.string.error_name_invalid);
         valid &= checkField(v, R.id.piLastNameError,
                 lastName.matches("[a-zA-Z ]+"), R.string.error_name_invalid);
-        valid &= checkField(v, R.id.piGenderError, genderPos > 0, R.string.error_gender_required);
         valid &= checkField(v, R.id.piPhoneNumberError,
                 phoneNumber.matches("09\\d{9}"), R.string.error_phone_invalid);
 
@@ -1168,7 +1104,9 @@ final class ProfileController {
         String firstName = fieldText(v, R.id.piFirstNameField);
         String middleName = fieldText(v, R.id.piMiddleNameField);
         String lastName = fieldText(v, R.id.piLastNameField);
-        int genderPos = ((Spinner) v.findViewById(R.id.piGenderSpinner)).getSelectedItemPosition();
+        // The form no longer asks for gender; whatever the account already has (e.g. set on the
+        // website) is sent back unchanged so saving here never blanks it.
+        int genderPos = ProfileStore.getGenderPos(activity);
         String birthDate = fieldText(v, R.id.piBirthDateField);
         String phoneNumber = fieldText(v, R.id.piPhoneNumberField);
         String province = selectedOption(v, R.id.piProvinceSpinner);
@@ -1217,10 +1155,10 @@ final class ProfileController {
         if (error.errors == null) {
             return;
         }
-        String[] keys = {"Firstname", "Middlename", "Lastname", "gender", "birthday", "contact_number",
+        String[] keys = {"Firstname", "Middlename", "Lastname", "birthday", "contact_number",
                 "address", "username", "email"};
         int[] errorViews = {R.id.piFirstNameError, R.id.piMiddleNameError, R.id.piLastNameError,
-                R.id.piGenderError, R.id.piBirthDateError, R.id.piPhoneNumberError, R.id.piBarangayError,
+                R.id.piBirthDateError, R.id.piPhoneNumberError, R.id.piBarangayError,
                 R.id.piUsernameError, R.id.piEmailError};
         for (int i = 0; i < keys.length; i++) {
             List<String> messages = error.errors.get(keys[i]);
@@ -1232,15 +1170,17 @@ final class ProfileController {
         }
     }
 
-    /** The website's gender values for the form's spinner position (1 Male, 2 Female, 3 Prefer not to say). */
+    /** The website's gender value for a stored position (1 Male, 2 Female, 3 Prefer not to say), or null when none is on file. */
     private static String genderApiValue(int genderPos) {
         switch (genderPos) {
             case 1:
                 return "Male";
             case 2:
                 return "Female";
-            default:
+            case 3:
                 return "Prefer not to say";
+            default:
+                return null;
         }
     }
 
@@ -1346,116 +1286,6 @@ final class ProfileController {
         text.setTextColor(satisfied
                 ? ThemeManager.color(activity, R.attr.textPrimary)
                 : ThemeManager.color(activity, R.attr.textMuted));
-    }
-
-    // ---- Valid ID ----------------------------------------
-
-    private void bindValidId(View v) {
-        bindHeader(v, R.string.valid_id_title, () -> showScreen(SCREEN_MAIN));
-
-        // What the server holds: whether an ID photo is on file and its type. It has no
-        // verification step, so the screen reports "On File" rather than Pending/Verified.
-        boolean onFile = ProfileStore.hasValidId(activity);
-
-        TextView statusText = v.findViewById(R.id.viStatusText);
-        TextView statusDesc = v.findViewById(R.id.viStatusDesc);
-        int statusTextRes;
-        int statusDescRes;
-        int statusColor;
-        if (onFile) {
-            statusTextRes = R.string.status_on_file;
-            statusDescRes = R.string.valid_id_on_file_desc;
-            statusColor = 0xFF2E7D32;
-        } else {
-            statusTextRes = R.string.status_not_submitted;
-            statusDescRes = R.string.no_id_uploaded_message;
-            statusColor = ThemeManager.color(activity, R.attr.iconMuted);
-        }
-        statusText.setText(statusTextRes);
-        statusText.setTextColor(statusColor);
-        ((ImageView) v.findViewById(R.id.viStatusIcon)).setColorFilter(statusColor);
-        statusDesc.setText(statusDescRes);
-
-        v.findViewById(R.id.viUploadedIdCard).setVisibility(onFile ? View.VISIBLE : View.GONE);
-        v.findViewById(R.id.viNoIdMessage).setVisibility(onFile ? View.GONE : View.VISIBLE);
-        if (onFile) {
-            String idType = ProfileStore.getValidIdType(activity);
-            ((TextView) v.findViewById(R.id.viIdTypeText)).setText(
-                    idType.isEmpty() ? activity.getString(R.string.valid_id_type_unknown) : idType);
-        }
-
-        v.findViewById(R.id.viUploadNewIdButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_UPLOAD_ID)));
-        v.findViewById(R.id.viGuidelinesButton).setOnClickListener(ClickGuard.wrap(view ->
-                Toast.makeText(activity, R.string.coming_soon_toast, Toast.LENGTH_SHORT).show()));
-    }
-
-    // ---- Upload New ID ----------------------------------------
-
-    private void bindUploadId(View v) {
-        bindHeader(v, R.string.upload_new_id_title, () -> showScreen(SCREEN_VALID_ID));
-
-        // Always starts as a fresh, blank submission.
-        idFrontBitmap = null;
-
-        setUpPromptedSpinner(v.findViewById(R.id.uiIdTypeSpinner), R.string.id_type_prompt,
-                R.array.id_type_options, 0);
-
-        v.findViewById(R.id.uiFrontDropzone).setOnClickListener(ClickGuard.wrap(view -> pickImage(REQUEST_ID_FRONT)));
-
-        v.findViewById(R.id.uiCancelButton).setOnClickListener(ClickGuard.wrap(view -> showScreen(SCREEN_VALID_ID)));
-        Button submitButton = v.findViewById(R.id.uiSubmitButton);
-        submitButton.setOnClickListener(ClickGuard.wrap(view -> {
-            boolean valid = true;
-            int idTypePos = ((Spinner) v.findViewById(R.id.uiIdTypeSpinner)).getSelectedItemPosition();
-
-            valid &= checkField(v, R.id.uiIdTypeError, idTypePos > 0, R.string.error_id_type_required);
-            valid &= checkField(v, R.id.uiFrontError, idFrontBitmap != null, R.string.error_id_required);
-
-            if (valid) {
-                submitValidId(v, submitButton, idTypePos);
-            }
-        }));
-    }
-
-    /** Uploads the ID photo and its type; staff open it from the booking's "View ID Document" link. */
-    private void submitValidId(View v, Button submitButton, int idTypePos) {
-        String token = ProfileStore.getAuthToken(activity);
-        if (token.isEmpty()) {
-            Toast.makeText(activity, R.string.toast_session_expired, Toast.LENGTH_LONG).show();
-            return;
-        }
-        byte[] jpeg = RequestParts.jpegBytes(activity.getContentResolver(), null, idFrontBitmap);
-        if (jpeg == null) {
-            Toast.makeText(activity, R.string.toast_photo_unreadable, Toast.LENGTH_LONG).show();
-            return;
-        }
-        String idType = activity.getResources().getStringArray(R.array.id_type_options)[idTypePos - 1];
-
-        submitButton.setEnabled(false);
-        ApiClient.authApi().uploadValidId("Bearer " + token, RequestParts.text(idType),
-                RequestParts.file("validID", "valid_id.jpg", RequestParts.jpegBody(jpeg)))
-                .enqueue(new Callback<ProfileResponse>() {
-                    @Override
-                    public void onResponse(Call<ProfileResponse> call, Response<ProfileResponse> response) {
-                        submitButton.setEnabled(true);
-                        if (response.isSuccessful()) {
-                            ProfileStore.saveValidId(activity, idType);
-                            Toast.makeText(activity, R.string.id_submitted_message, Toast.LENGTH_LONG).show();
-                            if (currentScreenView == v) {
-                                showScreen(SCREEN_VALID_ID);
-                            }
-                            return;
-                        }
-                        Toast.makeText(activity, failureMessage(response.code(), response.errorBody(),
-                                R.string.toast_id_upload_failed), Toast.LENGTH_LONG).show();
-                    }
-
-                    @Override
-                    public void onFailure(Call<ProfileResponse> call, Throwable t) {
-                        submitButton.setEnabled(true);
-                        Toast.makeText(activity, R.string.toast_network_error, Toast.LENGTH_LONG).show();
-                    }
-                });
     }
 
     private void pickImage(int requestCode) {

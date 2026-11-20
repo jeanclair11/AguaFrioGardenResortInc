@@ -105,12 +105,11 @@ public final class GlassDatePicker {
     }
 
     /**
-     * Start (local midnight) of tomorrow: the earliest check-in/visit date a guest can choose for
-     * a Hotel, Cottage or KTV reservation/booking — today itself is not allowed.
+     * Start (local midnight) of today: the earliest check-in/visit date a guest can choose for
+     * a Hotel, Cottage or KTV reservation/booking — today itself is allowed.
      */
     public static long earliestBookableMillis() {
         Calendar c = Calendar.getInstance();
-        c.add(Calendar.DAY_OF_YEAR, 1);
         c.set(Calendar.HOUR_OF_DAY, 0);
         c.set(Calendar.MINUTE, 0);
         c.set(Calendar.SECOND, 0);

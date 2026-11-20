@@ -85,7 +85,7 @@
         android:id="@+id/lastNameError"
         style="@style/AuthFieldError" />
 
-    <!-- Gender and Birth Date -->
+    <!-- Birth Date -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -95,34 +95,6 @@
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="1.3"
-            android:orientation="vertical">
-
-            <TextView
-                style="@style/FieldLabel"
-                android:text="@string/label_gender" />
-
-            <com.aguafriogarden.resortinc.AuthInputField
-                style="@style/AuthInputField"
-                android:paddingStart="12dp"
-                android:paddingEnd="8dp">
-
-                <Spinner
-                    android:id="@+id/genderSpinner"
-                    style="@style/AuthSpinner"
-                    android:paddingEnd="22dp" />
-            </com.aguafriogarden.resortinc.AuthInputField>
-
-            <com.aguafriogarden.resortinc.AuthFieldError
-                android:id="@+id/genderError"
-                style="@style/AuthFieldError" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:orientation="vertical">
 
